@@ -88,7 +88,11 @@ function applyTheme(){
 
 window.addEventListener('beforeinstallprompt', e=>{e.preventDefault();state.installPrompt=e;render();});
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(read(LS.settings,{}).theme==='auto')applyTheme();});
-if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));
+if('serviceWorker' in navigator){
+  let refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!refreshing){refreshing=true;location.reload();}});
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').then(reg=>reg.update()));
+}
 
 function topbar(){
   return `<header class="topbar"><div class="topbar-inner"><button class="brand" data-nav="home"><img src="assets/brand/volumora-mark.png" alt=""><span>VOLUMORA</span></button><div class="top-actions"><button class="icon-btn" id="quickTheme" aria-label="Farbschema wechseln">◐</button>${state.installPrompt?'<button class="compact-btn" id="installBtn">Installieren</button>':''}</div></div></header>`;
