@@ -2,32 +2,32 @@ const WORKOUTS = {
   push: {
     label: 'Push', subtitle: 'Brust · Trizeps · Schulter',
     exercises: [
-      {id:'chest-press', name:'Brustpresse', sets:3, range:'10–15', gif:'assets/exercises/chest-press.gif', note:'Neutraler Griff · Ellbogen ca. 30–45° · nicht maximal tief.'},
-      {id:'incline-chest-press', name:'Schrägbank-Brustpresse', sets:3, range:'10–15', gif:'assets/exercises/incline-chest-press.gif', note:'Maschine · leichte Schräge · möglichst neutraler Griff · schmerzfreier Bewegungsweg.'},
-      {id:'triceps-pushdown', name:'Trizeps Pushdown', sets:3, range:'10–15', gif:'assets/exercises/triceps-pushdown.gif', note:'Seilgriff · Ellbogen ruhig am Körper.'},
-      {id:'cable-external-rotation', name:'Außenrotation am Kabel', sets:2, range:'15–20', gif:'assets/exercises/cable-external-rotation.gif', note:'Sehr leicht · Ellbogen am Körper · kontrolliert.'},
-      {id:'scaption-raise', name:'Scaption Raise', sets:2, range:'12–15', gif:'assets/exercises/scaption-raise.gif', note:'Sehr leicht · Arme leicht schräg nach vorne · nur bis Schulterhöhe.'}
+      {id:'chest-press', name:'Brustpresse', sets:3, range:'10–15', gif:'https://static.exercisedb.dev/media/DOoWcnA.gif', note:'Neutraler Griff · Ellbogen ca. 30–45° · nicht maximal tief.'},
+      {id:'incline-chest-press', name:'Schrägbank-Brustpresse', sets:3, range:'10–15', gif:'https://static.exercisedb.dev/media/jHAnWmT.gif', note:'Maschine · leichte Schräge · möglichst neutraler Griff · schmerzfreier Bewegungsweg.'},
+      {id:'triceps-pushdown', name:'Trizeps Pushdown', sets:3, range:'10–15', gif:'https://static.exercisedb.dev/media/dU605di.gif', note:'Seilgriff · Ellbogen ruhig am Körper.'},
+      {id:'cable-external-rotation', name:'Außenrotation am Kabel', sets:2, range:'15–20', gif:'https://static.exercisedb.dev/media/FWdVhcW.gif', note:'Sehr leicht · Ellbogen am Körper · kontrolliert.'},
+      {id:'scaption-raise', name:'Scaption Raise', sets:2, range:'12–15', gif:'https://static.exercisedb.dev/media/c9MnDRp.gif', note:'Sehr leicht · Arme leicht schräg nach vorne · nur bis Schulterhöhe.'}
     ]
   },
   pull: {
     label: 'Pull', subtitle: 'Rücken · Bizeps',
     exercises: [
-      {id:'lat-pulldown-neutral', name:'Latzug neutral', sets:3, range:'8–12', gif:'assets/exercises/lat-pulldown-neutral.gif', note:'Neutraler Griff · zur oberen Brust · nicht hinter den Kopf.'},
-      {id:'seated-cable-row', name:'Kabelrudern neutral', sets:3, range:'8–12', gif:'assets/exercises/seated-cable-row.gif', note:'Parallelgriff · Ellbogen relativ nah am Körper · Oberkörper ruhig.'},
-      {id:'high-row-machine', name:'High Row Maschine', sets:3, range:'10–12', gif:'assets/exercises/high-row-machine.gif', note:'Möglichst neutraler Griff · nicht mit den Schultern hochziehen.'},
-      {id:'ez-bar-curl', name:'SZ-Curls', sets:3, range:'8–12', gif:'assets/exercises/ez-bar-curl.gif', note:'Ellbogen ruhig am Körper · kein Schwung.'},
-      {id:'hammer-curl', name:'Hammer Curls', sets:2, range:'10–15', gif:'assets/exercises/hammer-curl.gif', note:'Handflächen zueinander · kontrolliert.'}
+      {id:'lat-pulldown-neutral', name:'Latzug neutral', sets:3, range:'8–12', gif:'https://static.exercisedb.dev/media/rkg41Fb.gif', note:'Neutraler Griff · zur oberen Brust · nicht hinter den Kopf.'},
+      {id:'seated-cable-row', name:'Kabelrudern neutral', sets:3, range:'8–12', gif:'https://static.exercisedb.dev/media/fUBheHs.gif', note:'Parallelgriff · Ellbogen relativ nah am Körper · Oberkörper ruhig.'},
+      {id:'high-row-machine', name:'High Row Maschine', sets:3, range:'10–12', gif:'https://static.exercisedb.dev/media/nZZZy9m.gif', note:'Möglichst neutraler Griff · nicht mit den Schultern hochziehen.'},
+      {id:'ez-bar-curl', name:'SZ-Curls', sets:3, range:'8–12', gif:'https://static.exercisedb.dev/media/6TG6x2w.gif', note:'Ellbogen ruhig am Körper · kein Schwung.'},
+      {id:'hammer-curl', name:'Hammer Curls', sets:2, range:'10–15', gif:'https://static.exercisedb.dev/media/slDvUAU.gif', note:'Handflächen zueinander · kontrolliert.'}
     ]
   },
   legs: {
     label: 'Legs', subtitle: 'Beine · Waden · Bauch',
     exercises: [
-      {id:'squat', name:'Kniebeugen', sets:3, range:'8–12', gif:'assets/exercises/squat.gif', note:'Normale Kniebeuge · nur schmerzfreie Tiefe · keine Drehung im Knie unter Last.'},
-      {id:'romanian-deadlift', name:'Romanian Deadlift', sets:3, range:'8–12', gif:'assets/exercises/romanian-deadlift.gif', note:'Knie leicht gebeugt · Hüfte nach hinten · Rücken neutral.'},
-      {id:'leg-curl', name:'Beinbeuger Maschine', sets:3, range:'10–15', gif:'assets/exercises/leg-curl.gif', note:'Sitzend oder liegend · kontrolliert.'},
-      {id:'leg-extension', name:'Beinstrecker Maschine', sets:3, range:'12–15', gif:'assets/exercises/leg-extension.gif', note:'Leicht bis moderat starten · nicht explosiv durchstrecken.'},
-      {id:'calf-raise', name:'Wadenheben', sets:3, range:'12–20', gif:'assets/exercises/calf-raise.gif', note:'Oben kurz halten · langsam absenken.'},
-      {id:'leg-raise', name:'Beinheben', sets:3, range:'10–15', gif:'assets/exercises/leg-raise.gif', note:'Liegend oder Knieheben am Captain’s Chair · Rücken kontrolliert.'}
+      {id:'squat', name:'Kniebeugen', sets:3, range:'8–12', gif:'https://static.exercisedb.dev/media/iYzB0Cz.gif', note:'Normale Kniebeuge · nur schmerzfreie Tiefe · keine Drehung im Knie unter Last.'},
+      {id:'romanian-deadlift', name:'Romanian Deadlift', sets:3, range:'8–12', gif:'https://static.exercisedb.dev/media/wQ2c4XD.gif', note:'Knie leicht gebeugt · Hüfte nach hinten · Rücken neutral.'},
+      {id:'leg-curl', name:'Beinbeuger Maschine', sets:3, range:'10–15', gif:'https://static.exercisedb.dev/media/17lJ1kr.gif', note:'Sitzend oder liegend · kontrolliert.'},
+      {id:'leg-extension', name:'Beinstrecker Maschine', sets:3, range:'12–15', gif:'https://static.exercisedb.dev/media/my33uHU.gif', note:'Leicht bis moderat starten · nicht explosiv durchstrecken.'},
+      {id:'calf-raise', name:'Wadenheben', sets:3, range:'12–20', gif:'https://static.exercisedb.dev/media/ykUOVze.gif', note:'Oben kurz halten · langsam absenken.'},
+      {id:'leg-raise', name:'Beinheben', sets:3, range:'10–15', gif:'https://static.exercisedb.dev/media/9IxJdtC.gif', note:'Liegend oder Knieheben am Captain’s Chair · Rücken kontrolliert.'}
     ]
   }
 };
@@ -52,6 +52,7 @@ function nav(active='home'){
   </div></nav>`;
 }
 function topbar(){return `<header class="topbar"><div class="topbar-inner"><div class="brand">PPL <span>ROUTINE</span></div>${state.installPrompt?'<button class="icon-btn" id="installBtn">Installieren</button>':''}</div></header>`}
+function mediaCredit(){return `<footer class="media-credit">Übungsmedien von <a href="https://ascendapi.com" target="_blank" rel="noopener noreferrer">AscendAPI / ExerciseDB</a></footer>`}
 function render(){
   if(state.view==='workout') $app.innerHTML = renderWorkout();
   else if(state.view==='plan') $app.innerHTML = topbar()+renderPlan()+nav('plan');
@@ -69,7 +70,7 @@ function renderHome(){
       <div class="day-grid">${Object.entries(WORKOUTS).map(([key,w])=>`<button class="day-card" data-start="${key}"><div><div class="big">${w.label}</div><div class="meta">${w.exercises.length} Übungen<br>${w.subtitle}</div></div><span class="arrow">→</span></button>`).join('')}</div>
     </section>
     ${last?`<section class="section"><div class="section-head"><h2 class="section-title">Zuletzt</h2></div><div class="progress-card"><div class="progress-row"><div><div class="eyebrow" style="color:#cacacb">${fmtDate(last.finishedAt)}</div><div class="progress-big">${WORKOUTS[last.day].label}</div></div><div>${last.totalSets} Sätze</div></div></div></section>`:''}
-    <section class="section"><button class="secondary full" id="installHelp">Auf iPhone-Homescreen legen</button><p class="install-tip">In Safari: Teilen → <b>Zum Home-Bildschirm</b>. Danach startet die PWA wie eine App und dein Verlauf bleibt lokal auf dem Gerät gespeichert.</p></section>
+    <section class="section"><button class="secondary full" id="installHelp">Auf iPhone-Homescreen legen</button><p class="install-tip">In Safari: Teilen → <b>Zum Home-Bildschirm</b>. Danach startet die PWA wie eine App und dein Verlauf bleibt lokal auf dem Gerät gespeichert.</p></section>${mediaCredit()}
   </main>`;
 }
 
@@ -97,7 +98,7 @@ function renderWorkout(){
     <div class="backrow"><button class="back" data-nav="home">←</button><span class="muted">Training</span></div>
     <h1 class="workout-title">${w.label}</h1><div class="workout-meta">${w.subtitle} · ${done}/${total} Sätze erledigt</div>
     ${w.exercises.map(ex=>renderExercise(ex,s)).join('')}
-    <div class="sticky-finish"><button class="primary full" id="finishWorkout">Training abschließen</button></div>
+    <div class="sticky-finish"><button class="primary full" id="finishWorkout">Training abschließen</button></div>${mediaCredit()}
   </main>`;
 }
 function renderExercise(ex,s){
@@ -105,7 +106,7 @@ function renderExercise(ex,s){
   const history=read(LS.history,[]); const last=history.find(h=>h.day===s.day)?.entries?.find(e=>e.id===ex.id);
   return `<section class="exercise-card" data-ex="${ex.id}">
     <div class="exercise-head"><div><h2 class="exercise-name">${ex.name}</h2><div class="target">Ziel: ${ex.sets} × ${ex.range} Wdh.</div></div></div>
-    <div class="exercise-media"><img class="exercise-gif" src="${ex.gif}" alt="Animierte Ausführung: ${ex.name}"><span class="motion-chip">1 Sek. Loop</span></div>
+    <div class="exercise-media"><img class="exercise-gif" src="${ex.gif}" alt="Animierte Ausführung: ${ex.name}"><span class="motion-chip">Pro Demo</span></div>
     <p class="note">${ex.note}</p>
     <div class="set-head"><span>Satz</span><span>Gewicht</span><span>Wdh. geschafft</span><span>✓</span></div>
     ${entry.sets.map((set,i)=>`<div>
@@ -123,13 +124,13 @@ function renderExercise(ex,s){
 
 function renderPlan(){
   return `<main class="shell"><section class="hero"><div class="eyebrow">Routine</div><h1>DEIN<br>PLAN.</h1><p class="sub">Die Übungen bleiben bewusst gleich. Tippe ein Training, um direkt zu starten.</p></section>
-    ${Object.entries(WORKOUTS).map(([key,w])=>`<section class="section"><div class="section-head"><h2 class="section-title">${w.label}</h2><button class="secondary" data-start="${key}">Starten</button></div>${w.exercises.map(ex=>`<div class="plan-card"><div class="exercise-head"><div><div class="exercise-name">${ex.name}</div><div class="target">${ex.sets} × ${ex.range}</div></div></div><div class="exercise-media"><img class="exercise-gif" loading="lazy" src="${ex.gif}" alt="${ex.name}"><span class="motion-chip">1 Sek. Loop</span></div><p class="note">${ex.note}</p></div>`).join('')}</section>`).join('')}
+    ${Object.entries(WORKOUTS).map(([key,w])=>`<section class="section"><div class="section-head"><h2 class="section-title">${w.label}</h2><button class="secondary" data-start="${key}">Starten</button></div>${w.exercises.map(ex=>`<div class="plan-card"><div class="exercise-head"><div><div class="exercise-name">${ex.name}</div><div class="target">${ex.sets} × ${ex.range}</div></div></div><div class="exercise-media"><img class="exercise-gif" loading="lazy" src="${ex.gif}" alt="${ex.name}"><span class="motion-chip">Pro Demo</span></div><p class="note">${ex.note}</p></div>`).join('')}</section>`).join('')}${mediaCredit()}
   </main>`;
 }
 function renderHistory(){
   const history=read(LS.history,[]);
   return `<main class="shell"><section class="hero"><div class="eyebrow">Fortschritt</div><h1>VERLAUF.</h1><p class="sub">Deine tatsächlich geschafften Wiederholungen und Gewichte bleiben lokal auf diesem Gerät gespeichert.</p></section>
-    <section class="section">${history.length?history.map(h=>`<details class="history-card"><summary><div class="history-top"><div><div class="history-day">${WORKOUTS[h.day].label}</div><div class="history-date">${fmtDate(h.finishedAt)} · ${fmtTime(h.finishedAt)}</div></div><div class="history-count">${h.totalSets} Sätze</div></div></summary><div>${h.entries.map(e=>{const ex=WORKOUTS[h.day].exercises.find(x=>x.id===e.id);return `<div class="history-ex"><div class="history-ex-name">${ex?.name||e.id}</div><div class="history-sets">${e.sets.map((s,i)=>`Satz ${i+1}: <b>${s.weight||'–'} kg × ${s.reps||'–'} Wdh.</b>`).join('<br>')}</div></div>`}).join('')}</div></details>`).join(''):'<div class="empty">Noch kein Training gespeichert.</div>'}</section>
+    <section class="section">${history.length?history.map(h=>`<details class="history-card"><summary><div class="history-top"><div><div class="history-day">${WORKOUTS[h.day].label}</div><div class="history-date">${fmtDate(h.finishedAt)} · ${fmtTime(h.finishedAt)}</div></div><div class="history-count">${h.totalSets} Sätze</div></div></summary><div>${h.entries.map(e=>{const ex=WORKOUTS[h.day].exercises.find(x=>x.id===e.id);return `<div class="history-ex"><div class="history-ex-name">${ex?.name||e.id}</div><div class="history-sets">${e.sets.map((s,i)=>`Satz ${i+1}: <b>${s.weight||'–'} kg × ${s.reps||'–'} Wdh.</b>`).join('<br>')}</div></div>`}).join('')}</div></details>`).join(''):'<div class="empty">Noch kein Training gespeichert.</div>'}</section>${mediaCredit()}
   </main>`;
 }
 

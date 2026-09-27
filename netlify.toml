@@ -1,6 +1,2 @@
 [build]
-  command = "python3 -m venv /tmp/fitflow-build-venv && /tmp/fitflow-build-venv/bin/pip install -r requirements.txt && /tmp/fitflow-build-venv/bin/python generate_assets.py"
   publish = "."
-
-[build.environment]
-  PYTHON_VERSION = "3.13"
