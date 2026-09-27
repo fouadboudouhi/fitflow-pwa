@@ -3,7 +3,8 @@
 Offline-fähige, installierbare Fitness-PWA für frei konfigurierbare Trainingspläne.
 
 ## Funktionen
-- Beliebig viele Trainingspläne, Tage und Übungen erstellen
+- Beliebig viele Trainingspläne und Tage mit durchsuchbarer Übungsbibliothek erstellen
+- Übungsanimationen und Hinweise werden bei der Auswahl automatisch übernommen
 - Geführter Trainingsmodus mit nur einer aktuellen Übung
 - Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen, RIR/RPE und Notizen
 - Automatische Progressive-Overload-Empfehlungen und Pausentimer

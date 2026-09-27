@@ -39,6 +39,15 @@ const DEFAULT_PLAN = {
   ]
 };
 
+const CATEGORY_BY_ID = {
+  'chest-press':'Brust','incline-chest-press':'Brust','triceps-pushdown':'Arme',
+  'cable-external-rotation':'Schulter','scaption-raise':'Schulter',
+  'lat-pulldown-neutral':'Rücken','seated-cable-row':'Rücken','high-row-machine':'Rücken',
+  'ez-bar-curl':'Arme','hammer-curl':'Arme','squat':'Beine','romanian-deadlift':'Beine',
+  'leg-curl':'Beine','leg-extension':'Beine','calf-raise':'Beine','leg-raise':'Core'
+};
+const EXERCISE_LIBRARY = DEFAULT_PLAN.days.flatMap(day=>day.exercises.map(ex=>({...ex,category:CATEGORY_BY_ID[ex.id]||'Sonstige'})));
+
 const LS = {plans:'volumora-plans-v2', history:'volumora-history-v2', active:'volumora-active-v2', body:'volumora-body-v2', settings:'volumora-settings-v2'};
 const $app = document.querySelector('#app');
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
@@ -54,7 +63,7 @@ const allPlans = () => read(LS.plans,{activePlanId:DEFAULT_PLAN.id,items:[clone(
 const savePlans = plans => write(LS.plans,plans);
 const activePlan = () => { const data=allPlans(); return data.items.find(p=>p.id===data.activePlanId) || data.items[0]; };
 const getDay = (planId,dayId) => allPlans().items.find(p=>p.id===planId)?.days.find(d=>d.id===dayId);
-let state = {view:'home', planId:null, dayId:null, exerciseIndex:0, editPlanId:null, installPrompt:null, restUntil:0, restTimer:null};
+let state = {view:'home', planId:null, dayId:null, exerciseIndex:0, editPlanId:null, libraryDayIndex:null, libraryCategory:'Alle', installPrompt:null, restUntil:0, restTimer:null};
 
 function initialise(){
   if(!localStorage.getItem(LS.plans)) savePlans({activePlanId:DEFAULT_PLAN.id,items:[clone(DEFAULT_PLAN)]});
@@ -116,21 +125,27 @@ function homeView(){
 function plansView(){
   const data=allPlans();
   return `<main class="shell"><section class="page-head"><div><span class="eyebrow">Programm</span><h1>Deine Pläne</h1><p>Erstelle beliebig viele Pläne und lege einen davon als aktiv fest.</p></div><button class="primary" id="newPlan">+ Neuer Plan</button></section>
-  <div class="plan-list">${data.items.map(p=>`<article class="plan-card ${p.id===data.activePlanId?'selected':''}"><div><div class="eyebrow">${p.id===data.activePlanId?'Aktiver Plan':'Trainingsplan'}</div><h2>${esc(p.name)}</h2><p>${p.days.length} Tage · ${p.days.reduce((n,d)=>n+d.exercises.length,0)} Übungen</p></div><div class="card-actions">${p.id!==data.activePlanId?`<button class="secondary" data-activate-plan="${p.id}">Aktivieren</button>`:''}<button class="secondary" data-edit-plan="${p.id}">Bearbeiten</button><button class="icon-btn" data-copy-plan="${p.id}" title="Duplizieren">⧉</button>${data.items.length>1?`<button class="icon-btn danger" data-delete-plan="${p.id}" title="Löschen">×</button>`:''}</div></article>`).join('')}</div></main>`;
+  <div class="plan-list">${data.items.map(p=>{const count=p.days.reduce((n,d)=>n+d.exercises.length,0);return `<article class="plan-card ${p.id===data.activePlanId?'selected':''}"><div><div class="eyebrow">${p.id===data.activePlanId?'Aktiver Plan':'Trainingsplan'}</div><h2>${esc(p.name)}</h2><p>${p.days.length} ${p.days.length===1?'Tag':'Tage'} · ${count} ${count===1?'Übung':'Übungen'}</p></div><div class="card-actions">${p.id!==data.activePlanId?`<button class="secondary" data-activate-plan="${p.id}">Aktivieren</button>`:''}<button class="secondary" data-edit-plan="${p.id}">Bearbeiten</button><button class="icon-btn" data-copy-plan="${p.id}" title="Duplizieren">⧉</button>${data.items.length>1?`<button class="icon-btn danger" data-delete-plan="${p.id}" title="Löschen">×</button>`:''}</div></article>`;}).join('')}</div></main>`;
 }
 
 function planEditorView(){
   const p=allPlans().items.find(x=>x.id===state.editPlanId);
   if(!p){state.view='plans';return plansView();}
-  return `<main class="shell"><div class="backrow"><button class="back" data-nav="plans">←</button><span>Plan bearbeiten</span></div>
-    <section class="editor-title"><label><span>Name des Plans</span><input id="planName" value="${esc(p.name)}" maxlength="60"></label><label><span>Beschreibung</span><input id="planDescription" value="${esc(p.description||'')}" maxlength="100"></label></section>
-    <div class="editor-days">${p.days.map((d,di)=>`<section class="editor-day" data-day-index="${di}"><div class="editor-day-head"><div class="grow"><input class="day-name" value="${esc(d.name)}" aria-label="Name des Trainingstags"><input class="day-subtitle" value="${esc(d.subtitle||'')}" placeholder="z. B. Rücken · Bizeps"></div><button class="icon-btn danger" data-remove-day="${di}">×</button></div>
-      <div class="editor-exercises">${d.exercises.map((ex,ei)=>exerciseEditor(ex,di,ei)).join('')}</div><button class="secondary full" data-add-exercise="${di}">+ Übung hinzufügen</button></section>`).join('')}</div>
-    <div class="editor-footer"><button class="secondary" id="addDay">+ Trainingstag</button><button class="primary" id="savePlan">Plan speichern</button></div></main>`;
+  return `<main class="shell simple-editor"><div class="backrow"><button class="back" data-nav="plans">←</button><span>Plan bearbeiten</span></div>
+    <section class="simple-plan-head"><label><span>Name des Plans</span><input id="planName" value="${esc(p.name)}" maxlength="60"></label><p>Lege deine Trainingstage an und wähle anschließend Übungen aus der Bibliothek.</p><input id="planDescription" type="hidden" value="${esc(p.description||'')}"></section>
+    <div class="editor-days">${p.days.map((d,di)=>`<section class="editor-day" data-day-index="${di}"><div class="simple-day-head"><div><span class="day-number">Tag ${di+1}</span><input class="day-name" value="${esc(d.name)}" aria-label="Name des Trainingstags"><input class="day-subtitle" value="${esc(d.subtitle||'')}" placeholder="Optional: z. B. Rücken · Bizeps"></div><button class="icon-btn danger" data-remove-day="${di}" aria-label="Trainingstag löschen">×</button></div>
+      <div class="editor-exercises">${d.exercises.length?d.exercises.map((ex,ei)=>exerciseEditor(ex,di,ei)).join(''):empty('Noch keine Übungen','Wähle Übungen aus der Bibliothek aus.')}</div><button class="choose-exercise" data-add-exercise="${di}"><span>＋</span><div><b>Übung auswählen</b><small>Bibliothek durchsuchen</small></div><i>→</i></button></section>`).join('')}</div>
+    <button class="add-day-card" id="addDay">＋ Neuer Trainingstag</button>
+    <div class="editor-footer"><span>${p.days.length} ${p.days.length===1?'Trainingstag':'Trainingstage'}</span><button class="primary" id="savePlan">Fertig</button></div></main>${state.libraryDayIndex!==null?libraryView(p):''}`;
 }
 
 function exerciseEditor(ex,di,ei){
-  return `<div class="exercise-editor" data-ex-index="${ei}"><div class="drag-actions"><button class="tiny" data-move="up" data-day="${di}" data-ex="${ei}">↑</button><button class="tiny" data-move="down" data-day="${di}" data-ex="${ei}">↓</button></div><div class="exercise-fields"><label class="wide"><span>Übung</span><input data-prop="name" value="${esc(ex.name)}"></label><label><span>Sätze</span><input data-prop="sets" type="number" min="1" max="12" value="${ex.sets}"></label><label><span>Wdh.</span><input data-prop="range" value="${esc(ex.range)}"></label><label><span>Pause s</span><input data-prop="rest" type="number" min="0" max="600" value="${ex.rest||''}" placeholder="Standard"></label><label class="wide"><span>Hinweis</span><input data-prop="note" value="${esc(ex.note||'')}"></label><label class="wide"><span>Demo-URL (optional)</span><input data-prop="gif" value="${esc(ex.gif||'')}"></label></div><button class="icon-btn danger" data-remove-exercise="${di}:${ei}">×</button></div>`;
+  return `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif?`<img src="${esc(ex.gif)}" alt="">`:'<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${ex.custom?`<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="Name der eigenen Übung">`:`<h3>${esc(ex.name)}</h3>`}<span>${esc(ex.category||CATEGORY_BY_ID[ex.libraryId||ex.id]||'Übung')}</span><div class="quick-fields"><label><span>Sätze</span><input data-prop="sets" type="number" min="1" max="12" value="${ex.sets}"></label><label><span>Wiederholungen</span><input data-prop="range" value="${esc(ex.range)}"></label></div><details><summary>Weitere Einstellungen</summary><div class="detail-fields"><label><span>Pause in Sekunden</span><input data-prop="rest" type="number" min="0" max="600" value="${ex.rest||''}" placeholder="Standard"></label><label><span>Eigener Hinweis</span><input data-prop="note" value="${esc(ex.note||'')}"></label></div></details></div><div class="row-actions"><button class="tiny" data-move="up" data-day="${di}" data-ex="${ei}" aria-label="Nach oben">↑</button><button class="tiny" data-move="down" data-day="${di}" data-ex="${ei}" aria-label="Nach unten">↓</button><button class="tiny danger" data-remove-exercise="${di}:${ei}" aria-label="Übung entfernen">×</button></div></article>`;
+}
+
+function libraryView(plan){
+  const day=plan.days[state.libraryDayIndex],categories=['Alle','Brust','Rücken','Schulter','Arme','Beine','Core'];
+  return `<div class="library-backdrop"><section class="exercise-library" role="dialog" aria-modal="true" aria-label="Übung auswählen"><div class="library-head"><div><span class="eyebrow">${esc(day?.name||'Trainingstag')}</span><h2>Übung auswählen</h2></div><button class="icon-btn" id="closeLibrary" aria-label="Schließen">×</button></div><label class="library-search"><span>⌕</span><input id="librarySearch" type="search" placeholder="Übung suchen …" autocomplete="off"></label><div class="category-chips">${categories.map(c=>`<button class="${state.libraryCategory===c?'active':''}" data-library-category="${c}">${c}</button>`).join('')}</div><div class="library-list">${EXERCISE_LIBRARY.map(ex=>{const added=day?.exercises.some(x=>(x.libraryId||x.id)===ex.id);return `<article class="library-item" data-category="${ex.category}" data-search="${esc(`${ex.name} ${ex.category}`.toLowerCase())}"><img src="${esc(ex.gif)}" alt=""><div><h3>${esc(ex.name)}</h3><span>${ex.category} · ${ex.sets} × ${esc(ex.range)}</span></div><button class="${added?'added':''}" data-pick-exercise="${ex.id}" ${added?'disabled':''}>${added?'✓':'＋'}</button></article>`;}).join('')}</div><button class="custom-exercise-button" id="addCustomExercise">＋ Eigene Übung ohne Animation</button><button class="primary full library-done" id="closeLibraryBottom">Fertig</button></section></div>`;
 }
 
 function freshSession(planId,dayId){
@@ -223,7 +238,7 @@ function bind(){
 }
 
 function bindPlans(){
-  document.querySelector('#newPlan')?.addEventListener('click',()=>{const data=allPlans(),p={id:uid(),name:'Mein Trainingsplan',description:'',createdAt:new Date().toISOString(),days:[]};data.items.push(p);savePlans(data);state.editPlanId=p.id;state.view='planEditor';render();});
+  document.querySelector('#newPlan')?.addEventListener('click',()=>{const data=allPlans(),p={id:uid(),name:'Mein Trainingsplan',description:'',createdAt:new Date().toISOString(),days:[{id:uid(),name:'Training 1',subtitle:'',exercises:[]}]};data.items.push(p);savePlans(data);state.editPlanId=p.id;state.view='planEditor';render();});
   document.querySelectorAll('[data-edit-plan]').forEach(b=>b.onclick=()=>{state.editPlanId=b.dataset.editPlan;state.view='planEditor';render();});
   document.querySelectorAll('[data-activate-plan]').forEach(b=>b.onclick=()=>{const d=allPlans();d.activePlanId=b.dataset.activatePlan;savePlans(d);render();});
   document.querySelectorAll('[data-copy-plan]').forEach(b=>b.onclick=()=>{const d=allPlans(),p=clone(d.items.find(x=>x.id===b.dataset.copyPlan));p.id=uid();p.name+=' – Kopie';p.days.forEach(day=>{day.id=uid();day.exercises.forEach(ex=>ex.id=uid());});d.items.push(p);savePlans(d);render();});
@@ -232,7 +247,7 @@ function bindPlans(){
 
 function collectPlan(){
   const data=allPlans(),p=data.items.find(x=>x.id===state.editPlanId);p.name=document.querySelector('#planName').value.trim()||'Mein Trainingsplan';p.description=document.querySelector('#planDescription').value.trim();
-  document.querySelectorAll('.editor-day').forEach((el,di)=>{const d=p.days[di];d.name=el.querySelector('.day-name').value.trim()||`Tag ${di+1}`;d.subtitle=el.querySelector('.day-subtitle').value.trim();el.querySelectorAll('.exercise-editor').forEach((row,ei)=>{const ex=d.exercises[ei];row.querySelectorAll('[data-prop]').forEach(input=>ex[input.dataset.prop]=input.dataset.prop==='sets'||input.dataset.prop==='rest'?number(input.value):input.value.trim());});});savePlans(data);return p;
+  document.querySelectorAll('.editor-day').forEach((el,di)=>{const d=p.days[di];d.name=el.querySelector('.day-name').value.trim()||`Tag ${di+1}`;d.subtitle=el.querySelector('.day-subtitle').value.trim();el.querySelectorAll('.plan-exercise-row').forEach((row,ei)=>{const ex=d.exercises[ei];row.querySelectorAll('[data-prop]').forEach(input=>ex[input.dataset.prop]=input.dataset.prop==='sets'||input.dataset.prop==='rest'?number(input.value):input.value.trim());});});savePlans(data);return p;
 }
 function persistPlan(plan){const data=allPlans(),index=data.items.findIndex(x=>x.id===plan.id);data.items[index]=plan;savePlans(data);}
 function bindEditor(){
@@ -240,9 +255,16 @@ function bindEditor(){
   document.querySelector('#savePlan').onclick=()=>{collectPlan();state.view='plans';render();};
   document.querySelector('#addDay').onclick=()=>{const p=collectPlan();p.days.push({id:uid(),name:`Tag ${p.days.length+1}`,subtitle:'',exercises:[]});persistPlan(p);render();};
   document.querySelectorAll('[data-remove-day]').forEach(b=>b.onclick=()=>{const p=collectPlan();p.days.splice(number(b.dataset.removeDay),1);persistPlan(p);render();});
-  document.querySelectorAll('[data-add-exercise]').forEach(b=>b.onclick=()=>{const p=collectPlan(),d=p.days[number(b.dataset.addExercise)];d.exercises.push(exercise(uid(),'Neue Übung',3,'8–12','',''));persistPlan(p);render();});
+  document.querySelectorAll('[data-add-exercise]').forEach(b=>b.onclick=()=>{collectPlan();state.libraryDayIndex=number(b.dataset.addExercise);state.libraryCategory='Alle';render();});
   document.querySelectorAll('[data-remove-exercise]').forEach(b=>b.onclick=()=>{const [di,ei]=b.dataset.removeExercise.split(':').map(Number),p=collectPlan();p.days[di].exercises.splice(ei,1);persistPlan(p);render();});
   document.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>{const p=collectPlan(),list=p.days[number(b.dataset.day)].exercises,i=number(b.dataset.ex),j=b.dataset.move==='up'?i-1:i+1;if(j>=0&&j<list.length)[list[i],list[j]]=[list[j],list[i]];persistPlan(p);render();});
+  document.querySelectorAll('[data-library-category]').forEach(b=>b.onclick=()=>{state.libraryCategory=b.dataset.libraryCategory;render();});
+  const filterLibrary=()=>{const q=document.querySelector('#librarySearch')?.value.toLowerCase().trim()||'';document.querySelectorAll('.library-item').forEach(card=>card.hidden=(state.libraryCategory!=='Alle'&&card.dataset.category!==state.libraryCategory)||!card.dataset.search.includes(q));};
+  document.querySelector('#librarySearch')?.addEventListener('input',filterLibrary);filterLibrary();
+  document.querySelectorAll('[data-pick-exercise]').forEach(b=>b.onclick=()=>{const data=allPlans(),plan=data.items.find(x=>x.id===state.editPlanId),source=EXERCISE_LIBRARY.find(x=>x.id===b.dataset.pickExercise),picked={...clone(source),id:uid(),libraryId:source.id};plan.days[state.libraryDayIndex].exercises.push(picked);savePlans(data);render();});
+  const closeLibrary=()=>{state.libraryDayIndex=null;render();};
+  document.querySelector('#closeLibrary')?.addEventListener('click',closeLibrary);document.querySelector('#closeLibraryBottom')?.addEventListener('click',closeLibrary);
+  document.querySelector('#addCustomExercise')?.addEventListener('click',()=>{const data=allPlans(),plan=data.items.find(x=>x.id===state.editPlanId);plan.days[state.libraryDayIndex].exercises.push({...exercise(uid(),'Eigene Übung',3,'8–12','',''),custom:true,category:'Eigene Übung'});savePlans(data);closeLibrary();});
 }
 
 function mutateSession(fn,rerender=false){const s=activeSession();fn(s);write(LS.active,s);if(rerender)render();}
