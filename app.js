@@ -105,7 +105,7 @@ function renderExercise(ex,s){
   const history=read(LS.history,[]); const last=history.find(h=>h.day===s.day)?.entries?.find(e=>e.id===ex.id);
   return `<section class="exercise-card" data-ex="${ex.id}">
     <div class="exercise-head"><div><h2 class="exercise-name">${ex.name}</h2><div class="target">Ziel: ${ex.sets} × ${ex.range} Wdh.</div></div></div>
-    <img class="exercise-gif" src="${ex.gif}" alt="Animierte Ausführung: ${ex.name}">
+    <div class="exercise-media"><img class="exercise-gif" src="${ex.gif}" alt="Animierte Ausführung: ${ex.name}"><span class="motion-chip">1 Sek. Loop</span></div>
     <p class="note">${ex.note}</p>
     <div class="set-head"><span>Satz</span><span>Gewicht</span><span>Wdh. geschafft</span><span>✓</span></div>
     ${entry.sets.map((set,i)=>`<div>
@@ -123,7 +123,7 @@ function renderExercise(ex,s){
 
 function renderPlan(){
   return `<main class="shell"><section class="hero"><div class="eyebrow">Routine</div><h1>DEIN<br>PLAN.</h1><p class="sub">Die Übungen bleiben bewusst gleich. Tippe ein Training, um direkt zu starten.</p></section>
-    ${Object.entries(WORKOUTS).map(([key,w])=>`<section class="section"><div class="section-head"><h2 class="section-title">${w.label}</h2><button class="secondary" data-start="${key}">Starten</button></div>${w.exercises.map(ex=>`<div class="plan-card"><div class="exercise-head"><div><div class="exercise-name">${ex.name}</div><div class="target">${ex.sets} × ${ex.range}</div></div></div><img class="exercise-gif" loading="lazy" src="${ex.gif}" alt="${ex.name}"><p class="note">${ex.note}</p></div>`).join('')}</section>`).join('')}
+    ${Object.entries(WORKOUTS).map(([key,w])=>`<section class="section"><div class="section-head"><h2 class="section-title">${w.label}</h2><button class="secondary" data-start="${key}">Starten</button></div>${w.exercises.map(ex=>`<div class="plan-card"><div class="exercise-head"><div><div class="exercise-name">${ex.name}</div><div class="target">${ex.sets} × ${ex.range}</div></div></div><div class="exercise-media"><img class="exercise-gif" loading="lazy" src="${ex.gif}" alt="${ex.name}"><span class="motion-chip">1 Sek. Loop</span></div><p class="note">${ex.note}</p></div>`).join('')}</section>`).join('')}
   </main>`;
 }
 function renderHistory(){

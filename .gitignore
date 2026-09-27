@@ -1,2 +1,6 @@
 # Local Netlify folder
 .netlify
+
+# Python build cache
+__pycache__/
+*.pyc

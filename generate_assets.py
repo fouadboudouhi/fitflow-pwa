@@ -43,18 +43,35 @@ def person(draw, head, shoulder, hip, knee, ankle, elbow=None, hand=None, elbow2
 
 def base(title=None):
     im=Image.new('RGB',(W,H),BG); d=ImageDraw.Draw(im)
+    d.ellipse((155,294,505,336), fill=(233,233,233))
     d.rounded_rectangle((18,18,W-18,H-18), radius=28, outline=(229,229,229), width=2)
+    d.rounded_rectangle((38,34,84,40), radius=3, fill=ACC)
     return im,d
+
+def ease(t):
+    """Smooth acceleration and deceleration for a controlled rep."""
+    return 0.5 - 0.5 * math.cos(math.pi * t)
 
 def save(name, framefn):
     frames=[]
-    seq=list(range(8))+list(range(6,0,-1))
-    for i in seq:
-        t=i/7
+    phases=[0,.125,.25,.375,.5,.625,.75,.875,1,.875,.75,.625,.5,.375,.25,.125]
+    durations=[105 if t in (0,1) else 55 for t in phases]
+    for t in phases:
         im,d=base()
-        framefn(d,t)
-        frames.append(im)
-    frames[0].save(OUT/f'{name}.gif', save_all=True, append_images=frames[1:], duration=110, loop=0, optimize=True)
+        framefn(d,ease(t))
+        # A compact phase indicator makes the direction of the rep easy to read.
+        d.rounded_rectangle((42,H-42,154,H-35), radius=4, fill=(218,218,218))
+        d.rounded_rectangle((42,H-42,42+int(112*t),H-35), radius=4, fill=ACC)
+        frames.append(im.convert('P', palette=Image.Palette.ADAPTIVE, colors=96))
+    frames[0].save(
+        OUT/f'{name}.gif',
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0,
+        optimize=True,
+        disposal=2,
+    )
 
 # 1 chest press
 def chest_press(d,t,incline=False):

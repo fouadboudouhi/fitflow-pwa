@@ -1,4 +1,4 @@
-const CACHE='ppl-routine-v1';
+const CACHE='ppl-routine-v2';
 const ASSETS=[
   './','./index.html','./styles.css','./app.js','./manifest.json',
   './assets/icons/icon-192.png','./assets/icons/icon-512.png',
