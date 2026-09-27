@@ -2,6 +2,8 @@
 
 Offline-fähige, installierbare Fitness-PWA für frei konfigurierbare Trainingspläne.
 
+Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) dokumentiert.
+
 ## Funktionen
 - Beliebig viele Trainingspläne und Tage mit 100 häufigen Übungen erstellen
 - Minimalistischer Plan-Assistent für 2–6 Trainingstage, ohne Equipment-Abfrage
