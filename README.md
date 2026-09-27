@@ -6,11 +6,12 @@ Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) 
 
 ## Funktionen
 - Beliebig viele Trainingspläne und Tage mit 100 häufigen Übungen erstellen
-- Minimalistischer Plan-Assistent für 2–6 Trainingstage, ohne Equipment-Abfrage
+- Dreistufiger Plan-Assistent für 2–6 Trainingstage mit Vorschau vor dem Speichern
+- Wahl zwischen flexibler Trainingsreihenfolge und festen Wochentagen
 - Favoriten, zuletzt verwendete Übungen und direkter Übungstausch
 - Übungsanimationen und Hinweise werden bei der Auswahl automatisch übernommen
-- Geführter Trainingsmodus mit nur einer aktuellen Übung
-- Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen, RIR/RPE und Notizen
+- Kompakter Trainingsmodus: aktuelle Übung geöffnet, restliche Einheit als übersichtliche Liste
+- Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen und Notizen; RIR ist optional und standardmäßig ausgeblendet
 - Automatisch berechnete Aufwärmsätze
 - Automatische Progressive-Overload-Empfehlungen und Pausentimer
 - Trainingsvolumen, geschätztes 1RM und Körpergewicht als Diagramme
