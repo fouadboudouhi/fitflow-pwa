@@ -1,0 +1,6 @@
+[build]
+  command = "python3 -m pip install -r requirements.txt && python3 generate_assets.py"
+  publish = "."
+
+[build.environment]
+  PYTHON_VERSION = "3.13"
