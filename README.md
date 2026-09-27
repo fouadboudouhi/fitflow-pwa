@@ -3,16 +3,20 @@
 Offline-fähige, installierbare Fitness-PWA für frei konfigurierbare Trainingspläne.
 
 ## Funktionen
-- Beliebig viele Trainingspläne und Tage mit durchsuchbarer Übungsbibliothek erstellen
+- Beliebig viele Trainingspläne und Tage mit 100 häufigen Übungen erstellen
+- Minimalistischer Plan-Assistent für 2–6 Trainingstage, ohne Equipment-Abfrage
+- Favoriten, zuletzt verwendete Übungen und direkter Übungstausch
 - Übungsanimationen und Hinweise werden bei der Auswahl automatisch übernommen
 - Geführter Trainingsmodus mit nur einer aktuellen Übung
 - Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen, RIR/RPE und Notizen
+- Automatisch berechnete Aufwärmsätze
 - Automatische Progressive-Overload-Empfehlungen und Pausentimer
 - Trainingsvolumen, geschätztes 1RM und Körpergewicht als Diagramme
 - Körpermaße und komprimierte Fortschrittsfotos
 - JSON-Backup, JSON-Import und CSV-Export
 - Dark Mode, Favoriten sowie Deload-, Krankheits- und Schmerzmarker
-- Professionelle Übungsanimationen von ExerciseDB
+- Wochenübersicht und Monatskalender für geplante und abgeschlossene Einheiten
+- Professionelle Übungsanimationen aus einem kuratierten Übungsdatensatz
 - Lokale Speicherung im Browser (`localStorage`)
 - PWA-Manifest + Service Worker für Offline-Nutzung
 - iPhone-freundliche Safe-Area und Homescreen-Nutzung

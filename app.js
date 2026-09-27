@@ -46,9 +46,14 @@ const CATEGORY_BY_ID = {
   'ez-bar-curl':'Arme','hammer-curl':'Arme','squat':'Beine','romanian-deadlift':'Beine',
   'leg-curl':'Beine','leg-extension':'Beine','calf-raise':'Beine','leg-raise':'Core'
 };
-const EXERCISE_LIBRARY = DEFAULT_PLAN.days.flatMap(day=>day.exercises.map(ex=>({...ex,category:CATEGORY_BY_ID[ex.id]||'Sonstige'})));
+const CATEGORY_LABELS={chest:'Brust',back:'Rücken',shoulders:'Schulter','upper arms':'Arme','upper legs':'Beine','lower legs':'Beine',waist:'Core',cardio:'Ausdauer'};
+const EQUIPMENT_LABELS={barbell:'Langhantel',dumbbell:'Kurzhanteln',cable:'Kabelzug','body weight':'Körpergewicht','leverage machine':'Maschine','sled machine':'Beinpresse','ez barbell':'SZ-Stange',band:'Band',weighted:'Zusatzgewicht','wheel roller':'Ab-Roller'};
+const GERMAN_EXERCISE_NAMES=`Bankdrücken mit Langhantel|Schrägbankdrücken mit Langhantel|Negativbankdrücken mit Langhantel|Bankdrücken mit Kurzhanteln|Schrägbankdrücken mit Kurzhanteln|Negativbankdrücken mit Kurzhanteln|Kurzhantel-Flys|Schrägbank-Flys|Kabel-Flys stehend|Kabel-Flys auf Brusthöhe|Brust-Dips|Liegestütze|Erhöhte Liegestütze|Negative Liegestütze|Brustpresse|Klimmzüge|Klimmzüge im Untergriff|Latzug|Latzug im Untergriff|Überzüge am Kabel|Kabelrudern sitzend|Kabelrudern breit|Langhantelrudern vorgebeugt|Pendlay Rows|Kurzhantelrudern vorgebeugt|Einarmiges Kurzhantelrudern|Rudermaschine sitzend|T-Bar Rudern an der Maschine|Face Pulls am Kabel|Shrugs mit Langhantel|Shrugs mit Kurzhanteln|Schulterdrücken mit Langhantel sitzend|Military Press breit|Schulterdrücken mit Kurzhanteln|Arnold Press|Seitheben mit Kurzhanteln|Seitheben am Kabel|Frontheben mit Kurzhanteln|Frontheben am Kabel|Reverse Flys vorgebeugt|Reverse Flys mit Kurzhanteln|Aufrechtes Rudern mit Langhantel|Aufrechtes Rudern am Kabel|Bizepscurls mit Langhantel|Bizepscurls mit SZ-Stange|Bizepscurls mit Kurzhanteln|Hammercurls|Schrägbank-Curls|Konzentrationscurls|Preacher Curls mit Kurzhantel|Bizepscurls am Kabel|Hammercurls am Kabel|Enges Bankdrücken|Bank-Dips|Diamant-Liegestütze|Trizepsdrücken mit V-Griff|Trizepsdrücken mit geradem Griff|Trizepsdrücken mit Seil|Skull Crusher mit Langhantel|Trizepsstrecken liegend mit Kurzhanteln|Trizeps-Kickbacks|Kniebeugen mit Langhantel|Frontkniebeugen|Rumänisches Kreuzheben mit Langhantel|Kreuzheben mit Langhantel|Sumo-Kreuzheben|Ausfallschritte mit Langhantel|Rückwärts-Ausfallschritte mit Langhantel|Goblet Squats|Ausfallschritte mit Kurzhanteln|Rückwärts-Ausfallschritte mit Kurzhanteln|Rumänisches Kreuzheben mit Kurzhanteln|Kreuzheben mit Kurzhanteln|Einbeiniges Kreuzheben mit Kurzhantel|Einbeinige Beinpresse|Beinpresse 45°|Beinstrecker|Beinbeuger liegend|Beinbeuger sitzend|Hip Thrust mit Langhantel|Glute Bridge mit Langhantel|Glute Bridge am Boden|Sprungkniebeugen|Gehende Ausfallschritte|Bulgarian Split Squats|Step-ups mit Kurzhanteln|Wadenheben mit Langhantel|Wadenheben sitzend|Wadenheben stehend|Plank mit Zusatzgewicht|Seitstütz erhöht|Crunches am Boden|Negativ-Crunches|Bicycle Crunches mit Band|Russian Twists|Beinheben hängend|Beinheben am Captain's Chair|Kabel-Crunches kniend|Ab-Wheel Rollout|Mountain Climbers`.split('|');
+const titleCase=value=>String(value).replace(/\b\w/g,c=>c.toUpperCase()).replace('Ez ','SZ-');
+const sourceLibrary=window.VOLUMORA_EXERCISES?.length?window.VOLUMORA_EXERCISES:DEFAULT_PLAN.days.flatMap(day=>day.exercises.map(ex=>({...ex,category:CATEGORY_BY_ID[ex.id]||'Sonstige'})));
+const EXERCISE_LIBRARY=sourceLibrary.map((ex,index)=>{const category=CATEGORY_LABELS[ex.category]||ex.category,equipment=EQUIPMENT_LABELS[ex.equipment]||ex.equipment||'';return {...ex,name:window.VOLUMORA_EXERCISES?.length?(GERMAN_EXERCISE_NAMES[index]||titleCase(ex.name)):titleCase(ex.name),sourceName:ex.name,category,equipment,sets:ex.sets||3,range:ex.range||(category==='Core'||ex.target==='calves'?'12–15':'8–12'),note:ex.note||equipment,favorite:false};});
 
-const LS = {plans:'volumora-plans-v2', history:'volumora-history-v2', active:'volumora-active-v2', body:'volumora-body-v2', settings:'volumora-settings-v2'};
+const LS = {plans:'volumora-plans-v2', history:'volumora-history-v2', active:'volumora-active-v2', body:'volumora-body-v2', settings:'volumora-settings-v2', exercisePrefs:'volumora-exercise-prefs-v1'};
 const $app = document.querySelector('#app');
 const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
@@ -56,6 +61,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const fmtDate = iso => new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}).format(new Date(iso));
 const fmtLong = iso => new Intl.DateTimeFormat('de-DE',{weekday:'short',day:'2-digit',month:'short'}).format(new Date(iso));
+const dateKey = value => { const d=new Date(value); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const number = value => Number(String(value ?? '').replace(',','.')) || 0;
 const rangeMax = range => Math.max(...String(range).match(/\d+/g)?.map(Number) || [12]);
 const volumeOf = session => session.entries?.reduce((sum, entry) => sum + entry.sets.reduce((s,set) => s + (set.warmup||!set.done ? 0 : number(set.weight)*number(set.reps)),0),0) || 0;
@@ -63,7 +69,7 @@ const allPlans = () => read(LS.plans,{activePlanId:DEFAULT_PLAN.id,items:[clone(
 const savePlans = plans => write(LS.plans,plans);
 const activePlan = () => { const data=allPlans(); return data.items.find(p=>p.id===data.activePlanId) || data.items[0]; };
 const getDay = (planId,dayId) => allPlans().items.find(p=>p.id===planId)?.days.find(d=>d.id===dayId);
-let state = {view:'home', planId:null, dayId:null, exerciseIndex:0, editPlanId:null, libraryDayIndex:null, libraryCategory:'Alle', installPrompt:null, restUntil:0, restTimer:null};
+let state = {view:'home', planId:null, dayId:null, exerciseIndex:0, editPlanId:null, libraryDayIndex:null, replaceExerciseIndex:null, libraryCategory:'Alle', installPrompt:null, restUntil:0, restTimer:null};
 
 function initialise(){
   if(!localStorage.getItem(LS.plans)) savePlans({activePlanId:DEFAULT_PLAN.id,items:[clone(DEFAULT_PLAN)]});
@@ -95,37 +101,61 @@ function nav(active){
     <button class="nav-btn ${active==='more'?'active':''}" data-nav="more"><span>•••</span>Mehr</button>
   </div></nav>`;
 }
-const mediaCredit = () => `<footer class="media-credit">Übungsmedien: <a href="https://ascendapi.com" target="_blank" rel="noopener">AscendAPI / ExerciseDB</a></footer>`;
+const mediaCredit = () => `<footer class="media-credit">Übungsmedien: <a href="https://github.com/YaKohen/exercises-dataset" target="_blank" rel="noopener">Exercises Dataset</a></footer>`;
 const empty = (title,text) => `<div class="empty"><strong>${title}</strong><p>${text}</p></div>`;
 
 function render(){
   clearInterval(state.restTimer);
-  const bare=['workout','planEditor'].includes(state.view);
-  const content = state.view==='home' ? homeView() : state.view==='plans' ? plansView() : state.view==='planEditor' ? planEditorView() : state.view==='workout' ? workoutView() : state.view==='analytics' ? analyticsView() : state.view==='body' ? bodyView() : state.view==='backup' ? backupView() : state.view==='settings' ? settingsView() : moreView();
-  $app.innerHTML=topbar()+content+(bare?'':nav(state.view==='body'||state.view==='backup'||state.view==='settings'?'more':state.view));
+  const viewChanged=state.lastRenderedView!==state.view;state.lastRenderedView=state.view;
+  if(viewChanged)window.scrollTo(0,0);
+  const bare=['workout','planEditor','assistant'].includes(state.view);
+  const content = state.view==='home' ? homeView() : state.view==='plans' ? plansView() : state.view==='assistant' ? assistantView() : state.view==='planEditor' ? planEditorView() : state.view==='workout' ? workoutView() : state.view==='analytics' ? analyticsView() : state.view==='body' ? bodyView() : state.view==='calendar' ? calendarView() : state.view==='backup' ? backupView() : state.view==='settings' ? settingsView() : moreView();
+  $app.innerHTML=(state.view==='workout'?'':topbar())+content+(bare?'':nav(['body','calendar','backup','settings'].includes(state.view)?'more':state.view));
   bind();
+  if(viewChanged)requestAnimationFrame(()=>window.scrollTo({top:0,left:0,behavior:'instant'}));
   if(state.view==='analytics') requestAnimationFrame(drawAnalytics);
   if(state.view==='body') requestAnimationFrame(drawBodyChart);
   if(state.view==='workout') startRestTicker();
 }
 
 function homeView(){
-  const plan=activePlan(), history=read(LS.history,[]), last=history[0], weekStart=Date.now()-7*864e5;
-  const week=history.filter(x=>new Date(x.finishedAt)>weekStart);
-  return `<main class="shell">
-    <section class="hero"><div class="eyebrow">${esc(plan.name)} · aktiver Plan</div><h1>STÄRKER.<br>JEDEN SATZ.</h1><p>Plane frei. Trainiere fokussiert. Sieh, wie dein Volumen wächst.</p></section>
-    <section class="stats-strip"><div><b>${week.length}</b><span>Trainings / 7 Tage</span></div><div><b>${Math.round(week.reduce((s,x)=>s+(x.volume||volumeOf(x)),0)).toLocaleString('de-DE')}</b><span>kg Volumen</span></div><div><b>${history.length}</b><span>gesamt</span></div></section>
-    <section class="section"><div class="section-head"><div><span class="eyebrow">Heute</span><h2>Training wählen</h2></div><button class="text-btn" data-nav="plans">Plan ändern</button></div>
-      ${plan.days.length?`<div class="day-grid">${plan.days.map((d,i)=>`<button class="day-card" ${d.exercises.length?`data-start="${d.id}" data-plan="${plan.id}"`:'disabled'}><div><span class="day-count">0${i+1}</span><h3>${esc(d.name)}</h3><p>${esc(d.subtitle||`${d.exercises.length} Übungen`)}</p></div><span class="arrow">${d.exercises.length?'→':'Leer'}</span></button>`).join('')}</div>`:empty('Noch kein Trainingstag','Füge deinem Plan einen Trainingstag hinzu.')}
-    </section>
-    ${last?`<section class="section"><div class="section-head"><h2>Letztes Training</h2><button class="text-btn" data-nav="analytics">Alle Daten</button></div><div class="history-card"><div><span class="eyebrow">${fmtLong(last.finishedAt)}</span><h3>${esc(last.dayName||last.day)}</h3></div><div class="history-metrics"><b>${Math.round(last.volume||volumeOf(last)).toLocaleString('de-DE')} kg</b><span>${last.totalSets||0} Sätze</span></div></div></section>`:''}
+  const today=new Date(), monday=new Date(today);monday.setDate(today.getDate()-((today.getDay()+6)%7));monday.setHours(0,0,0,0);
+  const plan=activePlan(), history=read(LS.history,[]), last=history[0], week=history.filter(x=>new Date(x.finishedAt)>=monday), lastPlanSession=history.find(x=>x.planId===plan?.id), lastIndex=plan?.days.findIndex(d=>d.id===lastPlanSession?.dayId)??-1, next=plan?.days?.length?plan.days[lastIndex>=0?(lastIndex+1)%plan.days.length:0]:null;
+  const weekdays=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setDate(monday.getDate()+i);const done=history.some(h=>dateKey(h.finishedAt)===dateKey(d));return {d,done};});
+  return `<main class="shell home-shell">
+    <section class="home-intro"><div><span class="eyebrow">${esc(plan?.name||'Volumora')}</span><h1>Heute</h1></div><button class="text-btn" data-nav="plans">Plan ändern</button></section>
+    ${next?`<section class="next-card"><div><span class="next-label">Als Nächstes</span><h2>${esc(next.name)}</h2><p>${esc(next.subtitle||`${next.exercises.length} Übungen`)} · ${next.exercises.length} Übungen</p></div><button class="primary start-main" ${next.exercises.length?`data-start="${next.id}" data-plan="${plan.id}"`:'disabled'}>${next.exercises.length?'Training starten':'Übungen hinzufügen'} <span>→</span></button></section>`:empty('Noch kein Training','Erstelle einen Plan, um loszulegen.')}
+    <section class="week-overview"><div class="section-title"><h2>Diese Woche</h2><button class="text-btn" data-nav="calendar">Kalender</button></div><div class="week-days">${weekdays.map(({d,done})=>`<div class="week-day ${done?'done':''} ${dateKey(d)===dateKey(today)?'today':''}"><span>${new Intl.DateTimeFormat('de-DE',{weekday:'short'}).format(d).slice(0,2)}</span><b>${d.getDate()}</b><i>${done?'✓':''}</i></div>`).join('')}</div><div class="home-metrics"><div><b>${week.length}</b><span>Trainings</span></div><div><b>${Math.round(week.reduce((s,x)=>s+(x.volume||volumeOf(x)),0)).toLocaleString('de-DE')} kg</b><span>Volumen</span></div></div></section>
+    ${plan?.days?.length>1?`<section class="other-days"><div class="section-title"><h2>Andere Einheit</h2></div>${plan.days.filter(d=>d.id!==next?.id).map(d=>`<button ${d.exercises.length?`data-start="${d.id}" data-plan="${plan.id}"`:'disabled'}><span><b>${esc(d.name)}</b><small>${d.exercises.length} Übungen</small></span><i>→</i></button>`).join('')}</section>`:''}
+    ${last?`<button class="last-session" data-nav="analytics"><span><small>Zuletzt · ${fmtLong(last.finishedAt)}</small><b>${esc(last.dayName||last.day)}</b></span><span><b>${Math.round(last.volume||volumeOf(last)).toLocaleString('de-DE')} kg</b><small>${last.totalSets||0} Sätze</small></span></button>`:''}
     ${mediaCredit()}</main>`;
 }
 
 function plansView(){
   const data=allPlans();
-  return `<main class="shell"><section class="page-head"><div><span class="eyebrow">Programm</span><h1>Deine Pläne</h1><p>Erstelle beliebig viele Pläne und lege einen davon als aktiv fest.</p></div><button class="primary" id="newPlan">+ Neuer Plan</button></section>
+  return `<main class="shell"><section class="page-head"><div><span class="eyebrow">Programm</span><h1>Deine Pläne</h1><p>Lass dir einen Plan vorschlagen oder stelle ihn selbst zusammen.</p></div><div class="card-actions"><button class="secondary" id="planAssistant">Plan-Assistent</button><button class="primary" id="newPlan">+ Eigener Plan</button></div></section>
   <div class="plan-list">${data.items.map(p=>{const count=p.days.reduce((n,d)=>n+d.exercises.length,0);return `<article class="plan-card ${p.id===data.activePlanId?'selected':''}"><div><div class="eyebrow">${p.id===data.activePlanId?'Aktiver Plan':'Trainingsplan'}</div><h2>${esc(p.name)}</h2><p>${p.days.length} ${p.days.length===1?'Tag':'Tage'} · ${count} ${count===1?'Übung':'Übungen'}</p></div><div class="card-actions">${p.id!==data.activePlanId?`<button class="secondary" data-activate-plan="${p.id}">Aktivieren</button>`:''}<button class="secondary" data-edit-plan="${p.id}">Bearbeiten</button><button class="icon-btn" data-copy-plan="${p.id}" title="Duplizieren">⧉</button>${data.items.length>1?`<button class="icon-btn danger" data-delete-plan="${p.id}" title="Löschen">×</button>`:''}</div></article>`;}).join('')}</div></main>`;
+}
+
+function assistantView(){
+  return `<main class="shell narrow"><div class="backrow"><button class="back" data-nav="plans">←</button><span>Plan-Assistent</span></div><section class="assistant-hero"><span class="eyebrow">In einer Minute startklar</span><h1>Dein passender Plan</h1><p>Wähle nur Ziel und Trainingshäufigkeit. Übungen, Aufteilung und Wiederholungen übernimmt Volumora.</p></section><form id="assistantForm" class="assistant-form"><fieldset><legend>Was ist dein Hauptziel?</legend><label><input type="radio" name="goal" value="muscle" checked><span><b>Muskelaufbau</b><small>Ausgewogenes Volumen und 8–12 Wiederholungen</small></span></label><label><input type="radio" name="goal" value="strength"><span><b>Kraft</b><small>Schwere Grundübungen mit längeren Pausen</small></span></label><label><input type="radio" name="goal" value="fitness"><span><b>Allgemeine Fitness</b><small>Mehr Wiederholungen und kompakte Einheiten</small></span></label></fieldset><label class="days-choice"><span>Wie oft pro Woche?</span><select name="days"><option value="2">2 Trainingstage</option><option value="3" selected>3 Trainingstage</option><option value="4">4 Trainingstage</option><option value="5">5 Trainingstage</option><option value="6">6 Trainingstage</option></select></label><button class="primary full" type="submit">Plan erstellen</button></form></main>`;
+}
+
+function createSuggestedPlan(goal,dayCount){
+  const groups={
+    push:['barbell bench press','dumbbell incline bench press','dumbbell seated shoulder press','dumbbell lateral raise','cable pushdown (with rope attachment)','dumbbell lying triceps extension'],
+    pull:['pull-up','cable seated row','barbell bent over row','cable standing rear delt row (with rope)','barbell curl','dumbbell hammer curl'],
+    legs:['barbell full squat','barbell romanian deadlift','lever alternate leg press','lever lying leg curl','lever leg extension','barbell standing calf raise'],
+    upperA:['barbell bench press','pull-up','dumbbell seated shoulder press','cable seated row','dumbbell biceps curl','cable pushdown (with rope attachment)'],
+    upperB:['dumbbell incline bench press','barbell bent over row','dumbbell lateral raise','cable pulldown','dumbbell hammer curl','barbell close-grip bench press'],
+    lowerA:['barbell full squat','barbell romanian deadlift','dumbbell lunge','lever leg extension','lever seated leg curl','lever seated calf raise'],
+    lowerB:['barbell deadlift','dumbbell goblet squat','dumbbell single leg split squat','barbell glute bridge','lever lying leg curl','bodyweight standing calf raise'],
+    fullA:['barbell full squat','barbell bench press','cable seated row','dumbbell lateral raise','dumbbell biceps curl','cable kneeling crunch'],
+    fullB:['barbell romanian deadlift','dumbbell incline bench press','pull-up','dumbbell lunge','cable pushdown (with rope attachment)','hanging leg raise']
+  };
+  const layouts={2:[['Ganzkörper A','fullA'],['Ganzkörper B','fullB']],3:[['Push','push'],['Pull','pull'],['Beine','legs']],4:[['Oberkörper A','upperA'],['Unterkörper A','lowerA'],['Oberkörper B','upperB'],['Unterkörper B','lowerB']],5:[['Push','push'],['Pull','pull'],['Beine','legs'],['Oberkörper','upperB'],['Unterkörper','lowerB']],6:[['Push A','push'],['Pull A','pull'],['Beine A','legs'],['Push B','push'],['Pull B','pull'],['Beine B','lowerB']]};
+  const days=layouts[dayCount].map(([name,key])=>({id:uid(),name,subtitle:'Automatisch erstellt',exercises:groups[key].map(sourceName=>{const source=EXERCISE_LIBRARY.find(x=>x.sourceName===sourceName);const compound=/press|squat|deadlift|row|pull-up/.test(sourceName),range=goal==='strength'&&compound?'4–6':goal==='fitness'?'10–15':'8–12';return {...clone(source),id:uid(),libraryId:source.id,sets:goal==='fitness'?3:compound?4:3,range,rest:goal==='strength'?150:goal==='fitness'?60:90};})}));
+  return {id:uid(),name:`${goal==='strength'?'Kraft':goal==='fitness'?'Fitness':'Muskelaufbau'} · ${dayCount} Tage`,description:'Vom Volumora Plan-Assistenten erstellt',createdAt:new Date().toISOString(),days};
 }
 
 function planEditorView(){
@@ -140,12 +170,13 @@ function planEditorView(){
 }
 
 function exerciseEditor(ex,di,ei){
-  return `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif?`<img src="${esc(ex.gif)}" alt="">`:'<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${ex.custom?`<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="Name der eigenen Übung">`:`<h3>${esc(ex.name)}</h3>`}<span>${esc(ex.category||CATEGORY_BY_ID[ex.libraryId||ex.id]||'Übung')}</span><div class="quick-fields"><label><span>Sätze</span><input data-prop="sets" type="number" min="1" max="12" value="${ex.sets}"></label><label><span>Wiederholungen</span><input data-prop="range" value="${esc(ex.range)}"></label></div><details><summary>Weitere Einstellungen</summary><div class="detail-fields"><label><span>Pause in Sekunden</span><input data-prop="rest" type="number" min="0" max="600" value="${ex.rest||''}" placeholder="Standard"></label><label><span>Eigener Hinweis</span><input data-prop="note" value="${esc(ex.note||'')}"></label></div></details></div><div class="row-actions"><button class="tiny" data-move="up" data-day="${di}" data-ex="${ei}" aria-label="Nach oben">↑</button><button class="tiny" data-move="down" data-day="${di}" data-ex="${ei}" aria-label="Nach unten">↓</button><button class="tiny danger" data-remove-exercise="${di}:${ei}" aria-label="Übung entfernen">×</button></div></article>`;
+  return `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif?`<img src="${esc(ex.gif)}" alt="">`:'<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${ex.custom?`<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="Name der eigenen Übung">`:`<h3>${esc(ex.name)}</h3>`}<span>${esc(ex.category||CATEGORY_BY_ID[ex.libraryId||ex.id]||'Übung')}</span><div class="quick-fields"><label><span>Sätze</span><input data-prop="sets" type="number" min="1" max="12" value="${ex.sets}"></label><label><span>Wiederholungen</span><input data-prop="range" value="${esc(ex.range)}"></label></div><button class="swap-link" data-replace-exercise="${di}:${ei}">↻ Übung ersetzen</button><details><summary>Weitere Einstellungen</summary><div class="detail-fields"><label><span>Pause in Sekunden</span><input data-prop="rest" type="number" min="0" max="600" value="${ex.rest||''}" placeholder="Standard"></label><label><span>Eigener Hinweis</span><input data-prop="note" value="${esc(ex.note||'')}"></label></div></details></div><div class="row-actions"><button class="tiny" data-move="up" data-day="${di}" data-ex="${ei}" aria-label="Nach oben">↑</button><button class="tiny" data-move="down" data-day="${di}" data-ex="${ei}" aria-label="Nach unten">↓</button><button class="tiny danger" data-remove-exercise="${di}:${ei}" aria-label="Übung entfernen">×</button></div></article>`;
 }
 
 function libraryView(plan){
-  const day=plan.days[state.libraryDayIndex],categories=['Alle','Brust','Rücken','Schulter','Arme','Beine','Core'];
-  return `<div class="library-backdrop"><section class="exercise-library" role="dialog" aria-modal="true" aria-label="Übung auswählen"><div class="library-head"><div><span class="eyebrow">${esc(day?.name||'Trainingstag')}</span><h2>Übung auswählen</h2></div><button class="icon-btn" id="closeLibrary" aria-label="Schließen">×</button></div><label class="library-search"><span>⌕</span><input id="librarySearch" type="search" placeholder="Übung suchen …" autocomplete="off"></label><div class="category-chips">${categories.map(c=>`<button class="${state.libraryCategory===c?'active':''}" data-library-category="${c}">${c}</button>`).join('')}</div><div class="library-list">${EXERCISE_LIBRARY.map(ex=>{const added=day?.exercises.some(x=>(x.libraryId||x.id)===ex.id);return `<article class="library-item" data-category="${ex.category}" data-search="${esc(`${ex.name} ${ex.category}`.toLowerCase())}"><img src="${esc(ex.gif)}" alt=""><div><h3>${esc(ex.name)}</h3><span>${ex.category} · ${ex.sets} × ${esc(ex.range)}</span></div><button class="${added?'added':''}" data-pick-exercise="${ex.id}" ${added?'disabled':''}>${added?'✓':'＋'}</button></article>`;}).join('')}</div><button class="custom-exercise-button" id="addCustomExercise">＋ Eigene Übung ohne Animation</button><button class="primary full library-done" id="closeLibraryBottom">Fertig</button></section></div>`;
+  const day=plan.days[state.libraryDayIndex],categories=['Alle','Brust','Rücken','Schulter','Arme','Beine','Core','Ausdauer'],prefs=read(LS.exercisePrefs,{favorites:[],recent:[]});
+  const sorted=EXERCISE_LIBRARY.slice().sort((a,b)=>(prefs.favorites.includes(b.id)-prefs.favorites.includes(a.id))||(prefs.recent.indexOf(a.id)<0?99:prefs.recent.indexOf(a.id))-(prefs.recent.indexOf(b.id)<0?99:prefs.recent.indexOf(b.id)));
+  return `<div class="library-backdrop"><section class="exercise-library" role="dialog" aria-modal="true" aria-label="Übung auswählen"><div class="library-head"><div><span class="eyebrow">${state.replaceExerciseIndex!==null?'Ersatz wählen':esc(day?.name||'Trainingstag')} · ${EXERCISE_LIBRARY.length} Übungen</span><h2>${state.replaceExerciseIndex!==null?'Übung ersetzen':'Übung auswählen'}</h2></div><button class="icon-btn" id="closeLibrary" aria-label="Schließen">×</button></div><label class="library-search"><span>⌕</span><input id="librarySearch" type="search" placeholder="Name, Muskel oder Gerät …" autocomplete="off"></label><div class="category-chips">${categories.map(c=>`<button class="${state.libraryCategory===c?'active':''}" data-library-category="${c}">${c}</button>`).join('')}</div><div class="library-list">${sorted.map(ex=>{const added=day?.exercises.some(x=>(x.libraryId||x.id)===ex.id),favorite=prefs.favorites.includes(ex.id);return `<article class="library-item" data-category="${ex.category}" data-search="${esc(`${ex.name} ${ex.sourceName||''} ${ex.category} ${ex.equipment||''} ${ex.target||''}`.toLowerCase())}"><img src="${esc(ex.gif)}" alt=""><div><h3>${esc(ex.name)}</h3><span>${ex.category} · ${esc(ex.equipment||'')} · ${ex.sets} × ${esc(ex.range)}</span></div><div class="library-actions"><button class="star ${favorite?'active':''}" data-library-favorite="${ex.id}" aria-label="Favorit">★</button><button class="${added&&state.replaceExerciseIndex===null?'added':''}" data-pick-exercise="${ex.id}" ${added&&state.replaceExerciseIndex===null?'disabled':''}>${added&&state.replaceExerciseIndex===null?'✓':'＋'}</button></div></article>`;}).join('')}</div><button class="custom-exercise-button" id="addCustomExercise">＋ Eigene Übung ohne Animation</button><button class="primary full library-done" id="closeLibraryBottom">Fertig</button></section></div>`;
 }
 
 function freshSession(planId,dayId){
@@ -175,23 +206,24 @@ function workoutView(){
   const session=activeSession(); state.exerciseIndex=Math.min(state.exerciseIndex,day.exercises.length-1);
   const ex=day.exercises[state.exerciseIndex], entry=session.entries.find(e=>e.exerciseId===ex.id), done=session.entries.reduce((n,e)=>n+e.sets.filter(s=>s.done).length,0), total=session.entries.reduce((n,e)=>n+e.sets.length,0), suggest=suggestion(ex,entry);
   const prev=read(LS.history,[]).find(h=>h.planId===state.planId&&h.entries?.some(e=>e.exerciseId===ex.id))?.entries.find(e=>e.exerciseId===ex.id);
-  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout">←</button><div><span>${esc(day.name)}</span><b>${state.exerciseIndex+1} / ${day.exercises.length}</b></div><button class="text-btn" id="finishWorkout">Beenden</button></div>
+  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout">←</button><div><span>${esc(day.name)}</span><b>${state.exerciseIndex+1} / ${day.exercises.length}</b></div><div class="workout-top-actions"><button class="icon-btn" id="quickTheme" aria-label="Farbschema wechseln">◐</button><button class="text-btn" id="finishWorkout">Beenden</button></div></div>
     <div class="progress-line"><i style="width:${((state.exerciseIndex+1)/day.exercises.length)*100}%"></i></div>
     <div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload?'checked':''}> Deload</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill?'checked':''}> Krank</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain?'checked':''}> Schmerzen</label></div>
     <section class="guided-card"><div class="guided-head"><div><span class="eyebrow">${esc(day.name)}</span><h1>${esc(ex.name)}</h1><p>${ex.sets} × ${esc(ex.range)} Wdh.</p></div><button class="favorite ${ex.favorite?'active':''}" id="favoriteExercise" aria-label="Favorit">★</button></div>
       ${ex.gif?`<div class="exercise-media"><img src="${esc(ex.gif)}" alt="Ausführung ${esc(ex.name)}"><span>Demo</span></div>`:''}
       ${ex.note?`<p class="coach-note">${esc(ex.note)}</p>`:''}
       <div class="suggestion"><div><span>Progressive Overload</span><b>${esc(suggest.text)}</b></div>${suggest.weight!==null?`<button class="tiny" id="applySuggestion" data-weight="${suggest.weight}">Übernehmen</button>`:''}</div>
-      <div class="set-list">${entry.sets.map((set,i)=>setRow(set,i,prev?.sets?.filter(s=>!s.warmup)?.[i])).join('')}</div>
-      <button class="secondary full" id="addWarmup">+ Aufwärmsatz</button>
+      <div class="set-list">${entry.sets.map((set,i)=>setRow(set,i,prev?.sets?.filter(s=>!s.warmup)?.[i],entry.sets.slice(0,i).filter(s=>!s.warmup).length+1)).join('')}</div>
+      <div class="warmup-actions"><button class="text-btn" id="addWarmup">+ Aufwärmsatz</button><button class="text-btn" id="autoWarmup">Aufwärmen berechnen</button></div>
       <label class="notes-field"><span>Notiz zu dieser Übung</span><textarea id="exerciseNote" placeholder="Technik, Geräteeinstellung, Gefühl …">${esc(entry.note||'')}</textarea></label>
     </section>
     <div class="workout-nav"><button class="secondary" id="prevExercise" ${state.exerciseIndex===0?'disabled':''}>← Zurück</button><button class="primary" id="nextExercise">${state.exerciseIndex===day.exercises.length-1?'Training abschließen':'Nächste Übung →'}</button></div>
     <div class="rest-timer ${state.restUntil>Date.now()?'show':''}" id="restTimer"><div><span>Pause</span><b id="restCount">0:00</b></div><button data-rest-add>+30</button><button data-rest-skip>Überspringen</button></div>
   </main>`;
 }
-function setRow(set,i,last){
-  return `<div class="set-card ${set.done?'complete':''}" data-set="${i}"><div class="set-label"><b>${set.warmup?'W':'Satz '+(i+1)}</b><label><input type="checkbox" data-set-field="warmup" data-index="${i}" ${set.warmup?'checked':''}> Warm-up</label></div><label><span>kg</span><input inputmode="decimal" type="number" step="0.5" min="0" data-set-field="weight" data-index="${i}" value="${set.weight}"></label><label><span>Wdh.</span><input inputmode="numeric" type="number" min="0" data-set-field="reps" data-index="${i}" value="${set.reps}"></label><label><span>RIR</span><input inputmode="numeric" type="number" min="0" max="10" data-set-field="rir" data-index="${i}" value="${set.rir}"></label><button class="set-check" data-set-done="${i}" aria-label="Satz fertig">${set.done?'✓':'○'}</button>${last?`<small>Zuletzt ${last.weight||'–'} kg × ${last.reps||'–'}</small>`:''}</div>`;
+function setRow(set,i,last,workIndex){
+  const workNumber=set.warmup?'W':workIndex;
+  return `<div class="set-card ${set.done?'complete':''} ${set.warmup?'warmup':''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span>${set.warmup?'Warm-up':''}</span></div><label><span>kg</span><input inputmode="decimal" type="number" step="0.5" min="0" data-set-field="weight" data-index="${i}" value="${set.weight}"></label><label><span>Wdh.</span><input inputmode="numeric" type="number" min="0" data-set-field="reps" data-index="${i}" value="${set.reps}"></label><label><span>RIR</span><input inputmode="numeric" type="number" min="0" max="10" data-set-field="rir" data-index="${i}" value="${set.rir}"></label><button class="set-check" data-set-done="${i}" aria-label="Satz fertig">${set.done?'✓':'○'}</button>${last?`<small>Zuletzt ${last.weight||'–'} kg × ${last.reps||'–'}</small>`:''}</div>`;
 }
 
 function analyticsView(){
@@ -207,7 +239,16 @@ function analyticsView(){
 }
 
 function moreView(){
-  return `<main class="shell"><section class="page-head"><div><span class="eyebrow">Volumora</span><h1>Mehr</h1><p>Alles für Körperdaten, Sicherung und deine App-Einstellungen.</p></div></section><div class="menu-list"><button data-nav="body"><span>◎</span><div><b>Körper & Fotos</b><small>Gewicht, Maße und Fortschrittsbilder</small></div><i>→</i></button><button data-nav="backup"><span>⇅</span><div><b>Export & Backup</b><small>JSON sichern, CSV exportieren, Backup einspielen</small></div><i>→</i></button><button data-nav="settings"><span>◐</span><div><b>Einstellungen</b><small>Design, Pause und Gewichtsschritte</small></div><i>→</i></button></div><section class="about-card"><img src="assets/brand/volumora-mark.png" alt="Volumora Logo"><div><b>Volumora</b><p>Deine Trainingsdaten bleiben ausschließlich lokal auf diesem Gerät, bis du selbst ein Backup exportierst.</p></div></section>${mediaCredit()}</main>`;
+  return `<main class="shell"><section class="page-head"><div><span class="eyebrow">Volumora</span><h1>Mehr</h1><p>Kalender, Körperdaten, Sicherung und Einstellungen.</p></div></section><div class="menu-list"><button data-nav="calendar"><span>□</span><div><b>Trainingskalender</b><small>Geplante und abgeschlossene Einheiten</small></div><i>→</i></button><button data-nav="body"><span>◎</span><div><b>Körper & Fotos</b><small>Gewicht, Maße und Fortschrittsbilder</small></div><i>→</i></button><button data-nav="backup"><span>⇅</span><div><b>Export & Backup</b><small>JSON sichern, CSV exportieren, Backup einspielen</small></div><i>→</i></button><button data-nav="settings"><span>◐</span><div><b>Einstellungen</b><small>Design, Pause und Gewichtsschritte</small></div><i>→</i></button></div><section class="about-card"><img src="assets/brand/volumora-mark.png" alt="Volumora Logo"><div><b>Volumora</b><p>Deine Trainingsdaten bleiben ausschließlich lokal auf diesem Gerät, bis du selbst ein Backup exportierst.</p></div></section>${mediaCredit()}</main>`;
+}
+
+function calendarView(){
+  const history=read(LS.history,[]),plan=activePlan(),now=new Date(),year=now.getFullYear(),month=now.getMonth(),first=new Date(year,month,1),offset=(first.getDay()+6)%7,days=new Date(year,month+1,0).getDate();
+  const sessions=new Map();history.forEach(h=>{const date=new Date(h.finishedAt),key=dateKey(date);if(date.getMonth()===month&&date.getFullYear()===year){const list=sessions.get(key)||[];list.push(h);sessions.set(key,list);}});
+  const slots=plan?.days?.length?Array.from({length:plan.days.length},(_,i)=>Math.round(i*6/Math.max(1,plan.days.length-1))):[];
+  const cells=Array.from({length:offset+days},(_,i)=>{if(i<offset)return '<div class="calendar-day blank"></div>';const d=new Date(year,month,i-offset+1),done=sessions.get(dateKey(d))||[],weekday=(d.getDay()+6)%7,planned=slots.includes(weekday),plannedIndex=slots.indexOf(weekday);return `<div class="calendar-day ${done.length?'completed':''} ${dateKey(d)===dateKey(now)?'today':''}"><span>${d.getDate()}</span>${done.length?`<b>✓ ${esc(done[0].dayName||'Training')}</b>`:planned?`<small>${esc(plan.days[plannedIndex]?.name||'Geplant')}</small>`:''}</div>`;});
+  const upcoming=plan?.days?.map((d,i)=>`<div><span>${['Mo','Di','Mi','Do','Fr','Sa','So'][slots[i]]}</span><b>${esc(d.name)}</b><small>${d.exercises.length} Übungen</small></div>`).join('')||'';
+  return `<main class="shell calendar-shell"><div class="backrow"><button class="back" data-nav="more">←</button><span>Trainingskalender</span></div><section class="calendar-head"><div><span class="eyebrow">Monatsansicht</span><h1>${new Intl.DateTimeFormat('de-DE',{month:'long',year:'numeric'}).format(now)}</h1></div><div class="calendar-key"><span><i class="planned-dot"></i>Geplant</span><span><i class="done-dot"></i>Erledigt</span></div></section><div class="calendar-weekdays">${['Mo','Di','Mi','Do','Fr','Sa','So'].map(x=>`<span>${x}</span>`).join('')}</div><section class="calendar-grid">${cells.join('')}</section><section class="calendar-plan"><div class="section-title"><h2>Wochenrhythmus</h2><small>Automatisch verteilt</small></div>${upcoming||empty('Noch kein Plan','Erstelle zuerst einen Trainingsplan.')}</section></main>`;
 }
 
 function bodyView(){
@@ -238,6 +279,8 @@ function bind(){
 }
 
 function bindPlans(){
+  document.querySelector('#planAssistant')?.addEventListener('click',()=>{state.view='assistant';render();});
+  document.querySelector('#assistantForm')?.addEventListener('submit',e=>{e.preventDefault();const f=new FormData(e.currentTarget),data=allPlans(),p=createSuggestedPlan(f.get('goal'),number(f.get('days')));data.items.push(p);data.activePlanId=p.id;savePlans(data);state.editPlanId=p.id;state.view='planEditor';render();});
   document.querySelector('#newPlan')?.addEventListener('click',()=>{const data=allPlans(),p={id:uid(),name:'Mein Trainingsplan',description:'',createdAt:new Date().toISOString(),days:[{id:uid(),name:'Training 1',subtitle:'',exercises:[]}]};data.items.push(p);savePlans(data);state.editPlanId=p.id;state.view='planEditor';render();});
   document.querySelectorAll('[data-edit-plan]').forEach(b=>b.onclick=()=>{state.editPlanId=b.dataset.editPlan;state.view='planEditor';render();});
   document.querySelectorAll('[data-activate-plan]').forEach(b=>b.onclick=()=>{const d=allPlans();d.activePlanId=b.dataset.activatePlan;savePlans(d);render();});
@@ -255,14 +298,16 @@ function bindEditor(){
   document.querySelector('#savePlan').onclick=()=>{collectPlan();state.view='plans';render();};
   document.querySelector('#addDay').onclick=()=>{const p=collectPlan();p.days.push({id:uid(),name:`Tag ${p.days.length+1}`,subtitle:'',exercises:[]});persistPlan(p);render();};
   document.querySelectorAll('[data-remove-day]').forEach(b=>b.onclick=()=>{const p=collectPlan();p.days.splice(number(b.dataset.removeDay),1);persistPlan(p);render();});
-  document.querySelectorAll('[data-add-exercise]').forEach(b=>b.onclick=()=>{collectPlan();state.libraryDayIndex=number(b.dataset.addExercise);state.libraryCategory='Alle';render();});
+  document.querySelectorAll('[data-add-exercise]').forEach(b=>b.onclick=()=>{collectPlan();state.libraryDayIndex=number(b.dataset.addExercise);state.replaceExerciseIndex=null;state.libraryCategory='Alle';render();});
+  document.querySelectorAll('[data-replace-exercise]').forEach(b=>b.onclick=()=>{const [di,ei]=b.dataset.replaceExercise.split(':').map(Number);collectPlan();state.libraryDayIndex=di;state.replaceExerciseIndex=ei;state.libraryCategory='Alle';render();});
   document.querySelectorAll('[data-remove-exercise]').forEach(b=>b.onclick=()=>{const [di,ei]=b.dataset.removeExercise.split(':').map(Number),p=collectPlan();p.days[di].exercises.splice(ei,1);persistPlan(p);render();});
   document.querySelectorAll('[data-move]').forEach(b=>b.onclick=()=>{const p=collectPlan(),list=p.days[number(b.dataset.day)].exercises,i=number(b.dataset.ex),j=b.dataset.move==='up'?i-1:i+1;if(j>=0&&j<list.length)[list[i],list[j]]=[list[j],list[i]];persistPlan(p);render();});
   document.querySelectorAll('[data-library-category]').forEach(b=>b.onclick=()=>{state.libraryCategory=b.dataset.libraryCategory;render();});
   const filterLibrary=()=>{const q=document.querySelector('#librarySearch')?.value.toLowerCase().trim()||'';document.querySelectorAll('.library-item').forEach(card=>card.hidden=(state.libraryCategory!=='Alle'&&card.dataset.category!==state.libraryCategory)||!card.dataset.search.includes(q));};
   document.querySelector('#librarySearch')?.addEventListener('input',filterLibrary);filterLibrary();
-  document.querySelectorAll('[data-pick-exercise]').forEach(b=>b.onclick=()=>{const data=allPlans(),plan=data.items.find(x=>x.id===state.editPlanId),source=EXERCISE_LIBRARY.find(x=>x.id===b.dataset.pickExercise),picked={...clone(source),id:uid(),libraryId:source.id};plan.days[state.libraryDayIndex].exercises.push(picked);savePlans(data);render();});
-  const closeLibrary=()=>{state.libraryDayIndex=null;render();};
+  document.querySelectorAll('[data-library-favorite]').forEach(b=>b.onclick=()=>{const prefs=read(LS.exercisePrefs,{favorites:[],recent:[]}),id=b.dataset.libraryFavorite;prefs.favorites=prefs.favorites.includes(id)?prefs.favorites.filter(x=>x!==id):[id,...prefs.favorites];write(LS.exercisePrefs,prefs);render();});
+  document.querySelectorAll('[data-pick-exercise]').forEach(b=>b.onclick=()=>{const data=allPlans(),plan=data.items.find(x=>x.id===state.editPlanId),source=EXERCISE_LIBRARY.find(x=>x.id===b.dataset.pickExercise),picked={...clone(source),id:uid(),libraryId:source.id},list=plan.days[state.libraryDayIndex].exercises;if(state.replaceExerciseIndex!==null){const old=list[state.replaceExerciseIndex];picked.sets=old.sets;picked.range=old.range;picked.rest=old.rest;list[state.replaceExerciseIndex]=picked;}else list.push(picked);const prefs=read(LS.exercisePrefs,{favorites:[],recent:[]});prefs.recent=[source.id,...prefs.recent.filter(x=>x!==source.id)].slice(0,12);write(LS.exercisePrefs,prefs);savePlans(data);if(state.replaceExerciseIndex!==null){state.libraryDayIndex=null;state.replaceExerciseIndex=null;}render();});
+  const closeLibrary=()=>{state.libraryDayIndex=null;state.replaceExerciseIndex=null;render();};
   document.querySelector('#closeLibrary')?.addEventListener('click',closeLibrary);document.querySelector('#closeLibraryBottom')?.addEventListener('click',closeLibrary);
   document.querySelector('#addCustomExercise')?.addEventListener('click',()=>{const data=allPlans(),plan=data.items.find(x=>x.id===state.editPlanId);plan.days[state.libraryDayIndex].exercises.push({...exercise(uid(),'Eigene Übung',3,'8–12','',''),custom:true,category:'Eigene Übung'});savePlans(data);closeLibrary();});
 }
@@ -275,6 +320,7 @@ function bindWorkout(){
   document.querySelectorAll('[data-set-done]').forEach(b=>b.onclick=()=>mutateSession(s=>{const set=s.entries[state.exerciseIndex].sets[number(b.dataset.setDone)];set.done=!set.done;if(set.done){const ex=getDay(state.planId,state.dayId).exercises[state.exerciseIndex];state.restUntil=Date.now()+(number(ex.rest)||number(read(LS.settings,{rest:90}).rest)||90)*1000;navigator.vibrate?.(40);}},true));
   document.querySelector('#exerciseNote').oninput=e=>mutateSession(s=>s.entries[state.exerciseIndex].note=e.target.value);
   document.querySelector('#addWarmup').onclick=()=>mutateSession(s=>s.entries[state.exerciseIndex].sets.unshift({weight:'',reps:'',rir:'',done:false,warmup:true}),true);
+  document.querySelector('#autoWarmup').onclick=()=>{const entry=activeSession().entries[state.exerciseIndex],work=entry.sets.find(x=>!x.warmup),target=number(work?.weight)||suggestion(getDay(state.planId,state.dayId).exercises[state.exerciseIndex],entry).weight;if(!target){alert('Trage zuerst dein geplantes Arbeitsgewicht ein.');return;}const round=v=>Math.max(2.5,Math.round(v/2.5)*2.5);mutateSession(s=>{const e=s.entries[state.exerciseIndex];e.sets=e.sets.filter(x=>!x.warmup);e.sets.unshift(...[[.4,8],[.6,5],[.8,3]].map(([factor,reps])=>({weight:round(target*factor),reps,rir:'',done:false,warmup:true})));},true);};
   document.querySelector('#applySuggestion')?.addEventListener('click',e=>mutateSession(s=>s.entries[state.exerciseIndex].sets.filter(x=>!x.warmup).forEach(x=>x.weight=e.currentTarget.dataset.weight),true));
   document.querySelector('#favoriteExercise').onclick=()=>{const d=allPlans(),ex=d.items.find(p=>p.id===state.planId).days.find(x=>x.id===state.dayId).exercises[state.exerciseIndex];ex.favorite=!ex.favorite;savePlans(d);render();};
   document.querySelector('#prevExercise').onclick=()=>{state.exerciseIndex--;render();};
@@ -323,4 +369,6 @@ function drawAnalytics(){
 }
 function drawBodyChart(){const body=read(LS.body,[]).filter(x=>x.weight).slice().reverse();lineChart(document.querySelector('#bodyChart'),body.map(x=>({label:fmtDate(x.date),value:number(x.weight)})),{color:'#5b6ee1',suffix:' kg'});}
 
+if('scrollRestoration' in history)history.scrollRestoration='manual';
+window.addEventListener('pageshow',()=>window.scrollTo(0,0));
 initialise();render();

@@ -1,6 +1,6 @@
-const CACHE='volumora-v6';
+const CACHE='volumora-v8';
 const ASSETS=[
-  './','./index.html','./styles.css','./app.js','./manifest.json',
+  './','./index.html','./styles.css','./app.js','./manifest.json','./assets/data/exercises.js',
   './assets/brand/volumora-mark.png','./assets/icons/favicon-32.png',
   './assets/icons/icon-192.png','./assets/icons/icon-512.png'
 ];
