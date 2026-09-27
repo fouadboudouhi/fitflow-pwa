@@ -1,15 +1,18 @@
-# PPL Routine — PWA
+# Volumora — Training & Fortschritt
 
-Offline-fähige, installierbare Push/Pull/Legs-PWA.
+Offline-fähige, installierbare Fitness-PWA für frei konfigurierbare Trainingspläne.
 
 ## Funktionen
-- Push / Pull / Legs mit fest hinterlegtem Plan
-- 16 lokal gebündelte animierte Übungs-GIFs (schematische MVP-Darstellung)
-- Gewicht und **tatsächlich geschaffte Wiederholungen pro Satz** eintragen
-- Satz als erledigt markieren
-- Sätze hinzufügen / entfernen
-- Letzte Werte beim nächsten gleichen Training anzeigen
-- Trainingsverlauf lokal im Browser (`localStorage`)
+- Beliebig viele Trainingspläne, Tage und Übungen erstellen
+- Geführter Trainingsmodus mit nur einer aktuellen Übung
+- Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen, RIR/RPE und Notizen
+- Automatische Progressive-Overload-Empfehlungen und Pausentimer
+- Trainingsvolumen, geschätztes 1RM und Körpergewicht als Diagramme
+- Körpermaße und komprimierte Fortschrittsfotos
+- JSON-Backup, JSON-Import und CSV-Export
+- Dark Mode, Favoriten sowie Deload-, Krankheits- und Schmerzmarker
+- Professionelle Übungsanimationen von ExerciseDB
+- Lokale Speicherung im Browser (`localStorage`)
 - PWA-Manifest + Service Worker für Offline-Nutzung
 - iPhone-freundliche Safe-Area und Homescreen-Nutzung
 
@@ -23,4 +26,4 @@ python3 -m http.server 8080
 Dann `http://localhost:8080` öffnen.
 
 ## Daten
-Alle Trainingsdaten bleiben im Browser des Geräts. Es gibt im MVP keinen Account und kein Backend.
+Alle Trainings- und Körperdaten bleiben im Browser des Geräts. Es gibt keinen Account und kein Backend. Für einen Gerätewechsel steht der JSON-Export zur Verfügung.
