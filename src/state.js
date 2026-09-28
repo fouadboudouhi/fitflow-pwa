@@ -16,6 +16,8 @@ export const state = {
   analyticsExercise: null,
   analyticsRange: '3m',
   sessionId: null,
+  openNotes: null,
+  editorDetails: null,
   calendarOffset: 0,
   installPrompt: null,
   restUntil: 0,

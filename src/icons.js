@@ -15,6 +15,9 @@ const PATHS = {
   trend: '<path d="M4 18L11 11l4 4 5-5"/><path d="M15 10h5v5"/>',
   'chevron-left': '<path d="M15 6l-6 6 6 6"/>',
   'chevron-right': '<path d="M9 6l6 6-6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  down: '<path d="M12 5v14M5 12l7 7 7-7"/>',
 };
 export const icon = (name) =>
   `<svg class="icon icon-${name}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PATHS[name] || ''}</svg>`;

@@ -67,10 +67,7 @@ export function render() {
     !viewChanged && active?.dataset?.setField
       ? `[data-set-field="${active.dataset.setField}"][data-exercise="${active.dataset.exercise}"][data-index="${active.dataset.index}"]`
       : null;
-  $app.innerHTML =
-    (state.view === 'workout' ? '' : topbar()) +
-    content +
-    (bare ? '' : nav(NAV_FOR[state.view] || state.view));
+  $app.innerHTML = topbar() + content + (bare ? '' : nav(NAV_FOR[state.view] || state.view));
   if (viewChanged) $app.querySelector('main')?.classList.add('view-enter');
   openDetails.forEach((id) => document.getElementById(id)?.setAttribute('open', ''));
   if (focusKey) document.querySelector(focusKey)?.focus({ preventScroll: true });

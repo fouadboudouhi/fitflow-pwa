@@ -12,6 +12,7 @@ Die visuellen Regeln sind in [`DESIGN.md`](DESIGN.md) dokumentiert, im neunteili
 - Übungsanimationen und Hinweise werden bei der Auswahl automatisch übernommen
 - Durchgehender Trainingsmodus: alle Übungen kompakt untereinander und ohne Weiter-Button
 - Abgebrochene Trainings lassen sich von der Startseite aus fortsetzen, auch nach Änderungen am Plan
+- Pro Übung nur die Satz-Tabelle, ein „+ Satz“ und ein „⋯“-Menü für Aufwärmsätze, Scheibenrechner, Notiz und RIR
 - Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen und Notizen; RIR ist optional und standardmäßig ausgeblendet
 - Sätze lassen sich mobil durch Wischen nach links löschen
 - Automatisch berechnete Aufwärmsätze

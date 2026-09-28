@@ -143,3 +143,28 @@ export function sheet({ title, content, closeLabel = 'Schließen' }) {
   });
   return close;
 }
+
+// Bottom sheet with a short list of actions. Secondary actions live here instead of as visible buttons.
+export function actionSheet(title, actions) {
+  const list = document.createElement('div');
+  list.className = 'action-list';
+  let close = () => {};
+  actions.filter(Boolean).forEach((action) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `action-item ${action.danger ? 'danger' : ''}`;
+    button.textContent = action.label;
+    if (action.hint) {
+      const hint = document.createElement('small');
+      hint.textContent = action.hint;
+      button.append(hint);
+    }
+    button.onclick = () => {
+      close();
+      action.onClick();
+    };
+    list.append(button);
+  });
+  close = sheet({ title, content: list });
+  return close;
+}
