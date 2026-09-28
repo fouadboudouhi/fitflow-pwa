@@ -16,9 +16,9 @@ Volumora is a quiet, private workout companion. It should feel focused, calm and
 
 ## Color roles
 
-- Light canvas `#F6F7F4`, surface `#FFFFFF`, inset `#EEF1ED`, ink `#131713`, muted `#687069`, line `#DDE2DC`.
+- Light canvas `#F6F7F4`, surface `#FFFFFF`, inset `#EEF1ED`, ink `#131713`, muted `#606760`, line `#DDE2DC`.
 - Dark canvas `#0B0E0C`, surface `#121713`, inset `#1A211C`, ink `#F2F5F2`, muted `#98A099`, line `#293129`.
-- Action green `#16B86A` light and `#34D889` dark.
+- Action green `#16B86A` light and `#34D889` dark for fills. Text on a green fill is dark ink `#0B1A10`; green text and links use `#0D7A45` in light mode (4.5:1 on every surface) and `#34D889` in dark mode.
 - Red is destructive only; amber is caution only.
 
 ## Core components

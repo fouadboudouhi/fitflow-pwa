@@ -1,5 +1,6 @@
 // Persistence: localStorage for structured data, IndexedDB for photos, plus versioned migrations.
 import { DEFAULT_PLAN } from './library.js';
+import { toast } from './ui.js';
 import { clone, dayKey, exerciseKey, uid, volumeOf } from './util.js';
 
 export const LS = {
@@ -26,8 +27,9 @@ export const write = (key, value) => {
     return true;
   } catch (err) {
     console.error('Speichern fehlgeschlagen', err);
-    alert(
-      'Speichern fehlgeschlagen: Der lokale Speicher ist voll. Exportiere ein Backup und lösche alte Messungen oder Trainings.'
+    toast(
+      'Speichern fehlgeschlagen: Der lokale Speicher ist voll. Exportiere ein Backup und lösche alte Daten.',
+      { duration: 9000 }
     );
     return false;
   }

@@ -2,6 +2,7 @@ import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { allPlans, getDay, getSettings, savePlans, saveSettings } from '../storage.js';
+import { confirmDialog, toast, undoToast } from '../ui.js';
 import { esc, number } from '../util.js';
 import {
   activeSession,
@@ -43,11 +44,11 @@ function exerciseSection(ex, index, entry, total, showRir) {
     .join('');
   return `<section class="workout-exercise ${complete ? 'complete' : ''}" id="exercise-${index}">
       <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><small>Übung ${index + 1} von ${total}</small><h2>${esc(ex.name)}</h2><p>${esc(ex.sets)} × ${esc(ex.range)} Wdh.</p></div><button class="favorite ${ex.favorite ? 'active' : ''}" data-favorite-exercise="${index}" aria-label="Favorit" aria-pressed="${!!ex.favorite}">★</button></div>
-      ${ex.gif ? `<details class="technique compact-technique"><summary><img src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><span><b>Technik</b><small>${esc(ex.note || 'Bewegungsablauf ansehen')}</small></span><i>⌄</i></summary><div class="exercise-media"><img src="${esc(ex.gif)}" alt="Ausführung ${esc(ex.name)}" loading="lazy" decoding="async"></div></details>` : ex.note ? `<p class="coach-note">${esc(ex.note)}</p>` : ''}
+      ${ex.gif ? `<details class="technique compact-technique" id="technique-${index}"><summary><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><span><b>Technik</b><small>${esc(ex.note || 'Bewegungsablauf ansehen')}</small></span><i>⌄</i></summary><div class="exercise-media"><img class="exercise-gif" src="${esc(ex.gif)}" alt="Ausführung ${esc(ex.name)}" loading="lazy" decoding="async"></div></details>` : ex.note ? `<p class="coach-note">${esc(ex.note)}</p>` : ''}
       ${suggest.weight !== null ? `<div class="progression-row compact-progression"><span>${icon('trend')}</span><div><small>Empfehlung</small><b>${esc(suggest.text)}</b></div><button class="tiny" data-apply-suggestion="${index}" data-weight="${suggest.weight}">Nutzen</button></div>` : ''}
       <div class="set-table ${showRir ? '' : 'no-rir'}"><div class="set-head"><span>Satz</span><span>kg</span><span>Wdh.</span>${showRir ? '<span>RIR</span>' : ''}<span></span></div><div class="set-list">${rows}</div></div>
       <div class="exercise-tools"><button class="text-btn" data-add-warmup="${index}">+ Aufwärmsatz</button><button class="text-btn" data-auto-warmup="${index}">Aufwärmen berechnen</button></div>
-      <details class="exercise-notes" ${entry.note ? 'open' : ''}><summary>${entry.note ? 'Notiz bearbeiten' : '＋ Notiz hinzufügen'}</summary><textarea data-exercise-note="${index}" placeholder="Technik, Geräteeinstellung, Gefühl …">${esc(entry.note || '')}</textarea></details>
+      <details class="exercise-notes" id="notes-${index}" ${entry.note ? 'open' : ''}><summary>${entry.note ? 'Notiz bearbeiten' : '＋ Notiz hinzufügen'}</summary><textarea data-exercise-note="${index}" placeholder="Technik, Geräteeinstellung, Gefühl …">${esc(entry.note || '')}</textarea></details>
     </section>`;
 }
 
@@ -63,9 +64,9 @@ export function view() {
   const list = day.exercises
     .map((ex, index) => exerciseSection(ex, index, session.entries[index], day.exercises.length, showRir))
     .join('');
-  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="Training verlassen">←</button><div><span>${esc(day.name)}</span><b>${completed} / ${day.exercises.length} Übungen</b></div><div class="workout-top-actions"><button class="icon-btn" id="quickTheme" aria-label="Farbschema wechseln">${icon('theme')}</button><button class="text-btn" id="finishWorkout">Beenden</button></div></div>
-    <div class="progress-line" role="progressbar" aria-valuenow="${completed}" aria-valuemax="${day.exercises.length}"><i style="width:${(completed / day.exercises.length) * 100}%"></i></div>
-    <div class="workout-options"><details class="session-status"><summary>Tagesform <span>optional</span></summary><div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload ? 'checked' : ''}> Deload</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill ? 'checked' : ''}> Krank</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain ? 'checked' : ''}> Schmerzen</label></div></details><button class="optional-field" id="toggleRir">${showRir ? 'RIR ausblenden' : 'RIR einblenden'}</button></div>
+  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="Training verlassen">←</button><div><h1>${esc(day.name)}</h1><b>${completed} / ${day.exercises.length} Übungen</b></div><div class="workout-top-actions"><button class="icon-btn" id="quickTheme" aria-label="Farbschema wechseln">${icon('theme')}</button><button class="text-btn" id="finishWorkout">Beenden</button></div></div>
+    <div class="progress-line" role="progressbar" aria-label="Fortschritt: ${completed} von ${day.exercises.length} Übungen" aria-valuenow="${completed}" aria-valuemax="${day.exercises.length}"><i style="width:${(completed / day.exercises.length) * 100}%"></i></div>
+    <div class="workout-options"><details class="session-status" id="session-status"><summary>Tagesform <span>optional</span></summary><div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload ? 'checked' : ''}> Deload</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill ? 'checked' : ''}> Krank</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain ? 'checked' : ''}> Schmerzen</label></div></details><button class="optional-field" id="toggleRir">${showRir ? 'RIR ausblenden' : 'RIR einblenden'}</button></div>
     <div class="workout-exercise-list">${list}</div>
     <div class="rest-timer ${state.restUntil > Date.now() ? 'show' : ''}" id="restTimer" role="timer" aria-live="off"><div><span>Pause</span><b id="restCount">0:00</b></div><button data-rest-add>+30</button><button data-rest-skip>Überspringen</button></div>
   </main>`;
@@ -108,11 +109,17 @@ export function bind() {
   document.querySelectorAll('[data-delete-set]').forEach((b) => {
     b.onclick = () => {
       const exerciseIndex = number(b.dataset.exercise);
-      if (activeSession(state.planId, state.dayId).entries[exerciseIndex].sets.length <= 1) {
-        alert('Mindestens ein Satz bleibt bestehen.');
+      const setIndex = number(b.dataset.deleteSet);
+      const sets = activeSession(state.planId, state.dayId).entries[exerciseIndex].sets;
+      if (sets.length <= 1) {
+        toast('Mindestens ein Satz bleibt bestehen.');
         return;
       }
-      mutate((s) => s.entries[exerciseIndex].sets.splice(number(b.dataset.deleteSet), 1), true);
+      const removed = sets[setIndex];
+      mutate((s) => s.entries[exerciseIndex].sets.splice(setIndex, 1), true);
+      undoToast('Satz gelöscht', () =>
+        mutate((s) => s.entries[exerciseIndex].sets.splice(setIndex, 0, removed), true)
+      );
     };
   });
   document.querySelectorAll('.set-row').forEach((row) => {
@@ -150,7 +157,7 @@ export function bind() {
       const entry = activeSession(state.planId, state.dayId).entries[exerciseIndex];
       const target = number(entry.sets.find((x) => !x.warmup)?.weight) || suggestion(ex).weight;
       if (!target) {
-        alert('Trage zuerst dein geplantes Arbeitsgewicht ein.');
+        toast('Trage zuerst dein geplantes Arbeitsgewicht ein.');
         return;
       }
       mutate((s) => {
@@ -188,12 +195,20 @@ export function bind() {
       render();
     };
   });
-  document.querySelector('#finishWorkout').onclick = () => {
+  document.querySelector('#finishWorkout').onclick = async () => {
     const session = activeSession(state.planId, state.dayId);
-    if (!sessionStarted(session) && !confirm('Noch kein Satz ist erledigt. Training trotzdem speichern?'))
+    if (
+      !sessionStarted(session) &&
+      !(await confirmDialog({
+        title: 'Noch kein Satz erledigt',
+        text: 'Das Training trotzdem speichern?',
+        confirmLabel: 'Speichern',
+      }))
+    )
       return;
     finishSession(session);
     navigate('analytics');
+    toast('Training gespeichert');
   };
   document.querySelector('#exitWorkout').onclick = () => navigate('home');
   document.querySelector('[data-rest-add]')?.addEventListener('click', () => {

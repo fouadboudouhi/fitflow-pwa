@@ -5,12 +5,13 @@ import { addDay, customExercise, planExerciseFromLibrary, planSchedule, schedule
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { allPlans, getPrefs, persistPlan, savePlans, savePrefs } from '../storage.js';
+import { undoToast } from '../ui.js';
 import { WEEKDAYS, esc, number, plural } from '../util.js';
 import { empty } from './shell.js';
 import * as plansView from './plans.js';
 
 const exerciseRow = (ex, di, ei) =>
-  `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif ? `<img src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : '<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${
+  `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : '<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${
     ex.custom
       ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="Name der eigenen Übung">`
       : `<h3>${esc(ex.name)}</h3>`
@@ -30,7 +31,7 @@ function libraryDialog(plan) {
       const favorite = prefs.favorites.includes(ex.id);
       const search =
         `${ex.name} ${ex.sourceName || ''} ${ex.category} ${ex.equipment || ''} ${ex.target || ''}`.toLowerCase();
-      return `<article class="library-item" data-category="${esc(ex.category)}" data-search="${esc(search)}"><img src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><div><h3>${esc(ex.name)}</h3><span>${esc(ex.category)} · ${esc(ex.equipment || '')} · ${esc(ex.sets)} × ${esc(ex.range)}</span></div><div class="library-actions"><button class="star ${favorite ? 'active' : ''}" data-library-favorite="${ex.id}" aria-label="Favorit" aria-pressed="${favorite}">★</button><button class="${added ? 'added' : ''}" data-pick-exercise="${ex.id}" ${added ? 'disabled' : ''} aria-label="${added ? 'Bereits im Plan' : 'Übung hinzufügen'}">${added ? '✓' : '＋'}</button></div></article>`;
+      return `<article class="library-item" data-category="${esc(ex.category)}" data-search="${esc(search)}"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><div><h3>${esc(ex.name)}</h3><span>${esc(ex.category)} · ${esc(ex.equipment || '')} · ${esc(ex.sets)} × ${esc(ex.range)}</span></div><div class="library-actions"><button class="star ${favorite ? 'active' : ''}" data-library-favorite="${ex.id}" aria-label="Favorit" aria-pressed="${favorite}">★</button><button class="${added ? 'added' : ''}" data-pick-exercise="${ex.id}" ${added ? 'disabled' : ''} aria-label="${added ? 'Bereits im Plan' : 'Übung hinzufügen'}">${added ? '✓' : '＋'}</button></div></article>`;
     })
     .join('');
   return `<div class="library-backdrop"><section class="exercise-library" role="dialog" aria-modal="true" aria-label="Übung auswählen"><div class="library-head"><div><span class="eyebrow">${replacing ? 'Ersatz wählen' : esc(day?.name || 'Trainingstag')} · ${EXERCISE_LIBRARY.length} Übungen</span><h2>${replacing ? 'Übung ersetzen' : 'Übung auswählen'}</h2></div><button class="icon-btn" id="closeLibrary" aria-label="Schließen">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="Name, Muskel oder Gerät …" autocomplete="off" value="${esc(state.libraryQuery || '')}"></label><div class="category-chips">${CATEGORIES.map((c) => `<button class="${state.libraryCategory === c ? 'active' : ''}" data-library-category="${c}" aria-pressed="${state.libraryCategory === c}">${c}</button>`).join('')}</div><div class="library-list">${items}</div><button class="custom-exercise-button" id="addCustomExercise">＋ Eigene Übung ohne Animation</button><button class="primary full library-done" id="closeLibraryBottom">Fertig</button></section></div>`;
@@ -52,7 +53,7 @@ export function view() {
         `<label><span>${esc(day.name)}</span><select data-schedule-day="${day.id}">${WEEKDAYS.map((name, weekday) => `<option value="${weekday}" ${(schedule.assignments?.[day.id] ?? scheduleSlots(p.days.length)[i]) === weekday ? 'selected' : ''}>${name}</option>`).join('')}</select></label>`
     )
     .join('');
-  return `<main class="shell simple-editor"><div class="backrow"><button class="back" data-nav="plans" aria-label="Zurück">←</button><span>Plan bearbeiten</span></div>
+  return `<main class="shell simple-editor"><div class="backrow"><button class="back" data-nav="plans" aria-label="Zurück">←</button><h1>Plan bearbeiten</h1></div>
     <section class="simple-plan-head"><label><span>Name des Plans</span><input id="planName" value="${esc(p.name)}" maxlength="60"></label><p>Lege deine Trainingstage an und wähle anschließend Übungen aus der Bibliothek.</p><input id="planDescription" type="hidden" value="${esc(p.description || '')}"></section>
     <section class="schedule-editor"><div><span class="eyebrow">Wochenrhythmus</span><h2>Wann möchtest du trainieren?</h2></div><div class="schedule-mode"><label><input type="radio" name="planScheduleMode" value="flexible" ${schedule.mode !== 'fixed' ? 'checked' : ''}> Flexibel</label><label><input type="radio" name="planScheduleMode" value="fixed" ${schedule.mode === 'fixed' ? 'checked' : ''}> Feste Tage</label></div><div class="schedule-days" id="scheduleDays" ${schedule.mode === 'fixed' ? '' : 'hidden'}>${scheduleDays}</div></section>
     <div class="editor-day-tabs" role="tablist">${p.days.map((day, i) => `<button class="${i === di ? 'active' : ''}" data-editor-day="${i}" role="tab" aria-selected="${i === di}"><span>${i + 1}</span>${esc(day.name)}</button>`).join('')}</div>
@@ -232,10 +233,22 @@ export function bind() {
   document.querySelectorAll('[data-remove-day]').forEach((b) => {
     b.onclick = () => {
       const p = collectPlan();
-      p.days.splice(number(b.dataset.removeDay), 1);
+      const di = number(b.dataset.removeDay);
+      const [removed] = p.days.splice(di, 1);
+      const weekday = p.schedule?.assignments?.[removed.id];
       state.editorDayIndex = Math.max(0, Math.min(state.editorDayIndex, p.days.length - 1));
       persistPlan(p);
       render();
+      undoToast(`„${removed.name}“ entfernt`, () => {
+        const current = allPlans().items.find((x) => x.id === p.id);
+        if (!current) return;
+        current.days.splice(Math.min(di, current.days.length), 0, removed);
+        if (weekday !== undefined)
+          (current.schedule ||= { mode: 'flexible', assignments: {} }).assignments[removed.id] = weekday;
+        state.editorDayIndex = di;
+        persistPlan(current);
+        render();
+      });
     };
   });
   document.querySelectorAll('[data-add-exercise]').forEach((b) => {
@@ -251,9 +264,17 @@ export function bind() {
     b.onclick = () => {
       const [di, ei] = b.dataset.removeExercise.split(':').map(Number);
       const p = collectPlan();
-      p.days[di].exercises.splice(ei, 1);
+      const [removed] = p.days[di].exercises.splice(ei, 1);
       persistPlan(p);
       render();
+      undoToast(`„${removed.name}“ entfernt`, () => {
+        const current = allPlans().items.find((x) => x.id === p.id);
+        const day = current?.days[di];
+        if (!day) return;
+        day.exercises.splice(Math.min(ei, day.exercises.length), 0, removed);
+        persistPlan(current);
+        render();
+      });
     };
   });
   document.querySelectorAll('[data-move]').forEach((b) => {

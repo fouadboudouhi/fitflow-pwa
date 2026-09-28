@@ -6,6 +6,7 @@ const fs = require('fs'),
   path = require('path');
 const { chromium } = require('playwright');
 const { createServer } = require('./serve.js');
+const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 let server, browser, baseURL, context, page, errors;
 const PNG = Buffer.from(
@@ -174,6 +175,7 @@ test('a hostile backup is sanitised on import', async () => {
   await page.click('[data-nav="more"]');
   await page.click('[data-nav="backup"]');
   await page.setInputFiles('#importJson', file);
+  await page.click('.sheet [data-ok]');
   await page.waitForSelector('.home-intro');
   for (const view of ['plans', 'analytics', 'calendar', 'more', 'body', 'more', 'settings']) {
     await page.click(`[data-nav="${view}"]`);
@@ -307,4 +309,77 @@ test('legacy data is migrated: day keys, library ids and photos in IndexedDB', a
     '60'
   );
   assert.match(await page.textContent('.progression-row b'), /60 kg/);
+});
+
+test('deleting a set can be undone and open details survive a re-render', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  const first = page.locator('.workout-exercise').first();
+  await first.locator('details.technique summary').click();
+  await first.locator('[data-set-done="1"]').click();
+  assert.equal(
+    await first.locator('details.technique').getAttribute('open'),
+    '',
+    'technique stays open after marking a set'
+  );
+  assert.equal(await first.locator('.set-row').count(), 3);
+  await first.locator('[data-delete-set="2"]').dispatchEvent('click'); // revealed by swipe in the real UI
+  assert.equal(await first.locator('.set-row').count(), 2);
+  await page.waitForSelector('.toast.show');
+  await page.click('.toast-action');
+  assert.equal(await first.locator('.set-row').count(), 3, 'undo restores the set');
+  await page.click('#exitWorkout');
+  // Starting another day asks first; cancelling keeps the session.
+  await page.click('.other-days [data-start]');
+  await page.waitForSelector('.sheet-backdrop.show');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.resume-card');
+  assert.match(await page.textContent('.resume-card p'), /1 Satz erledigt/);
+});
+
+test('deleting a plan can be undone', async () => {
+  await page.click('[data-nav="plans"]');
+  await page.click('#newPlan');
+  await page.click('#savePlan');
+  assert.equal(await page.locator('.plan-card').count(), 2);
+  await page.click('[data-delete-plan]');
+  assert.equal(await page.locator('.plan-card').count(), 1);
+  await page.click('.toast-action');
+  assert.equal(await page.locator('.plan-card').count(), 2);
+});
+
+test('no serious accessibility violations', async () => {
+  const check = async (name) => {
+    await page.addScriptTag({ content: AXE });
+    const result = await page.evaluate(() => axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] }));
+    const serious = result.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
+    assert.deepEqual(
+      serious.map((v) => `${v.id}: ${v.nodes.length} nodes`),
+      [],
+      `${name} has accessibility violations`
+    );
+  };
+  for (const scheme of ['light', 'dark']) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.evaluate(() => localStorage.removeItem('volumora-settings-v2'));
+    await page.reload();
+    await page.waitForSelector('.next-card');
+    await check(`home/${scheme}`);
+    await page.click('.next-card [data-start]');
+    await page.waitForSelector('.workout-exercise');
+    await check(`workout/${scheme}`);
+    await page.click('#exitWorkout');
+    await page.click('[data-nav="plans"]');
+    await page.click('[data-edit-plan]');
+    await page.click('[data-add-exercise="0"]');
+    await page.waitForSelector('.exercise-library');
+    await check(`library/${scheme}`);
+    await page.keyboard.press('Escape');
+    await page.click('[data-nav="plans"]');
+    await page.click('[data-nav="analytics"]');
+    await check(`analytics/${scheme}`);
+    await page.click('[data-nav="more"]');
+    await page.click('[data-nav="settings"]');
+    await check(`settings/${scheme}`);
+  }
 });

@@ -37,6 +37,7 @@ Kein Build-Schritt, kein Framework: `index.html` lädt `src/app.js` als ES-Modul
 | `src/workout.js` | Sessions anlegen, fortsetzen, abschließen, Progressionsvorschläge |
 | `src/backup.js` | JSON-Export, Validierung und Import, CSV |
 | `src/charts.js` | Canvas-Diagramme |
+| `src/ui.js` | Toast mit Rückgängig und Bottom-Sheet für Bestätigungen (ersetzt `alert`/`confirm`) |
 | `src/render.js` | Rendert die aktive View und bindet ihre Events |
 | `src/views/*.js` | Eine Datei pro Bildschirm, jeweils `view()` und `bind()` |
 
@@ -52,7 +53,7 @@ npm start
 Dann `http://localhost:8080` öffnen. Alternativ funktioniert jeder statische Server, z. B. `python3 -m http.server 8080`.
 
 ## Tests und Formatierung
-Unit-Tests decken die reinen Module ab (`tests/unit.test.mjs`). Die Smoke-Tests starten die echte App in Chromium und prüfen die wichtigsten Abläufe: Training, Plan-Editor, Assistent, Fotos, Backup-Import, Datenmigration und Offline-Start. GitHub Actions führt beides bei jedem Push aus.
+Unit-Tests decken die reinen Module ab (`tests/unit.test.mjs`). Die Smoke-Tests starten die echte App in Chromium und prüfen die wichtigsten Abläufe: Training, Plan-Editor, Assistent, Fotos, Backup-Import, Datenmigration, Rückgängig-Funktion, Offline-Start und einen axe-core-Check auf Barrierefreiheit. GitHub Actions führt beides bei jedem Push aus.
 
 ```bash
 npm install

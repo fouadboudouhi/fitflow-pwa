@@ -5,6 +5,7 @@ import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { getSettings, saveSettings } from '../storage.js';
 import { applyTheme } from '../theme.js';
+import { confirmDialog, infoDialog, toast } from '../ui.js';
 import { esc, number } from '../util.js';
 import { backRow, mediaCredit } from './shell.js';
 
@@ -41,22 +42,26 @@ export function bind() {
     try {
       backup = validateBackup(JSON.parse(await file.text()));
     } catch {
-      alert('Diese Datei ist kein gültiges Volumora-Backup.');
+      toast('Diese Datei ist kein gültiges Volumora-Backup.');
       input.value = '';
       return;
     }
-    if (!confirm('Aktuelle lokale Daten durch dieses Backup ersetzen?')) {
+    const ok = await confirmDialog({
+      title: 'Backup einspielen?',
+      text: 'Alle aktuellen Pläne, Trainings, Messungen und Einstellungen auf diesem Gerät werden ersetzt.',
+      confirmLabel: 'Ersetzen',
+      danger: true,
+    });
+    if (!ok) {
       input.value = '';
       return;
     }
     const failed = await importBackup(backup);
     applyTheme();
-    alert(
-      failed
-        ? `Backup importiert. ${failed} Foto(s) konnten nicht gespeichert werden.`
-        : 'Backup wurde erfolgreich importiert.'
-    );
     navigate('home');
+    toast(
+      failed ? `Backup importiert. ${failed} Foto(s) konnten nicht gespeichert werden.` : 'Backup importiert'
+    );
   });
   document.querySelector('#settingsForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -72,12 +77,14 @@ export function bind() {
     if (!restTimer) state.restUntil = 0;
     applyTheme();
     render();
+    toast('Einstellungen gespeichert');
   });
   document
     .querySelector('#installHelp')
     ?.addEventListener('click', () =>
-      alert(
-        'iPhone/iPad: In Safari „Teilen“ → „Zum Home-Bildschirm“.\nAndroid: Browser-Menü → „App installieren“ oder „Zum Startbildschirm hinzufügen“.'
+      infoDialog(
+        'Auf dem Homescreen installieren',
+        'iPhone und iPad: In Safari „Teilen“ und dann „Zum Home-Bildschirm“ wählen. Android: Im Browser-Menü „App installieren“ oder „Zum Startbildschirm hinzufügen“.'
       )
     );
 }

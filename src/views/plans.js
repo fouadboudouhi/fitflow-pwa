@@ -2,6 +2,7 @@ import { createEmptyPlan, duplicatePlan, scheduleLabel } from '../plans.js';
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { allPlans, savePlans } from '../storage.js';
+import { undoToast } from '../ui.js';
 import { esc, plural } from '../util.js';
 
 const planCard = (p, activeId, deletable) => {
@@ -55,12 +56,21 @@ export function bind() {
   });
   document.querySelectorAll('[data-delete-plan]').forEach((b) => {
     b.onclick = () => {
-      if (!confirm('Diesen Trainingsplan wirklich löschen?')) return;
       const d = allPlans();
-      d.items = d.items.filter((x) => x.id !== b.dataset.deletePlan);
-      if (d.activePlanId === b.dataset.deletePlan) d.activePlanId = d.items[0].id;
+      const index = d.items.findIndex((x) => x.id === b.dataset.deletePlan);
+      if (index < 0 || d.items.length < 2) return;
+      const [removed] = d.items.splice(index, 1);
+      const wasActive = d.activePlanId === removed.id;
+      if (wasActive) d.activePlanId = d.items[0].id;
       savePlans(d);
       render();
+      undoToast(`„${removed.name}“ gelöscht`, () => {
+        const current = allPlans();
+        current.items.splice(Math.min(index, current.items.length), 0, removed);
+        if (wasActive) current.activePlanId = removed.id;
+        savePlans(current);
+        render();
+      });
     };
   });
 }

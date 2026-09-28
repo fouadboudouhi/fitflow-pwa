@@ -43,6 +43,15 @@ if ('serviceWorker' in navigator) {
   );
 }
 
+// A GIF that cannot be loaded (offline before first use, dead link) keeps its dark box instead of a broken-image icon.
+document.addEventListener(
+  'error',
+  (e) => {
+    if (e.target?.classList?.contains('exercise-gif')) e.target.classList.add('missing');
+  },
+  true
+);
+
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.addEventListener('pageshow', () => window.scrollTo(0, 0));
 

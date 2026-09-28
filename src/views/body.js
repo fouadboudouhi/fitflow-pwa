@@ -1,5 +1,6 @@
 import { render } from '../render.js';
 import { getBody, photos, saveBody } from '../storage.js';
+import { toast, undoToast } from '../ui.js';
 import { dayKey, esc, fmtDate, number, uid } from '../util.js';
 import { backRow } from './shell.js';
 
@@ -78,7 +79,7 @@ export function bind() {
         await photos.set(entry.id, await compressImage(file));
         entry.hasPhoto = true;
       } catch {
-        alert('Das Foto konnte nicht gespeichert werden. Die Messung wird ohne Foto gesichert.');
+        toast('Das Foto konnte nicht gespeichert werden. Die Messung wird ohne Foto gesichert.');
       }
     }
     const all = getBody();
@@ -88,10 +89,23 @@ export function bind() {
   });
   document.querySelectorAll('[data-delete-body]').forEach((b) => {
     b.onclick = () => {
-      if (!confirm('Diese Messung löschen?')) return;
-      saveBody(getBody().filter((x) => x.id !== b.dataset.deleteBody));
-      photos.remove(b.dataset.deleteBody);
+      const all = getBody();
+      const index = all.findIndex((x) => x.id === b.dataset.deleteBody);
+      if (index < 0) return;
+      const [removed] = all.splice(index, 1);
+      saveBody(all);
       render();
+      // The photo stays in IndexedDB until the undo window has passed.
+      undoToast(
+        'Messung gelöscht',
+        () => {
+          const current = getBody();
+          current.splice(Math.min(index, current.length), 0, removed);
+          saveBody(current);
+          render();
+        },
+        () => photos.remove(removed.id)
+      );
     };
   });
 }

@@ -1,6 +1,7 @@
 import { nextSession, scheduleLabel, setCount } from '../plans.js';
 import { navigate } from '../render.js';
 import { activePlan, getActive, getHistory } from '../storage.js';
+import { confirmDialog } from '../ui.js';
 import { sessionStarted } from '../workout.js';
 import { dayKey, doneSets, esc, fmtLong, plural, volumeOf, weekdayIndex } from '../util.js';
 import { empty } from './shell.js';
@@ -58,17 +59,18 @@ export function bind() {
       navigate('planEditor', { editPlanId: activePlan().id, editorDayIndex: 0 })
     );
   document.querySelectorAll('[data-start]').forEach((b) => {
-    b.onclick = () => {
+    b.onclick = async () => {
       const saved = getActive();
       const other = saved && (saved.planId !== b.dataset.plan || saved.dayId !== b.dataset.start);
-      if (
-        other &&
-        sessionStarted(saved) &&
-        !confirm(
-          `Das begonnene Training „${saved.dayName}“ ist noch offen und wird verworfen. Trotzdem starten?`
-        )
-      )
-        return;
+      if (other && sessionStarted(saved)) {
+        const ok = await confirmDialog({
+          title: 'Begonnenes Training verwerfen?',
+          text: `„${saved.dayName}“ ist noch offen. Die bereits eingetragenen Sätze gehen verloren.`,
+          confirmLabel: 'Verwerfen und starten',
+          danger: true,
+        });
+        if (!ok) return;
+      }
       navigate('workout', { planId: b.dataset.plan, dayId: b.dataset.start });
     };
   });

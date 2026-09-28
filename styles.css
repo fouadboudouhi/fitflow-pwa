@@ -4,9 +4,11 @@
   --surface: #fff;
   --cloud: #eef1ed;
   --line: #dde2dc;
-  --muted: #687069;
+  --muted: #606760;
   --green: #16b86a;
   --green2: #109858;
+  --green-ink: #0d7a45;
+  --on-green: #0b1a10;
   --orange: #f08a3c;
   --danger: #c43b37;
   --shadow: none;
@@ -28,6 +30,7 @@ html[data-theme='dark'] {
   --muted: #98a099;
   --green: #34d889;
   --green2: #58e6a2;
+  --green-ink: #34d889;
   --danger: #ff756f;
   --shadow: none;
   color-scheme: dark;
@@ -129,7 +132,7 @@ a {
 .primary {
   border: 0;
   background: var(--green);
-  color: white;
+  color: var(--on-green);
   padding: 12px 17px;
 }
 .primary:hover {
@@ -143,7 +146,7 @@ a {
 .text-btn {
   border: 0;
   background: transparent;
-  color: var(--green);
+  color: var(--green-ink);
   padding: 8px;
 }
 .full {
@@ -182,11 +185,11 @@ a {
   min-height: 52px;
 }
 .nav-btn.active {
-  color: var(--green);
+  color: var(--green-ink);
 }
 .eyebrow {
   display: block;
-  color: var(--green);
+  color: var(--green-ink);
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
@@ -285,7 +288,7 @@ a {
 }
 .day-card:hover {
   transform: translateY(-4px);
-  border-color: var(--green);
+  border-color: var(--green-ink);
 }
 .day-card h3 {
   font-size: 34px;
@@ -297,7 +300,7 @@ a {
 }
 .arrow {
   font-size: 30px;
-  color: var(--green);
+  color: var(--green-ink);
 }
 .empty {
   padding: 36px;
@@ -558,7 +561,7 @@ a {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--green);
+  color: var(--green-ink);
   font-weight: 900;
 }
 .suggestion b {
@@ -695,7 +698,7 @@ a {
 }
 .menu-list button > span {
   font-size: 22px;
-  color: var(--green);
+  color: var(--green-ink);
 }
 .menu-list div {
   display: grid;
@@ -706,7 +709,7 @@ a {
 }
 .menu-list i {
   font-style: normal;
-  color: var(--green);
+  color: var(--green-ink);
 }
 .about-card {
   display: flex;
@@ -797,7 +800,7 @@ a {
 }
 .action-tile > span {
   font-size: 30px;
-  color: var(--green);
+  color: var(--green-ink);
 }
 .action-tile small {
   color: var(--muted);
@@ -953,7 +956,7 @@ a {
 .simple-plan-head label span,
 .simple-day-head .day-number {
   font-size: 11px;
-  color: var(--green);
+  color: var(--green-ink);
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -970,7 +973,7 @@ a {
   outline: none;
 }
 .simple-plan-head input:focus {
-  border-color: var(--green);
+  border-color: var(--green-ink);
 }
 .simple-plan-head p {
   color: var(--muted);
@@ -1013,7 +1016,7 @@ a {
 .custom-exercise-icon {
   display: grid;
   place-items: center;
-  color: var(--green);
+  color: var(--green-ink);
   font-size: 28px;
 }
 .plan-exercise-main h3 {
@@ -1059,7 +1062,7 @@ a {
 }
 .plan-exercise-main summary {
   font-size: 12px;
-  color: var(--green);
+  color: var(--green-ink);
   cursor: pointer;
 }
 .detail-fields {
@@ -1095,7 +1098,7 @@ a {
   text-align: left;
 }
 .choose-exercise > span {
-  color: var(--green);
+  color: var(--green-ink);
   font-size: 25px;
 }
 .choose-exercise div {
@@ -1107,7 +1110,7 @@ a {
 }
 .choose-exercise i {
   font-style: normal;
-  color: var(--green);
+  color: var(--green-ink);
 }
 .add-day-card {
   display: block;
@@ -1187,8 +1190,8 @@ a {
 }
 .category-chips button.active {
   background: var(--green);
-  border-color: var(--green);
-  color: white;
+  border-color: var(--green-ink);
+  color: var(--on-green);
 }
 .library-list {
   display: grid;
@@ -1228,12 +1231,12 @@ a {
   height: 38px;
   border-radius: 99px;
   background: var(--green);
-  color: white;
+  color: var(--on-green);
   font-size: 21px;
 }
 .library-item button.added {
   background: var(--cloud);
-  color: var(--green);
+  color: var(--green-ink);
 }
 .custom-exercise-button {
   width: 100%;
@@ -1306,7 +1309,7 @@ body {
 .swap-link {
   border: 0;
   background: none;
-  color: var(--green);
+  color: var(--green-ink);
   padding: 8px 0;
   font-size: 12px;
   font-weight: 800;
@@ -1415,7 +1418,7 @@ body {
   margin: 0;
 }
 .next-label {
-  color: var(--green);
+  color: var(--green-ink);
   font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
@@ -1476,7 +1479,7 @@ body {
 }
 .other-days i {
   font-style: normal;
-  color: var(--green);
+  color: var(--green-ink);
 }
 .last-session {
   width: 100%;
@@ -1523,11 +1526,11 @@ body {
   padding: 15px;
 }
 .assistant-form fieldset label:has(input:checked) {
-  border-color: var(--green);
+  border-color: var(--green-ink);
   background: color-mix(in srgb, var(--green) 6%, var(--surface));
 }
 .assistant-form fieldset input {
-  accent-color: var(--green);
+  accent-color: var(--green-ink);
 }
 .assistant-form fieldset span {
   display: grid;
@@ -1645,7 +1648,7 @@ body {
   background: color-mix(in srgb, var(--green) 7%, var(--surface));
 }
 .calendar-day.completed b {
-  color: var(--green);
+  color: var(--green-ink);
 }
 .calendar-day.today > span {
   background: var(--ink);
@@ -1668,7 +1671,7 @@ body {
   padding: 13px 4px;
 }
 .calendar-plan > div > span {
-  color: var(--green);
+  color: var(--green-ink);
   font-size: 11px;
   font-weight: 900;
 }
@@ -1803,14 +1806,13 @@ button:active {
 }
 .session-status > summary:before {
   content: '＋';
-  color: var(--green);
+  color: var(--green-ink);
 }
 .session-status[open] > summary:before {
   content: '−';
 }
 .session-status > summary span {
   font-weight: 500;
-  opacity: 0.75;
 }
 .session-status .marker-row {
   margin: 0;
@@ -1880,7 +1882,7 @@ button:active {
   border-bottom: 1px solid var(--line);
 }
 .progression-row > span {
-  color: var(--green);
+  color: var(--green-ink);
   font-size: 19px;
 }
 .progression-row > div {
@@ -1958,9 +1960,9 @@ button:active {
   clip: rect(0, 0, 0, 0);
 }
 .set-card.complete .set-check {
-  border-color: var(--green);
+  border-color: var(--green-ink);
   background: var(--green);
-  color: #fff;
+  color: var(--on-green);
 }
 @media (max-width: 600px) {
   .shell {
@@ -2081,7 +2083,7 @@ button:active {
   background: var(--cloud);
   display: grid;
   place-items: center;
-  color: var(--green);
+  color: var(--green-ink);
   font-weight: 850;
 }
 .plan-preview h2 {
@@ -2140,12 +2142,12 @@ button:active {
   font-size: 11px;
 }
 .editor-day-tabs button.active {
-  border-color: var(--green);
+  border-color: var(--green-ink);
   color: var(--ink);
 }
 .editor-day-tabs button.active span {
   background: var(--green);
-  color: white;
+  color: var(--on-green);
 }
 .schedule-editor {
   border: 1px solid var(--line);
@@ -2171,7 +2173,7 @@ button:active {
   background: var(--paper);
 }
 .schedule-mode input {
-  accent-color: var(--green);
+  accent-color: var(--green-ink);
 }
 .schedule-days {
   display: grid;
@@ -2264,7 +2266,7 @@ button:active {
 }
 .workout-exercise.complete .exercise-number {
   background: var(--green);
-  color: white;
+  color: var(--on-green);
 }
 .compact-technique {
   margin: 0 0 9px;
@@ -2439,5 +2441,136 @@ button:active {
   }
   .topbar-inner {
     min-height: 60px;
+  }
+}
+/* Headings that must stay visually small */
+.workout-top h1 {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: inherit;
+  margin: 0;
+}
+.backrow h1 {
+  font: inherit;
+  margin: 0;
+}
+/* Exercise media that failed to load keeps its dark box without the broken-image icon */
+img.exercise-gif.missing {
+  opacity: 0;
+}
+/* Toast */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 20px);
+  opacity: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(520px, calc(100% - 32px));
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 14px;
+  padding: 12px 10px 12px 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
+  font-size: 14px;
+  font-weight: 600;
+}
+.toast.show {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+.toast > span {
+  flex: 1;
+}
+.toast-action {
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font-weight: 800;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.toast-close {
+  border: 0;
+  background: transparent;
+  color: var(--paper);
+  opacity: 0.7;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+body:has(.workout-shell) .toast {
+  bottom: calc(20px + env(safe-area-inset-bottom));
+}
+/* Bottom sheet for confirmations */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+.sheet-backdrop.show {
+  opacity: 1;
+}
+.sheet {
+  width: min(560px, 100%);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 20px 20px 0 0;
+  padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(24px);
+  transition: transform 0.2s ease-out;
+}
+.sheet-backdrop.show .sheet {
+  transform: none;
+}
+.sheet h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+.sheet p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.sheet-actions button {
+  min-height: 46px;
+  flex: 1;
+}
+.primary.danger-fill {
+  background: var(--danger);
+  color: #fff;
+}
+@media (min-width: 600px) {
+  .sheet-backdrop {
+    align-items: center;
+    padding: 16px;
+  }
+  .sheet {
+    border-radius: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .sheet,
+  .sheet-backdrop {
+    transition: none;
   }
 }

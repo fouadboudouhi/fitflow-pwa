@@ -52,10 +52,19 @@ export function render() {
     content = (VIEWS[state.view] || more).view();
   }
   const bare = BARE.includes(state.view);
+  // Re-rendering the same view must not lose what the user opened or where they were typing.
+  const openDetails = viewChanged ? [] : [...document.querySelectorAll('details[open][id]')].map((d) => d.id);
+  const active = document.activeElement;
+  const focusKey =
+    !viewChanged && active?.dataset?.setField
+      ? `[data-set-field="${active.dataset.setField}"][data-exercise="${active.dataset.exercise}"][data-index="${active.dataset.index}"]`
+      : null;
   $app.innerHTML =
     (state.view === 'workout' ? '' : topbar()) +
     content +
     (bare ? '' : nav(NAV_FOR[state.view] || state.view));
+  openDetails.forEach((id) => document.getElementById(id)?.setAttribute('open', ''));
+  if (focusKey) document.querySelector(focusKey)?.focus({ preventScroll: true });
   bindShell();
   (VIEWS[state.view] || more).bind();
   if (viewChanged) requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
