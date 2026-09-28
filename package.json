@@ -5,10 +5,13 @@
   "description": "Offline-fähige Trainings-PWA ohne Build-Schritt.",
   "scripts": {
     "start": "node tests/serve.js 8080",
-    "check": "node --check app.js && node --check sw.js && node --check assets/data/exercises.js",
-    "test": "npm run check && node --test tests/smoke.test.js"
+    "check": "node -e \"for (const f of require('fs').readdirSync('src',{recursive:true}).filter(f=>f.endsWith('.js'))) new (require('vm').SourceTextModule||Object)(require('fs').readFileSync('src/'+f,'utf8'))\" && node --check sw.js",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" sw.js styles.css",
+    "lint": "prettier --check \"src/**/*.js\" \"tests/**/*.js\" sw.js styles.css",
+    "test": "npm run lint && node --test tests/unit.test.mjs tests/smoke.test.js"
   },
   "devDependencies": {
-    "playwright": "^1.56.1"
+    "playwright": "1.56.1",
+    "prettier": "^3.9.9"
   }
 }

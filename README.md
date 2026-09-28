@@ -26,6 +26,22 @@ Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) 
 - PWA-Manifest + Service Worker für Offline-Nutzung
 - iPhone-freundliche Safe-Area und Homescreen-Nutzung
 
+## Aufbau
+Kein Build-Schritt, kein Framework: `index.html` lädt `src/app.js` als ES-Modul.
+
+| Modul | Aufgabe |
+| --- | --- |
+| `src/storage.js` | `localStorage`-Zugriff, IndexedDB für Fotos, versionierte Migrationen |
+| `src/library.js` | Übungskatalog mit deutschen Namen und der eingebaute Standardplan |
+| `src/plans.js` | Wochenrhythmus, Plan-Assistent, nächste Einheit |
+| `src/workout.js` | Sessions anlegen, fortsetzen, abschließen, Progressionsvorschläge |
+| `src/backup.js` | JSON-Export, Validierung und Import, CSV |
+| `src/charts.js` | Canvas-Diagramme |
+| `src/render.js` | Rendert die aktive View und bindet ihre Events |
+| `src/views/*.js` | Eine Datei pro Bildschirm, jeweils `view()` und `bind()` |
+
+Übungen werden über ihre Bibliotheks-ID (`libraryId`) verknüpft. Verlauf und Kraftkurven bleiben deshalb auch nach Umbenennungen oder Planwechseln zusammen. Trainings und Messungen tragen zusätzlich einen lokalen Tagesschlüssel (`day`, `YYYY-MM-DD`), damit Kalender und Wochenansicht in jeder Zeitzone stabil sind. Das Datenschema ist versioniert; Migrationen in `src/storage.js` laufen genau einmal.
+
 ## Lokal starten
 Ein Service Worker funktioniert nur über HTTP/HTTPS, nicht direkt per `file://`.
 
@@ -35,12 +51,14 @@ npm start
 
 Dann `http://localhost:8080` öffnen. Alternativ funktioniert jeder statische Server, z. B. `python3 -m http.server 8080`.
 
-## Tests
-Die Smoke-Tests starten die echte App in Chromium und prüfen die wichtigsten Abläufe (Training, Plan-Editor, Assistent, Fotos, Backup-Import, Offline-Start).
+## Tests und Formatierung
+Unit-Tests decken die reinen Module ab (`tests/unit.test.mjs`). Die Smoke-Tests starten die echte App in Chromium und prüfen die wichtigsten Abläufe: Training, Plan-Editor, Assistent, Fotos, Backup-Import, Datenmigration und Offline-Start. GitHub Actions führt beides bei jedem Push aus.
 
 ```bash
 npm install
+npx playwright install chromium
 npm test
+npm run format
 ```
 
 ## Daten
