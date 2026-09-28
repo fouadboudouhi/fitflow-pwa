@@ -10,7 +10,7 @@ Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) 
 - Wahl zwischen flexibler Trainingsreihenfolge und festen Wochentagen
 - Favoriten, zuletzt verwendete Übungen und direkter Übungstausch
 - Übungsanimationen und Hinweise werden bei der Auswahl automatisch übernommen
-- Kompakter Trainingsmodus: aktuelle Übung geöffnet, restliche Einheit als übersichtliche Liste
+- Durchgehender Trainingsmodus: alle Übungen kompakt untereinander und ohne Weiter-Button
 - Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen und Notizen; RIR ist optional und standardmäßig ausgeblendet
 - Automatisch berechnete Aufwärmsätze
 - Automatische Progressive-Overload-Empfehlungen und Pausentimer
