@@ -1,0 +1,14 @@
+{
+  "name": "volumora-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline-fähige Trainings-PWA ohne Build-Schritt.",
+  "scripts": {
+    "start": "node tests/serve.js 8080",
+    "check": "node --check app.js && node --check sw.js && node --check assets/data/exercises.js",
+    "test": "npm run check && node --test tests/smoke.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  }
+}
