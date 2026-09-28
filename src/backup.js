@@ -1,0 +1,249 @@
+// JSON backup (export, validation, import) and CSV export.
+import {
+  LS,
+  allPlans,
+  clearActive,
+  getBody,
+  getHistory,
+  getPrefs,
+  getSettings,
+  photos,
+  saveBody,
+  saveHistory,
+  savePlans,
+  savePrefs,
+  saveSettings,
+  write,
+} from './storage.js';
+import { dayKey, number, parseDate, uid, volumeOf } from './util.js';
+
+export function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 500);
+}
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+export async function exportBackup() {
+  const photoMap = await photos.entries().catch(() => ({}));
+  const body = getBody().map(({ hasPhoto, ...e }) => ({
+    ...e,
+    photo: photoMap[e.id] || (typeof e.photo === 'string' ? e.photo : ''),
+  }));
+  const backup = {
+    version: 3,
+    exportedAt: new Date().toISOString(),
+    plans: allPlans(),
+    history: getHistory(),
+    body,
+    settings: getSettings(),
+    exercisePrefs: getPrefs(),
+  };
+  download(`volumora-backup-${stamp()}.json`, JSON.stringify(backup, null, 2), 'application/json');
+}
+
+export function exportCsv() {
+  const rows = [
+    [
+      'Datum',
+      'Plan',
+      'Training',
+      'Übung',
+      'Satz',
+      'Typ',
+      'Gewicht kg',
+      'Wiederholungen',
+      'RIR',
+      'RPE',
+      'Volumen kg',
+    ],
+  ];
+  getHistory().forEach((h) =>
+    h.entries.forEach((e) =>
+      e.sets.forEach((s, i) =>
+        rows.push([
+          h.finishedAt,
+          h.planName,
+          h.dayName,
+          e.name,
+          i + 1,
+          s.warmup ? 'Warm-up' : 'Arbeit',
+          s.weight,
+          s.reps,
+          s.rir,
+          s.rpe,
+          number(s.weight) * number(s.reps),
+        ])
+      )
+    )
+  );
+  const csv = rows
+    .map((r) => r.map((x) => `"${String(x ?? '').replaceAll('"', '""')}"`).join(';'))
+    .join('\n');
+  download(`volumora-training-${stamp()}.csv`, csv, 'text/csv;charset=utf-8');
+}
+
+// Every value of an imported file is coerced to the shape the app expects, so a hand-edited or foreign file
+// cannot break rendering or smuggle markup into the page.
+const asStr = (v, max = 300) =>
+  typeof v === 'string' ? v.slice(0, max) : typeof v === 'number' && Number.isFinite(v) ? String(v) : '';
+const asNum = (v, fallback = 0, min = -Infinity, max = Infinity) => {
+  const n = Number(String(v ?? '').replace(',', '.'));
+  return v !== '' && v != null && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+};
+const asField = (v) =>
+  v === '' || v == null
+    ? ''
+    : Number.isFinite(Number(String(v).replace(',', '.')))
+      ? String(v).slice(0, 12)
+      : '';
+const asDate = (v) => parseDate(v)?.toISOString() || null;
+const asUrl = (v) => (typeof v === 'string' && /^https:\/\//.test(v) ? v.slice(0, 500) : '');
+const asPhoto = (v) =>
+  typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : '';
+const asSet = (s) => ({
+  weight: asField(s?.weight),
+  reps: asField(s?.reps),
+  rir: asField(s?.rir),
+  rpe: asField(s?.rpe),
+  done: !!s?.done,
+  warmup: !!s?.warmup,
+});
+const asExercise = (ex) => ({
+  id: asStr(ex?.id) || uid(),
+  libraryId: asStr(ex?.libraryId) || undefined,
+  name: asStr(ex?.name, 80) || 'Übung',
+  sourceName: asStr(ex?.sourceName, 80) || undefined,
+  category: asStr(ex?.category, 40) || undefined,
+  equipment: asStr(ex?.equipment, 40) || undefined,
+  target: asStr(ex?.target, 40) || undefined,
+  sets: asNum(ex?.sets, 3, 1, 12),
+  range: asStr(ex?.range, 20) || '8–12',
+  rest: asNum(ex?.rest, 0, 0, 600) || undefined,
+  gif: asUrl(ex?.gif),
+  note: asStr(ex?.note, 300),
+  favorite: !!ex?.favorite,
+  custom: ex?.custom ? true : undefined,
+});
+
+export function validateBackup(data) {
+  if (!data || typeof data !== 'object' || !Array.isArray(data.plans?.items) || !Array.isArray(data.history))
+    throw new Error('format');
+  const plans = data.plans.items
+    .filter((p) => p && typeof p === 'object' && Array.isArray(p.days))
+    .map((p) => {
+      const days = p.days
+        .filter((d) => d && typeof d === 'object')
+        .map((d) => ({
+          id: asStr(d.id) || uid(),
+          name: asStr(d.name, 60) || 'Training',
+          subtitle: asStr(d.subtitle, 80),
+          exercises: (Array.isArray(d.exercises) ? d.exercises : []).map(asExercise),
+        }));
+      const assignments = {};
+      days.forEach((d) => {
+        const w = p.schedule?.assignments?.[d.id];
+        if (Number.isInteger(w) && w >= 0 && w <= 6) assignments[d.id] = w;
+      });
+      return {
+        id: asStr(p.id) || uid(),
+        name: asStr(p.name, 60) || 'Trainingsplan',
+        description: asStr(p.description, 200),
+        createdAt: asDate(p.createdAt) || new Date().toISOString(),
+        schedule: { mode: p.schedule?.mode === 'fixed' ? 'fixed' : 'flexible', assignments },
+        days,
+      };
+    });
+  if (!plans.length) throw new Error('plans');
+  const history = data.history
+    .filter((h) => h && typeof h === 'object' && asDate(h.finishedAt))
+    .map((h) => {
+      const finishedAt = asDate(h.finishedAt);
+      const session = {
+        id: asStr(h.id) || uid(),
+        planId: asStr(h.planId),
+        planName: asStr(h.planName, 60),
+        dayId: asStr(h.dayId),
+        dayName: asStr(h.dayName, 60) || asStr(h.day, 60),
+        startedAt: asDate(h.startedAt) || finishedAt,
+        finishedAt,
+        day: /^\d{4}-\d{2}-\d{2}$/.test(h.day || '') ? h.day : dayKey(finishedAt),
+        duration: asNum(h.duration, 0, 0),
+        totalSets: asNum(h.totalSets, 0, 0),
+        markers: { deload: !!h.markers?.deload, ill: !!h.markers?.ill, pain: !!h.markers?.pain },
+        entries: (Array.isArray(h.entries) ? h.entries : []).map((e) => ({
+          exerciseId: asStr(e?.exerciseId),
+          libraryId: asStr(e?.libraryId) || undefined,
+          name: asStr(e?.name, 80) || 'Übung',
+          note: asStr(e?.note, 500),
+          sets: (Array.isArray(e?.sets) ? e.sets : []).map(asSet),
+        })),
+      };
+      session.volume = asNum(h.volume, 0, 0) || volumeOf(session);
+      return session;
+    });
+  const body = (Array.isArray(data.body) ? data.body : [])
+    .filter((e) => e && typeof e === 'object' && asDate(e.date))
+    .map((e) => ({
+      id: asStr(e.id) || uid(),
+      date: asDate(e.date),
+      day: /^\d{4}-\d{2}-\d{2}$/.test(e.day || '') ? e.day : dayKey(e.date),
+      weight: asNum(e.weight, 0, 0, 500) || '',
+      waist: asNum(e.waist, 0, 0, 400) || '',
+      chest: asNum(e.chest, 0, 0, 400) || '',
+      arm: asNum(e.arm, 0, 0, 200) || '',
+      thigh: asNum(e.thigh, 0, 0, 300) || '',
+      photo: asPhoto(e.photo),
+    }));
+  const s = data.settings && typeof data.settings === 'object' ? data.settings : {};
+  const settings = {
+    theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
+    rest: asNum(s.rest, 90, 0, 600),
+    increment: asNum(s.increment, 2.5, 0.25, 50),
+    showRir: !!s.showRir,
+    restTimer: !!s.restTimer,
+    restNotify: !!s.restNotify,
+    unit: s.unit === 'lbs' ? 'lbs' : 'kg',
+    weeklyGoal: asNum(s.weeklyGoal, 0, 0, 14),
+    barWeight: asNum(s.barWeight, 20, 0, 50),
+  };
+  const prefs = data.exercisePrefs && typeof data.exercisePrefs === 'object' ? data.exercisePrefs : {};
+  const exercisePrefs = {
+    favorites: (Array.isArray(prefs.favorites) ? prefs.favorites : [])
+      .map((x) => asStr(x))
+      .filter(Boolean)
+      .slice(0, 200),
+    recent: (Array.isArray(prefs.recent) ? prefs.recent : [])
+      .map((x) => asStr(x))
+      .filter(Boolean)
+      .slice(0, 12),
+  };
+  const activePlanId = plans.some((p) => p.id === data.plans.activePlanId)
+    ? data.plans.activePlanId
+    : plans[0].id;
+  return { plans: { activePlanId, items: plans }, history, body, settings, exercisePrefs };
+}
+
+// Replaces all local data with the validated backup. Returns the number of photos that could not be stored.
+export async function importBackup(backup) {
+  let failed = 0;
+  await photos.clear().catch(() => {});
+  for (const entry of backup.body) {
+    if (!entry.photo) continue;
+    await photos.set(entry.id, entry.photo).catch(() => {
+      failed++;
+      entry.photo = '';
+    });
+  }
+  const body = backup.body.map(({ photo, ...rest }) => ({ ...rest, hasPhoto: !!photo }));
+  savePlans(backup.plans);
+  saveHistory(backup.history);
+  saveBody(body);
+  saveSettings(backup.settings);
+  savePrefs(backup.exercisePrefs);
+  clearActive();
+  write(LS.schema, 4);
+  return failed;
+}

@@ -1,0 +1,18 @@
+{
+  "name": "volumora-pwa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline-fähige Trainings-PWA ohne Build-Schritt.",
+  "scripts": {
+    "start": "node tests/serve.js 8080",
+    "check": "node -e \"for (const f of require('fs').readdirSync('src',{recursive:true}).filter(f=>f.endsWith('.js'))) new (require('vm').SourceTextModule||Object)(require('fs').readFileSync('src/'+f,'utf8'))\" && node --check sw.js",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" sw.js styles.css",
+    "lint": "prettier --check \"src/**/*.js\" \"tests/**/*.js\" sw.js styles.css",
+    "test": "npm run lint && node --test tests/unit.test.mjs tests/smoke.test.js"
+  },
+  "devDependencies": {
+    "axe-core": "^4.13.0",
+    "playwright": "1.56.1",
+    "prettier": "^3.9.9"
+  }
+}

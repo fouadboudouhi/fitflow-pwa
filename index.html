@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#f6f7f4" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Volumora" />
@@ -12,11 +12,11 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
   <link rel="icon" type="image/png" href="assets/icons/favicon-32.png" />
+  <script>try{var s=JSON.parse(localStorage.getItem("volumora-settings-v2"))||{};var t=!s.theme||s.theme==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):s.theme;document.documentElement.dataset.theme=t;}catch(e){}</script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div id="app"></div>
-  <script src="assets/data/exercises.js" defer></script>
-  <script src="app.js" defer></script>
+  <script type="module" src="src/app.js"></script>
 </body>
 </html>

@@ -1,14 +1,68 @@
 {
+  "id": "./",
   "name": "Volumora – Training & Fortschritt",
   "short_name": "Volumora",
   "description": "Flexible Trainingspläne, geführte Workouts, Volumen- und Fortschrittsanalyse.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f3f1eb",
-  "theme_color": "#111310",
+  "background_color": "#f6f7f4",
+  "theme_color": "#f6f7f4",
+  "lang": "de",
+  "categories": [
+    "health",
+    "fitness",
+    "sports"
+  ],
   "icons": [
-    {"src":"assets/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
-    {"src":"assets/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Training starten",
+      "short_name": "Training",
+      "description": "Die nächste Einheit des aktiven Plans öffnen",
+      "url": "./?action=start",
+      "icons": [
+        {
+          "src": "assets/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/home.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Startseite mit nächster Einheit"
+    },
+    {
+      "src": "assets/screenshots/workout.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Training mit Satz-Tabelle"
+    },
+    {
+      "src": "assets/screenshots/analytics.png",
+      "sizes": "780x1688",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Verlauf und Diagramme"
+    }
   ]
 }
