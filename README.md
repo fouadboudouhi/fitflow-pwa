@@ -12,8 +12,9 @@ Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) 
 - Übungsanimationen und Hinweise werden bei der Auswahl automatisch übernommen
 - Durchgehender Trainingsmodus: alle Übungen kompakt untereinander und ohne Weiter-Button
 - Arbeits- und Aufwärmsätze, Gewicht, Wiederholungen und Notizen; RIR ist optional und standardmäßig ausgeblendet
+- Sätze lassen sich mobil durch Wischen nach links löschen
 - Automatisch berechnete Aufwärmsätze
-- Automatische Progressive-Overload-Empfehlungen und Pausentimer
+- Automatische Progressive-Overload-Empfehlungen und optionaler Pausentimer
 - Trainingsvolumen, geschätztes 1RM und Körpergewicht als Diagramme
 - Körpermaße und komprimierte Fortschrittsfotos
 - JSON-Backup, JSON-Import und CSV-Export
