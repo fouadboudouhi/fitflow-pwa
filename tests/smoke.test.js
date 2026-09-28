@@ -350,6 +350,7 @@ test('deleting a plan can be undone', async () => {
 
 test('no serious accessibility violations', async () => {
   const check = async (name) => {
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
     await page.addScriptTag({ content: AXE });
     const result = await page.evaluate(() => axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] }));
     const serious = result.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
@@ -382,4 +383,114 @@ test('no serious accessibility violations', async () => {
     await page.click('[data-nav="settings"]');
     await check(`settings/${scheme}`);
   }
+});
+
+// Seeds two finished sessions so analytics, records and history have something to show.
+async function seedHistory() {
+  await page.evaluate(() => {
+    const plans = JSON.parse(localStorage.getItem('volumora-plans-v2'));
+    const day = plans.items[0].days[0];
+    const ex = day.exercises[0];
+    const session = (id, dayKey, weight) => ({
+      id,
+      planId: plans.items[0].id,
+      planName: plans.items[0].name,
+      dayId: day.id,
+      dayName: day.name,
+      startedAt: `${dayKey}T09:00:00.000Z`,
+      finishedAt: `${dayKey}T10:00:00.000Z`,
+      day: dayKey,
+      duration: 3600,
+      totalSets: 2,
+      volume: weight * 8 * 2,
+      markers: { deload: false, ill: false, pain: false },
+      entries: [
+        {
+          exerciseId: ex.id,
+          name: ex.name,
+          note: '',
+          sets: [
+            { weight: String(weight), reps: '8', rir: '', done: true, warmup: false },
+            { weight: String(weight), reps: '8', rir: '', done: true, warmup: false },
+          ],
+        },
+      ],
+    });
+    const today = new Date();
+    const key = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const recent = new Date(today);
+    recent.setDate(today.getDate() - 3);
+    const old = new Date(today);
+    old.setDate(today.getDate() - 200);
+    localStorage.setItem(
+      'volumora-history-v2',
+      JSON.stringify([session('s-recent', key(recent), 50), session('s-old', key(old), 40)])
+    );
+    localStorage.setItem('volumora-schema-version', '4');
+  });
+  await page.reload();
+  await page.waitForSelector('.next-card');
+}
+
+test('analytics: time range scopes everything, charts show a tooltip, a session opens and can be edited or deleted', async () => {
+  await seedHistory();
+  await page.click('[data-nav="analytics"]');
+  assert.equal(await page.locator('.history-card').count(), 1, '3 months hides the 200-day-old session');
+  await page.click('[data-range="all"]');
+  assert.equal(await page.locator('.history-card').count(), 2);
+  assert.match(await page.textContent('.bar-list'), /Brust/);
+  const canvas = page.locator('#volumeChart');
+  const box = await canvas.boundingBox();
+  await canvas.hover({ position: { x: box.width - 20, y: 100 } });
+  await page.waitForSelector('.chart-tip:not([hidden])');
+  assert.match(await page.textContent('.chart-tip strong'), /800 kg/);
+  await page.locator('.history-card').first().click();
+  await page.waitForSelector('#sessionForm');
+  assert.match(await page.textContent('h1'), /Push/);
+  await page.fill('[data-edit="weight"][data-e="0"][data-s="0"]', '55');
+  await page.click('#sessionForm button[type="submit"]');
+  await page.waitForSelector('.toast.show');
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
+  assert.equal(stored[0].entries[0].sets[0].weight, '55');
+  assert.equal(stored[0].volume, 55 * 8 + 50 * 8, 'volume is recomputed');
+  await page.click('#deleteSession');
+  await page.waitForSelector('.history-card');
+  assert.equal(await page.locator('.history-card').count(), 1);
+  await page.click('.toast-action');
+  assert.equal(await page.locator('.history-card').count(), 2, 'undo restores the session');
+  await page.click('[data-nav="calendar"]');
+  await page.click('[data-calendar-shift="-1"]').catch(() => {});
+  await page.click('[data-calendar-shift="0"]').catch(() => {});
+  if (await page.locator('button.calendar-day[data-session]').count()) {
+    await page.locator('button.calendar-day[data-session]').first().click();
+    await page.waitForSelector('#sessionForm');
+  }
+});
+
+test('workout: exercise history sheet and personal record toast', async () => {
+  await seedHistory();
+  await page.click('[data-start="push"]');
+  await page.waitForSelector('.workout-exercise');
+  await page.click('[data-exercise-history="0"]');
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.sheet-body'), /50×8 · 50×8/);
+  await page.keyboard.press('Escape');
+  const first = page.locator('.workout-exercise').first();
+  await first.locator('input[data-set-field="weight"][data-index="0"]').fill('60');
+  await first.locator('input[data-set-field="reps"][data-index="0"]').fill('8');
+  await first.locator('[data-set-done="0"]').click();
+  await page.waitForSelector('.toast.show');
+  assert.match(await page.textContent('.toast'), /Neuer Bestwert: 60 kg × 8/);
+  assert.equal(await first.locator('.set-label span.pr').count(), 1);
+  await first.locator('input[data-set-field="weight"][data-index="1"]').fill('40');
+  await first.locator('input[data-set-field="reps"][data-index="1"]').fill('8');
+  await first.locator('[data-set-done="1"]').click();
+  assert.equal(await first.locator('.set-label span.pr').count(), 1, 'a lighter set is not a record');
+});
+
+test('the homescreen shortcut opens the next workout', async () => {
+  await page.goto(baseURL + '/?action=start');
+  await page.waitForSelector('.workout-exercise');
+  assert.equal(await page.evaluate(() => location.search), '', 'query is cleaned up');
 });

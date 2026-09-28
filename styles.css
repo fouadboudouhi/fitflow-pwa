@@ -9,6 +9,7 @@
   --green2: #109858;
   --green-ink: #0d7a45;
   --on-green: #0b1a10;
+  --blue: #4f63d6;
   --orange: #f08a3c;
   --danger: #c43b37;
   --shadow: none;
@@ -31,6 +32,7 @@ html[data-theme='dark'] {
   --green: #34d889;
   --green2: #58e6a2;
   --green-ink: #34d889;
+  --blue: #8b9bff;
   --danger: #ff756f;
   --shadow: none;
   color-scheme: dark;
@@ -2573,4 +2575,387 @@ body:has(.workout-shell) .toast {
   .sheet-backdrop {
     transition: none;
   }
+}
+
+/* ---------- Motion: one language for every screen ---------- */
+.view-enter {
+  animation: viewIn 0.22s ease-out both;
+}
+@keyframes viewIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.primary,
+.secondary,
+.compact-btn,
+.icon-btn,
+.tiny,
+.set-check,
+.nav-btn,
+.history-card,
+.other-days button,
+.menu-list button,
+.action-tile,
+.choose-exercise,
+.add-day-card,
+.segmented button,
+.calendar-day.completed {
+  transition:
+    transform 0.12s ease-out,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+.primary:active,
+.secondary:active,
+.compact-btn:active,
+.icon-btn:active,
+.tiny:active,
+.set-check:active,
+.history-card:active,
+.other-days button:active,
+.menu-list button:active,
+.action-tile:active,
+.choose-exercise:active,
+.add-day-card:active,
+button.calendar-day:active {
+  transform: scale(0.98);
+}
+.set-card {
+  transition: background-color 0.18s ease;
+}
+details > summary {
+  transition: color 0.18s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .view-enter {
+    animation: none;
+  }
+  .primary:active,
+  .secondary:active,
+  .compact-btn:active,
+  .icon-btn:active,
+  .tiny:active,
+  .set-check:active,
+  .history-card:active,
+  .other-days button:active,
+  .menu-list button:active,
+  .action-tile:active,
+  .choose-exercise:active,
+  .add-day-card:active,
+  button.calendar-day:active {
+    transform: none;
+  }
+}
+
+/* ---------- Segmented control (time range) ---------- */
+.segmented {
+  display: flex;
+  gap: 4px;
+  background: var(--cloud);
+  border-radius: 12px;
+  padding: 4px;
+  margin: 0 0 18px;
+}
+.segmented button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+  min-height: 38px;
+  border-radius: 9px;
+  white-space: nowrap;
+}
+.segmented button.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- Charts: tooltip and bar list ---------- */
+.chart-card {
+  position: relative;
+}
+.chart-card canvas {
+  display: block;
+  width: 100%;
+  touch-action: pan-y;
+  outline: none;
+  border-radius: 8px;
+}
+.chart-card canvas:focus-visible {
+  box-shadow: 0 0 0 2px var(--green);
+}
+.chart-tip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: grid;
+  gap: 1px;
+  pointer-events: none;
+  z-index: 3;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+.chart-tip strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip span {
+  font-size: 11px;
+  opacity: 0.75;
+}
+.bar-list {
+  display: grid;
+  gap: 10px;
+}
+.bar-row {
+  display: grid;
+  grid-template-columns: 76px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+.bar-row span {
+  color: var(--muted);
+  font-weight: 700;
+}
+.bar-track {
+  height: 10px;
+  background: var(--cloud);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.bar-track i {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  border-radius: 99px;
+  transition: width 0.3s ease-out;
+}
+.bar-row b {
+  font-variant-numeric: tabular-nums;
+  min-width: 70px;
+  text-align: right;
+}
+
+/* ---------- History list as buttons, calendar days as buttons ---------- */
+button.history-card {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  align-items: center;
+}
+.history-card > i {
+  color: var(--muted);
+  display: grid;
+}
+.history-card > i .icon {
+  width: 18px;
+  height: 18px;
+}
+button.calendar-day {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ---------- Workout: exercise title opens history, PR chip ---------- */
+.exercise-title {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+.exercise-title .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  flex: none;
+}
+.set-label span.pr {
+  color: var(--green-ink);
+  font-weight: 900;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+.pr-chip {
+  display: inline-block;
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--on-green);
+  background: var(--green);
+  border-radius: 6px;
+  padding: 2px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.history-rows {
+  display: grid;
+  gap: 10px;
+}
+.history-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.history-row:last-child {
+  border-bottom: 0;
+}
+.history-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.history-row b {
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+}
+.history-row small {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 12px;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.sheet-head h2 {
+  margin: 0;
+}
+.sheet-body {
+  max-height: min(60vh, 520px);
+  overflow: auto;
+}
+
+/* ---------- Session detail and editing ---------- */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -6px 0 18px;
+}
+.chip {
+  font-size: 12px;
+  font-weight: 750;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  padding: 5px 11px;
+  color: var(--muted);
+}
+.chip-green {
+  border-color: transparent;
+  background: var(--green);
+  color: var(--on-green);
+}
+.session-edit {
+  display: grid;
+  gap: 14px;
+}
+.edit-exercise {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+}
+.edit-exercise h2 {
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+.edit-head,
+.edit-set {
+  display: grid;
+  grid-template-columns: 44px 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.edit-exercise:has(input[data-edit='rir']) .edit-head,
+.edit-exercise:has(input[data-edit='rir']) .edit-set {
+  grid-template-columns: 44px 1fr 1fr 1fr auto;
+}
+.edit-head {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+.edit-set {
+  padding: 6px 0;
+}
+.edit-set input[type='number'] {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--cloud);
+  text-align: center;
+  font-weight: 800;
+  padding: 6px 4px;
+}
+.edit-set.done input[type='number'] {
+  background: color-mix(in srgb, var(--green) 14%, var(--cloud));
+}
+.edit-set .set-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.edit-set.warmup .set-label b {
+  color: var(--muted);
+}
+.edit-done {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.edit-done input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--green);
+}
+.edit-done span {
+  display: none;
+}
+.session-edit .editor-footer {
+  justify-content: space-between;
+}
+.session-edit .coach-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+.muted {
+  color: var(--muted);
 }

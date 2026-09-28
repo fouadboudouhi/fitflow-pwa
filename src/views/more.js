@@ -22,7 +22,7 @@ function settingsView() {
   const s = getSettings();
   const option = (value, label) =>
     `<option value="${value}" ${s.theme === value ? 'selected' : ''}>${label}</option>`;
-  return `<main class="shell narrow">${backRow('Einstellungen', 'more')}<section class="page-head compact"><div><span class="eyebrow">App</span><h1>Einstellungen</h1></div></section><form class="settings-form" id="settingsForm"><label><span>Darstellung</span><select name="theme">${option('auto', 'Automatisch')}${option('light', 'Hell')}${option('dark', 'Dunkel')}</select></label><label class="toggle-setting"><input name="restTimer" type="checkbox" ${s.restTimer ? 'checked' : ''}><span><b>Pausentimer</b><small>Nach einem erledigten Satz automatisch starten</small></span></label><label><span>Pausendauer</span><div class="unit-input"><input name="rest" type="number" min="0" max="600" value="${esc(s.rest)}"><i>Sek.</i></div></label><label><span>Standard-Gewichtsschritt</span><div class="unit-input"><input name="increment" type="number" min="0.25" step="0.25" value="${esc(s.increment)}"><i>kg</i></div></label><label class="toggle-setting"><input name="showRir" type="checkbox" ${s.showRir ? 'checked' : ''}><span><b>RIR anzeigen</b><small>Optionale Wiederholungsreserve beim Training</small></span></label><button class="primary" type="submit">Speichern</button></form><button class="secondary full install-settings" id="installHelp">Volumora auf dem Homescreen installieren</button></main>`;
+  return `<main class="shell narrow">${backRow('Einstellungen', 'more')}<section class="page-head compact"><div><span class="eyebrow">App</span><h1>Einstellungen</h1></div></section><form class="settings-form" id="settingsForm"><label><span>Darstellung</span><select name="theme">${option('auto', 'Automatisch')}${option('light', 'Hell')}${option('dark', 'Dunkel')}</select></label><label class="toggle-setting"><input name="restTimer" type="checkbox" ${s.restTimer ? 'checked' : ''}><span><b>Pausentimer</b><small>Nach einem erledigten Satz automatisch starten</small></span></label>${'Notification' in window ? `<label class="toggle-setting"><input name="restNotify" type="checkbox" ${s.restNotify ? 'checked' : ''}><span><b>Benachrichtigung bei Pausenende</b><small>Meldet sich, wenn die App im Hintergrund ist</small></span></label>` : ''}<label><span>Pausendauer</span><div class="unit-input"><input name="rest" type="number" min="0" max="600" value="${esc(s.rest)}"><i>Sek.</i></div></label><label><span>Standard-Gewichtsschritt</span><div class="unit-input"><input name="increment" type="number" min="0.25" step="0.25" value="${esc(s.increment)}"><i>kg</i></div></label><label class="toggle-setting"><input name="showRir" type="checkbox" ${s.showRir ? 'checked' : ''}><span><b>RIR anzeigen</b><small>Optionale Wiederholungsreserve beim Training</small></span></label><button class="primary" type="submit">Speichern</button></form><button class="secondary full install-settings" id="installHelp">Volumora auf dem Homescreen installieren</button></main>`;
 }
 
 export function view() {
@@ -63,16 +63,25 @@ export function bind() {
       failed ? `Backup importiert. ${failed} Foto(s) konnten nicht gespeichert werden.` : 'Backup importiert'
     );
   });
-  document.querySelector('#settingsForm')?.addEventListener('submit', (e) => {
+  document.querySelector('#settingsForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const restTimer = f.get('restTimer') === 'on';
+    let restNotify = f.get('restNotify') === 'on';
+    if (restNotify && 'Notification' in window && Notification.permission !== 'granted') {
+      const permission = await Notification.requestPermission().catch(() => 'denied');
+      if (permission !== 'granted') {
+        restNotify = false;
+        toast('Benachrichtigungen wurden nicht erlaubt.');
+      }
+    }
     saveSettings({
       theme: f.get('theme'),
       rest: number(f.get('rest')),
       increment: number(f.get('increment')),
       showRir: f.get('showRir') === 'on',
       restTimer,
+      restNotify,
     });
     if (!restTimer) state.restUntil = 0;
     applyTheme();

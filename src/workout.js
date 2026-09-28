@@ -8,7 +8,7 @@ import {
   saveActive,
   saveHistory,
 } from './storage.js';
-import { dayKey, doneSets, exerciseKey, number, rangeMax, uid, volumeOf } from './util.js';
+import { dayKey, doneSets, e1rm, exerciseKey, number, rangeMax, uid, volumeOf } from './util.js';
 
 const emptySet = (overrides = {}) => ({
   weight: '',
@@ -142,4 +142,89 @@ export function finishSession(session) {
   saveHistory(history);
   clearActive();
   return session;
+}
+
+// Best completed working set of an exercise across the whole history (optionally ignoring one session).
+export function bestBefore(key, { excludeSessionId } = {}) {
+  let weight = 0;
+  let best = 0;
+  for (const session of getHistory()) {
+    if (session.id === excludeSessionId) continue;
+    for (const entry of session.entries || []) {
+      if (exerciseKey(entry) !== key) continue;
+      for (const s of entry.sets) {
+        if (s.warmup || !s.done) continue;
+        const w = number(s.weight);
+        const r = number(s.reps);
+        if (!w || !r) continue;
+        weight = Math.max(weight, w);
+        best = Math.max(best, e1rm(w, r));
+      }
+    }
+  }
+  return { weight, e1rm: best };
+}
+
+// A set is a personal record when its estimated 1RM beats every other completed set of the exercise,
+// in the history and in the current session.
+export function isRecord(ex, set, entry) {
+  const w = number(set.weight);
+  const r = number(set.reps);
+  if (!w || !r || set.warmup) return false;
+  const value = e1rm(w, r);
+  const previous = bestBefore(exerciseKey(ex)).e1rm;
+  const inSession = Math.max(
+    0,
+    ...entry.sets.filter((s) => s !== set && s.done && !s.warmup).map((s) => e1rm(s.weight, s.reps))
+  );
+  return value > previous && value > inSession;
+}
+
+// The last sessions that contained this exercise, newest first.
+export function exerciseHistory(key, limit = 5) {
+  const rows = [];
+  for (const session of getHistory()) {
+    const entry = session.entries?.find((e) => exerciseKey(e) === key);
+    if (!entry) continue;
+    const sets = entry.sets.filter((s) => !s.warmup && s.done && number(s.weight));
+    if (!sets.length) continue;
+    rows.push({
+      day: session.day || dayKey(session.finishedAt),
+      dayName: session.dayName,
+      sets: sets.map((s) => ({ weight: number(s.weight), reps: number(s.reps), pr: !!s.pr })),
+      best: Math.max(...sets.map((s) => e1rm(s.weight, s.reps))),
+    });
+    if (rows.length >= limit) break;
+  }
+  return rows;
+}
+
+// Recomputes the derived fields of a finished session after editing and stores it.
+export function saveEditedSession(session) {
+  session.totalSets = doneSets(session);
+  session.volume = volumeOf(session);
+  session.entries.forEach((e) =>
+    e.sets.forEach((x) => {
+      x.rpe = x.rir === '' || x.rir === undefined ? '' : 10 - number(x.rir);
+    })
+  );
+  const history = getHistory();
+  const index = history.findIndex((h) => h.id === session.id);
+  if (index < 0) return false;
+  history[index] = session;
+  saveHistory(history);
+  return true;
+}
+export function deleteSession(id) {
+  const history = getHistory();
+  const index = history.findIndex((h) => h.id === id);
+  if (index < 0) return null;
+  const [removed] = history.splice(index, 1);
+  saveHistory(history);
+  return { removed, index };
+}
+export function restoreSession(session, index) {
+  const history = getHistory();
+  history.splice(Math.min(index, history.length), 0, session);
+  saveHistory(history);
 }

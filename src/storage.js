@@ -11,8 +11,16 @@ export const LS = {
   body: 'volumora-body-v2',
   settings: 'volumora-settings-v2',
   exercisePrefs: 'volumora-exercise-prefs-v1',
+  rest: 'volumora-rest-until',
 };
-export const DEFAULT_SETTINGS = { theme: 'auto', rest: 90, increment: 2.5, showRir: false, restTimer: false };
+export const DEFAULT_SETTINGS = {
+  theme: 'auto',
+  rest: 90,
+  increment: 2.5,
+  showRir: false,
+  restTimer: false,
+  restNotify: false,
+};
 
 export const read = (key, fallback) => {
   try {
@@ -64,6 +72,9 @@ export const savePrefs = (prefs) => write(LS.exercisePrefs, prefs);
 export const getActive = () => read(LS.active, null);
 export const saveActive = (session) => write(LS.active, session);
 export const clearActive = () => localStorage.removeItem(LS.active);
+export const getRestUntil = () => Number(localStorage.getItem(LS.rest)) || 0;
+export const saveRestUntil = (until) =>
+  until ? localStorage.setItem(LS.rest, String(until)) : localStorage.removeItem(LS.rest);
 
 // Progress photos live in IndexedDB. localStorage is limited to roughly 5 MB, which a handful of base64 photos would exhaust.
 const PHOTO_DB = 'volumora-photos';

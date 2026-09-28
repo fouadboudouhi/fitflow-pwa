@@ -1,8 +1,8 @@
 import { icon } from '../icons.js';
 import { planSchedule, scheduleLabel } from '../plans.js';
-import { render } from '../render.js';
 import { state } from '../state.js';
 import { activePlan, getHistory } from '../storage.js';
+import { navigate } from '../render.js';
 import { WEEKDAYS, dayKey, esc, fmtMonth, number, plural, weekdayIndex } from '../util.js';
 import { backRow, empty } from './shell.js';
 
@@ -33,7 +33,9 @@ export function view() {
     const plannedDay = fixed
       ? plan.days.find((day) => schedule.assignments?.[day.id] === weekdayIndex(d))
       : null;
-    return `<div class="calendar-day ${done.length ? 'completed' : ''} ${key === todayKey ? 'today' : ''}"><span>${d.getDate()}</span>${done.length ? `<b>✓ ${esc(done[0].dayName || 'Training')}</b>` : plannedDay ? `<small>${esc(plannedDay.name)}</small>` : ''}</div>`;
+    if (done.length)
+      return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-session="${esc(done[0].id)}" aria-label="Training vom ${d.getDate()}. öffnen"><span>${d.getDate()}</span><b>✓ ${esc(done[0].dayName || 'Training')}</b></button>`;
+    return `<div class="calendar-day ${key === todayKey ? 'today' : ''}"><span>${d.getDate()}</span>${plannedDay ? `<small>${esc(plannedDay.name)}</small>` : ''}</div>`;
   });
   const upcoming =
     plan?.days
@@ -46,11 +48,14 @@ export function view() {
 }
 
 export function bind() {
+  document.querySelectorAll('[data-session]').forEach((b) => {
+    b.onclick = () => navigate('session', { sessionId: b.dataset.session });
+  });
   document.querySelectorAll('[data-calendar-shift]').forEach((b) => {
     b.onclick = () => {
       const shift = number(b.dataset.calendarShift);
       state.calendarOffset = shift ? number(state.calendarOffset) + shift : 0;
-      render();
+      navigate('calendar');
     };
   });
 }

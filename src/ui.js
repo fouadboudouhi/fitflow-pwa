@@ -107,3 +107,39 @@ export function confirmDialog({
 
 export const infoDialog = (title, text) =>
   confirmDialog({ title, text, confirmLabel: 'Verstanden', cancelLabel: null });
+
+// Non-blocking bottom sheet with arbitrary content (an element, or trusted markup from the app's own templates).
+export function sheet({ title, content, closeLabel = 'Schließen' }) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'sheet-backdrop';
+  backdrop.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="infoSheetTitle"><div class="sheet-head"><h2 id="infoSheetTitle"></h2><button type="button" class="icon-btn" data-close aria-label="${closeLabel}">${icon('close')}</button></div><div class="sheet-body"></div></div>`;
+  backdrop.querySelector('h2').textContent = title;
+  const body = backdrop.querySelector('.sheet-body');
+  if (content instanceof Node) body.append(content);
+  else body.innerHTML = content;
+  const previous = document.activeElement;
+  const close = () => {
+    document.removeEventListener('keydown', onKey, true);
+    backdrop.classList.remove('show');
+    setTimeout(() => backdrop.remove(), 200);
+    previous?.focus?.({ preventScroll: true });
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }
+  };
+  backdrop.querySelector('[data-close]').onclick = close;
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+  document.addEventListener('keydown', onKey, true);
+  document.body.append(backdrop);
+  requestAnimationFrame(() => {
+    backdrop.classList.add('show');
+    backdrop.querySelector('[data-close]').focus({ preventScroll: true });
+  });
+  return close;
+}

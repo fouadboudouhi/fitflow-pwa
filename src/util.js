@@ -57,3 +57,13 @@ export const volumeOf = (session) =>
   ) || 0;
 export const doneSets = (session) =>
   session?.entries?.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0) || 0;
+// Epley estimate of the one-repetition maximum.
+export const e1rm = (weight, reps) => number(weight) * (1 + number(reps) / 30);
+export const RANGES = { '4w': 28, '3m': 91, '1y': 365, all: Infinity };
+export const rangeCutoff = (range, today = new Date()) => {
+  const days = RANGES[range] ?? Infinity;
+  if (!Number.isFinite(days)) return '';
+  const d = new Date(today);
+  d.setDate(d.getDate() - days);
+  return dayKey(d);
+};

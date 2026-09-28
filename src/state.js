@@ -14,6 +14,8 @@ export const state = {
   assistantDraft: null,
   assistantPreview: null,
   analyticsExercise: null,
+  analyticsRange: '3m',
+  sessionId: null,
   calendarOffset: 0,
   installPrompt: null,
   restUntil: 0,

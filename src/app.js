@@ -1,12 +1,14 @@
 // Entry point: storage migrations, theme, service worker and the first render.
-import { render } from './render.js';
+import { navigate, render } from './render.js';
+import { nextSession } from './plans.js';
 import { state } from './state.js';
-import { migratePhotos, runMigrations } from './storage.js';
+import { activePlan, getHistory, getRestUntil, migratePhotos, runMigrations } from './storage.js';
 import { applyTheme } from './theme.js';
 import { getSettings } from './storage.js';
 
 runMigrations();
 applyTheme();
+state.restUntil = getRestUntil();
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -56,6 +58,13 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.addEventListener('pageshow', () => window.scrollTo(0, 0));
 
 render();
+// Homescreen shortcut: jump straight into the next session.
+if (new URLSearchParams(location.search).get('action') === 'start') {
+  history.replaceState(null, '', location.pathname);
+  const plan = activePlan();
+  const { day } = nextSession(plan, getHistory());
+  if (day?.exercises.length) navigate('workout', { planId: plan.id, dayId: day.id });
+}
 migratePhotos().then((migrated) => {
   if (migrated && state.view === 'body') render();
 });

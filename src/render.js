@@ -9,6 +9,7 @@ import * as editor from './views/editor.js';
 import * as home from './views/home.js';
 import * as more from './views/more.js';
 import * as plans from './views/plans.js';
+import * as session from './views/session.js';
 import { bindShell, nav, topbar } from './views/shell.js';
 import * as workout from './views/workout.js';
 
@@ -20,13 +21,20 @@ const VIEWS = {
   workout,
   analytics,
   calendar,
+  session,
   body,
   more,
   backup: more,
   settings: more,
 };
 const BARE = ['workout', 'planEditor', 'assistant'];
-const NAV_FOR = { calendar: 'analytics', body: 'more', backup: 'more', settings: 'more' };
+const NAV_FOR = {
+  calendar: 'analytics',
+  session: 'analytics',
+  body: 'more',
+  backup: 'more',
+  settings: 'more',
+};
 const $app = document.querySelector('#app');
 
 export function navigate(view, patch = {}) {
@@ -63,12 +71,14 @@ export function render() {
     (state.view === 'workout' ? '' : topbar()) +
     content +
     (bare ? '' : nav(NAV_FOR[state.view] || state.view));
+  if (viewChanged) $app.querySelector('main')?.classList.add('view-enter');
   openDetails.forEach((id) => document.getElementById(id)?.setAttribute('open', ''));
   if (focusKey) document.querySelector(focusKey)?.focus({ preventScroll: true });
   bindShell();
   (VIEWS[state.view] || more).bind();
   if (viewChanged) requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
-  if (state.view === 'analytics') requestAnimationFrame(() => drawAnalytics(state.analyticsExercise));
+  if (state.view === 'analytics')
+    requestAnimationFrame(() => drawAnalytics(state.analyticsExercise, state.analyticsRange || '3m'));
   if (state.view === 'body') requestAnimationFrame(drawBodyChart);
   if (state.view === 'workout') workout.startRestTicker();
 }

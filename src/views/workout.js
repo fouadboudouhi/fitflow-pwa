@@ -1,13 +1,15 @@
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { allPlans, getDay, getSettings, savePlans, saveSettings } from '../storage.js';
-import { confirmDialog, toast, undoToast } from '../ui.js';
-import { esc, number } from '../util.js';
+import { allPlans, getDay, getSettings, savePlans, saveRestUntil, saveSettings } from '../storage.js';
+import { confirmDialog, sheet, toast, undoToast } from '../ui.js';
+import { esc, exerciseKey, fmtLong, number } from '../util.js';
 import {
   activeSession,
   entryComplete,
+  exerciseHistory,
   finishSession,
+  isRecord,
   mutateSession,
   newSet,
   previousEntry,
@@ -23,7 +25,7 @@ const field = (name, label, set, i, exerciseIndex, workNumber, attrs) =>
 
 function setRow(set, i, last, workIndex, showRir, exerciseIndex) {
   const workNumber = set.warmup ? 'W' : workIndex;
-  return `<div class="set-row"><button class="set-delete" data-delete-set="${i}" data-exercise="${exerciseIndex}" aria-label="Satz löschen">Löschen</button><div class="set-card ${set.done ? 'complete' : ''} ${set.warmup ? 'warmup' : ''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span>${set.warmup ? 'Warm-up' : ''}</span></div>${field('weight', 'kg', set, i, exerciseIndex, workNumber, 'inputmode="decimal" step="0.5" min="0"')}${field('reps', 'Wdh.', set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0"')}${
+  return `<div class="set-row"><button class="set-delete" data-delete-set="${i}" data-exercise="${exerciseIndex}" aria-label="Satz löschen">Löschen</button><div class="set-card ${set.done ? 'complete' : ''} ${set.warmup ? 'warmup' : ''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span class="${set.pr ? 'pr' : ''}">${set.warmup ? 'Warm-up' : set.pr ? 'PR' : ''}</span></div>${field('weight', 'kg', set, i, exerciseIndex, workNumber, 'inputmode="decimal" step="0.5" min="0"')}${field('reps', 'Wdh.', set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0"')}${
     showRir
       ? field('rir', 'RIR', set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0" max="10"')
       : ''
@@ -43,7 +45,7 @@ function exerciseSection(ex, index, entry, total, showRir) {
     )
     .join('');
   return `<section class="workout-exercise ${complete ? 'complete' : ''}" id="exercise-${index}">
-      <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><small>Übung ${index + 1} von ${total}</small><h2>${esc(ex.name)}</h2><p>${esc(ex.sets)} × ${esc(ex.range)} Wdh.</p></div><button class="favorite ${ex.favorite ? 'active' : ''}" data-favorite-exercise="${index}" aria-label="Favorit" aria-pressed="${!!ex.favorite}">★</button></div>
+      <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><small>Übung ${index + 1} von ${total}</small><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="Verlauf von ${esc(ex.name)} anzeigen">${esc(ex.name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)} Wdh.</p></div><button class="favorite ${ex.favorite ? 'active' : ''}" data-favorite-exercise="${index}" aria-label="Favorit" aria-pressed="${!!ex.favorite}">★</button></div>
       ${ex.gif ? `<details class="technique compact-technique" id="technique-${index}"><summary><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><span><b>Technik</b><small>${esc(ex.note || 'Bewegungsablauf ansehen')}</small></span><i>⌄</i></summary><div class="exercise-media"><img class="exercise-gif" src="${esc(ex.gif)}" alt="Ausführung ${esc(ex.name)}" loading="lazy" decoding="async"></div></details>` : ex.note ? `<p class="coach-note">${esc(ex.note)}</p>` : ''}
       ${suggest.weight !== null ? `<div class="progression-row compact-progression"><span>${icon('trend')}</span><div><small>Empfehlung</small><b>${esc(suggest.text)}</b></div><button class="tiny" data-apply-suggestion="${index}" data-weight="${suggest.weight}">Nutzen</button></div>` : ''}
       <div class="set-table ${showRir ? '' : 'no-rir'}"><div class="set-head"><span>Satz</span><span>kg</span><span>Wdh.</span>${showRir ? '<span>RIR</span>' : ''}<span></span></div><div class="set-list">${rows}</div></div>
@@ -93,17 +95,24 @@ export function bind() {
   document.querySelectorAll('[data-set-done]').forEach((b) => {
     b.onclick = () => {
       const exerciseIndex = number(b.dataset.exercise);
+      let record = null;
       mutate((s) => {
-        const set = s.entries[exerciseIndex].sets[number(b.dataset.setDone)];
+        const entry = s.entries[exerciseIndex];
+        const set = entry.sets[number(b.dataset.setDone)];
         set.done = !set.done;
+        const ex = getDay(state.planId, state.dayId).exercises[exerciseIndex];
+        set.pr = set.done && isRecord(ex, set, entry);
         if (!set.done) return;
+        if (set.pr) record = set;
         const settings = getSettings();
         if (settings.restTimer) {
-          const ex = getDay(state.planId, state.dayId).exercises[exerciseIndex];
           state.restUntil = Date.now() + (number(ex.rest) || number(settings.rest) || 90) * 1000;
+          saveRestUntil(state.restUntil);
+          armRestNotification();
         }
         navigator.vibrate?.(40);
       }, true);
+      if (record) toast(`Neuer Bestwert: ${esc(record.weight)} kg × ${esc(record.reps)}`, { duration: 4000 });
     };
   });
   document.querySelectorAll('[data-delete-set]').forEach((b) => {
@@ -212,12 +221,31 @@ export function bind() {
   };
   document.querySelector('#exitWorkout').onclick = () => navigate('home');
   document.querySelector('[data-rest-add]')?.addEventListener('click', () => {
-    state.restUntil += 30000;
+    state.restUntil = Math.max(state.restUntil, Date.now()) + 30000;
+    saveRestUntil(state.restUntil);
+    armRestNotification();
     updateRest();
   });
   document.querySelector('[data-rest-skip]')?.addEventListener('click', () => {
     state.restUntil = 0;
+    saveRestUntil(0);
+    armRestNotification();
     document.querySelector('#restTimer')?.classList.remove('show');
+  });
+  document.querySelectorAll('[data-exercise-history]').forEach((b) => {
+    b.onclick = () => {
+      const ex = getDay(state.planId, state.dayId).exercises[number(b.dataset.exerciseHistory)];
+      const rows = exerciseHistory(exerciseKey(ex), 6);
+      const content = rows.length
+        ? `<div class="history-rows">${rows
+            .map(
+              (r) =>
+                `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(s.weight)}×${esc(s.reps)}${s.pr ? '<i class="pr-chip">PR</i>' : ''}`).join(' · ')}</b><small>1RM ≈ ${Math.round(r.best)} kg</small></div>`
+            )
+            .join('')}</div>`
+        : '<p class="muted">Noch keine abgeschlossenen Sätze für diese Übung.</p>';
+      sheet({ title: ex.name, content });
+    };
   });
 }
 
@@ -235,5 +263,36 @@ function updateRest() {
   if (left === 0 && state.restUntil) {
     navigator.vibrate?.([100, 80, 100]);
     state.restUntil = 0;
+    saveRestUntil(0);
   }
+}
+
+// Fires a system notification at the end of the rest when the app is in the background.
+let notifyTimer = null;
+function armRestNotification() {
+  clearTimeout(notifyTimer);
+  if (
+    !state.restUntil ||
+    !getSettings().restNotify ||
+    !('Notification' in window) ||
+    Notification.permission !== 'granted'
+  )
+    return;
+  notifyTimer = setTimeout(
+    () => {
+      if (document.visibilityState === 'visible') return;
+      const options = {
+        body: 'Weiter geht’s mit dem nächsten Satz.',
+        tag: 'volumora-rest',
+        icon: 'assets/icons/icon-192.png',
+      };
+      navigator.serviceWorker
+        ?.getRegistration()
+        .then((reg) =>
+          reg ? reg.showNotification('Pause vorbei', options) : new Notification('Pause vorbei', options)
+        )
+        .catch(() => {});
+    },
+    Math.max(0, state.restUntil - Date.now())
+  );
 }

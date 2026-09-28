@@ -223,3 +223,9 @@ export const EXERCISE_LIBRARY = source.map((ex, index) => {
 });
 export const libraryExercise = (id) => EXERCISE_LIBRARY.find((x) => x.id === id);
 export const libraryBySourceName = (name) => EXERCISE_LIBRARY.find((x) => x.sourceName === name);
+// Muscle group of a plan exercise or a history entry.
+export const categoryOf = (item) => {
+  const lib = item?.libraryId && libraryExercise(item.libraryId);
+  if (lib) return lib.category;
+  return item?.category || CATEGORY_BY_ID[item?.exerciseId || item?.id] || 'Sonstige';
+};
