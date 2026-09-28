@@ -47,7 +47,7 @@ afterEach(async () => {
 });
 
 test('home shows the default plan and the next session', async () => {
-  assert.equal(await page.textContent('.home-intro .eyebrow'), 'Push · Pull · Legs');
+  assert.match(await page.textContent('.home-intro p'), /Push · Pull · Legs/);
   assert.match(await page.textContent('.next-card h2'), /Push/);
   assert.equal(
     (await page.getAttribute('html', 'data-theme')) !== null,
@@ -98,7 +98,7 @@ test('plan assistant creates and activates a plan', async () => {
   assert.match(await page.textContent('.preview-head h1'), /Kraft · 4 Tage/);
   await page.click('#useSuggestedPlan');
   await page.waitForSelector('.next-card');
-  assert.equal(await page.textContent('.home-intro .eyebrow'), 'Kraft · 4 Tage');
+  assert.match(await page.textContent('.home-intro p'), /Kraft · 4 Tage/);
 });
 
 test('body photos are stored in IndexedDB and included in the JSON backup', async () => {
@@ -194,7 +194,17 @@ test('a hostile backup is sanitised on import', async () => {
   const body = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-body-v2')));
   assert.equal(body[0].hasPhoto, false, 'remote photo URL dropped');
   const settings = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-settings-v2')));
-  assert.deepEqual(settings, { theme: 'auto', rest: 90, increment: 2.5, showRir: false, restTimer: false });
+  assert.deepEqual(settings, {
+    theme: 'auto',
+    rest: 90,
+    increment: 2.5,
+    showRir: false,
+    restTimer: false,
+    restNotify: false,
+    unit: 'kg',
+    weeklyGoal: 0,
+    barWeight: 20,
+  });
   const history = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
   assert.equal(history.length, 1, 'session without a valid date dropped');
 });
@@ -330,7 +340,7 @@ test('deleting a set can be undone and open details survive a re-render', async 
   assert.equal(await first.locator('.set-row').count(), 3, 'undo restores the set');
   await page.click('#exitWorkout');
   // Starting another day asks first; cancelling keeps the session.
-  await page.click('.other-days [data-start]');
+  await page.click('.list [data-start]');
   await page.waitForSelector('.sheet-backdrop.show');
   await page.keyboard.press('Escape');
   await page.waitForSelector('.resume-card');
@@ -420,7 +430,6 @@ async function seedHistory() {
     const key = (d) =>
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const recent = new Date(today);
-    recent.setDate(today.getDate() - 3);
     const old = new Date(today);
     old.setDate(today.getDate() - 200);
     localStorage.setItem(
@@ -436,16 +445,16 @@ async function seedHistory() {
 test('analytics: time range scopes everything, charts show a tooltip, a session opens and can be edited or deleted', async () => {
   await seedHistory();
   await page.click('[data-nav="analytics"]');
-  assert.equal(await page.locator('.history-card').count(), 1, '3 months hides the 200-day-old session');
+  assert.equal(await page.locator('.row[data-session]').count(), 1, '3 months hides the 200-day-old session');
   await page.click('[data-range="all"]');
-  assert.equal(await page.locator('.history-card').count(), 2);
+  assert.equal(await page.locator('.row[data-session]').count(), 2);
   assert.match(await page.textContent('.bar-list'), /Brust/);
   const canvas = page.locator('#volumeChart');
   const box = await canvas.boundingBox();
   await canvas.hover({ position: { x: box.width - 20, y: 100 } });
   await page.waitForSelector('.chart-tip:not([hidden])');
   assert.match(await page.textContent('.chart-tip strong'), /800 kg/);
-  await page.locator('.history-card').first().click();
+  await page.locator('.row[data-session]').first().click();
   await page.waitForSelector('#sessionForm');
   assert.match(await page.textContent('h1'), /Push/);
   await page.fill('[data-edit="weight"][data-e="0"][data-s="0"]', '55');
@@ -455,10 +464,10 @@ test('analytics: time range scopes everything, charts show a tooltip, a session 
   assert.equal(stored[0].entries[0].sets[0].weight, '55');
   assert.equal(stored[0].volume, 55 * 8 + 50 * 8, 'volume is recomputed');
   await page.click('#deleteSession');
-  await page.waitForSelector('.history-card');
-  assert.equal(await page.locator('.history-card').count(), 1);
+  await page.waitForSelector('.row[data-session]');
+  assert.equal(await page.locator('.row[data-session]').count(), 1);
   await page.click('.toast-action');
-  assert.equal(await page.locator('.history-card').count(), 2, 'undo restores the session');
+  assert.equal(await page.locator('.row[data-session]').count(), 2, 'undo restores the session');
   await page.click('[data-nav="calendar"]');
   await page.click('[data-calendar-shift="-1"]').catch(() => {});
   await page.click('[data-calendar-shift="0"]').catch(() => {});
@@ -493,4 +502,59 @@ test('the homescreen shortcut opens the next workout', async () => {
   await page.goto(baseURL + '/?action=start');
   await page.waitForSelector('.workout-exercise');
   assert.equal(await page.evaluate(() => location.search), '', 'query is cleaned up');
+});
+
+test('units: pounds are shown everywhere and stored as kilograms; the plate calculator works', async () => {
+  await seedHistory();
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="settings"]');
+  await page.selectOption('select[name="unit"]', 'lbs');
+  await page.click('#settingsForm button[type="submit"]');
+  await page.waitForSelector('.toast.show');
+  await page.click('[data-nav="home"]');
+  assert.match(await page.textContent('.week'), /lbs/, 'week volume in pounds');
+  await page.click('[data-start="push"]');
+  await page.waitForSelector('.workout-exercise');
+  const first = page.locator('.workout-exercise').first();
+  assert.equal(await first.locator('.set-head span').nth(1).textContent(), 'lbs');
+  assert.equal(
+    await first.locator('input[data-set-field="weight"][data-index="0"]').inputValue(),
+    '110.2',
+    '50 kg shown as pounds'
+  );
+  await first.locator('input[data-set-field="weight"][data-index="0"]').fill('135');
+  const saved = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('volumora-active-v2')).entries[0].sets[0].weight
+  );
+  assert.equal(Math.round(Number(saved) * 10) / 10, 61.2, 'stored in kilograms');
+  // The plate calculator appears on barbell exercises only.
+  assert.equal(
+    await first.locator('[data-plates]').count(),
+    0,
+    'chest press machine has no plate calculator'
+  );
+  await page.click('#exitWorkout');
+  await page.click('[data-start="legs"]');
+  await page.waitForSelector('.workout-exercise');
+  const squat = page.locator('.workout-exercise').first();
+  await squat.locator('input[data-set-field="weight"][data-index="0"]').fill('135');
+  await squat.locator('[data-plates="0"]').click();
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('#plateResult'), /45 lbs pro Seite/);
+  assert.match(await page.textContent('#plateResult'), /1 × 45/);
+  await page.keyboard.press('Escape');
+});
+
+test('home shows the weekly goal and streak', async () => {
+  await seedHistory();
+  assert.match(await page.textContent('.week-line'), /1 von 3/);
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('volumora-settings-v2')) || {};
+    s.weeklyGoal = 1;
+    localStorage.setItem('volumora-settings-v2', JSON.stringify(s));
+  });
+  await page.reload();
+  await page.waitForSelector('.week-line');
+  assert.match(await page.textContent('.week-line'), /1 von 1/);
+  assert.match(await page.textContent('.week-line em'), /1 Woche in Folge/);
 });

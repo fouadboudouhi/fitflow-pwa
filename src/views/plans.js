@@ -1,5 +1,5 @@
-import { createEmptyPlan, duplicatePlan, scheduleLabel } from '../plans.js';
 import { icon } from '../icons.js';
+import { createEmptyPlan, duplicatePlan, scheduleLabel } from '../plans.js';
 import { navigate, render } from '../render.js';
 import { allPlans, savePlans } from '../storage.js';
 import { undoToast } from '../ui.js';
@@ -7,8 +7,9 @@ import { esc, plural } from '../util.js';
 
 const planCard = (p, activeId, deletable) => {
   const count = p.days.reduce((n, d) => n + d.exercises.length, 0);
-  return `<article class="plan-card ${p.id === activeId ? 'selected' : ''}"><div><div class="eyebrow">${p.id === activeId ? 'Aktiver Plan' : 'Trainingsplan'}</div><h2>${esc(p.name)}</h2><p>${esc(scheduleLabel(p))} · ${plural(p.days.length, 'Tag', 'Tage')} · ${plural(count, 'Übung', 'Übungen')}</p></div><div class="card-actions">${
-    p.id !== activeId ? `<button class="secondary" data-activate-plan="${p.id}">Aktivieren</button>` : ''
+  const active = p.id === activeId;
+  return `<article class="plan-card ${active ? 'selected' : ''}"><div class="plan-card-main"><h2>${esc(p.name)}${active ? '<span class="chip chip-green">Aktiv</span>' : ''}</h2><p>${plural(p.days.length, 'Tag', 'Tage')} · ${plural(count, 'Übung', 'Übungen')} · ${esc(scheduleLabel(p))}</p></div><div class="card-actions">${
+    active ? '' : `<button class="secondary" data-activate-plan="${p.id}">Aktivieren</button>`
   }<button class="secondary" data-edit-plan="${p.id}">Bearbeiten</button><button class="icon-btn" data-copy-plan="${p.id}" title="Duplizieren" aria-label="Plan duplizieren">${icon('copy')}</button>${
     deletable
       ? `<button class="icon-btn danger" data-delete-plan="${p.id}" title="Löschen" aria-label="Plan löschen">${icon('close')}</button>`
@@ -18,7 +19,7 @@ const planCard = (p, activeId, deletable) => {
 
 export function view() {
   const data = allPlans();
-  return `<main class="shell"><section class="page-head"><div><span class="eyebrow">Programm</span><h1>Dein Plan</h1><p>Ein klarer Wochenrhythmus und alle Einheiten an einem Ort.</p></div><div class="card-actions"><button class="secondary" id="planAssistant">Plan-Assistent</button><button class="primary" id="newPlan">+ Eigener Plan</button></div></section>
+  return `<main class="shell"><section class="page-head"><h1>Pläne</h1><div class="card-actions"><button class="secondary" id="planAssistant">Assistent</button><button class="primary" id="newPlan">Neuer Plan</button></div></section>
   <div class="plan-list">${data.items.map((p) => planCard(p, data.activePlanId, data.items.length > 1)).join('')}</div></main>`;
 }
 

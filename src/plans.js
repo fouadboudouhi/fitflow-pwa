@@ -239,3 +239,35 @@ export function nextSession(plan, history, today = new Date()) {
   if (day && !day.exercises.length && ready.length) day = ready[0];
   return { day, label };
 }
+
+// Weekly goal: sessions per calendar week (Monday start). Streak counts consecutive weeks that met the goal,
+// the current week included once it is met.
+export function weekStats(history, goal, today = new Date()) {
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - weekdayIndex(today));
+  monday.setHours(0, 0, 0, 0);
+  const weekKey = (key) => {
+    const d = new Date(+key.slice(0, 4), +key.slice(5, 7) - 1, +key.slice(8, 10));
+    d.setDate(d.getDate() - weekdayIndex(d));
+    return dayKey(d);
+  };
+  const perWeek = new Map();
+  history.forEach((h) => {
+    const key = h.day || dayKey(h.finishedAt);
+    if (!key) return;
+    const wk = weekKey(key);
+    perWeek.set(wk, (perWeek.get(wk) || 0) + 1);
+  });
+  const thisWeek = perWeek.get(dayKey(monday)) || 0;
+  let streak = 0;
+  const cursor = new Date(monday);
+  if (thisWeek >= goal) {
+    streak = 1;
+  }
+  cursor.setDate(cursor.getDate() - 7);
+  while ((perWeek.get(dayKey(cursor)) || 0) >= goal && goal > 0) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  return { thisWeek, streak, goal };
+}

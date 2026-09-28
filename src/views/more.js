@@ -3,26 +3,43 @@ import { exportBackup, exportCsv, importBackup, validateBackup } from '../backup
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { getSettings, saveSettings } from '../storage.js';
+import { activePlan, getSettings, saveSettings } from '../storage.js';
 import { applyTheme } from '../theme.js';
 import { confirmDialog, infoDialog, toast } from '../ui.js';
+import { fieldValue, fromDisplay, unit } from '../units.js';
 import { esc, number } from '../util.js';
 import { backRow, mediaCredit } from './shell.js';
 
 const menuItem = (target, ic, title, text) =>
-  `<button data-nav="${target}"><span>${icon(ic)}</span><div><b>${title}</b><small>${text}</small></div><i>→</i></button>`;
+  `<button type="button" class="row" data-nav="${target}"><span class="row-icon">${icon(ic)}</span><span class="row-main"><b>${title}</b><small>${text}</small></span>${icon('chevron-right')}</button>`;
 
 const moreView = () =>
-  `<main class="shell"><section class="page-head"><div><span class="eyebrow">Volumora</span><h1>Mehr</h1><p>Körperdaten, Sicherung und Einstellungen.</p></div></section><div class="menu-list">${menuItem('body', 'body', 'Körper & Fotos', 'Gewicht, Maße und Fortschrittsbilder')}${menuItem('backup', 'backup', 'Export & Backup', 'JSON sichern, CSV exportieren, Backup einspielen')}${menuItem('settings', 'settings', 'Einstellungen', 'Design, Pause und Gewichtsschritte')}</div><section class="about-card"><img src="assets/brand/volumora-mark.png" alt="Volumora Logo"><div><b>Volumora</b><p>Deine Trainingsdaten bleiben ausschließlich lokal auf diesem Gerät, bis du selbst ein Backup exportierst.</p></div></section>${mediaCredit()}</main>`;
+  `<main class="shell"><section class="page-head"><h1>Mehr</h1></section><div class="list">${menuItem('body', 'body', 'Körper', 'Gewicht, Maße, Fotos')}${menuItem('backup', 'backup', 'Backup', 'Exportieren und wiederherstellen')}${menuItem('settings', 'settings', 'Einstellungen', 'Einheiten, Pausen, Darstellung')}</div><p class="about">Volumora speichert alles nur auf diesem Gerät. Kein Konto, kein Server.</p>${mediaCredit()}</main>`;
 
 const backupView = () =>
-  `<main class="shell narrow">${backRow('Export & Backup', 'more')}<section class="page-head compact"><div><span class="eyebrow">Deine Daten</span><h1>Sichern & mitnehmen</h1><p>Ein JSON-Backup enthält Pläne, Trainings, Einstellungen und Körperdaten inklusive Fotos.</p></div></section><div class="backup-grid"><button class="action-tile" id="exportJson"><span>↓</span><b>Vollständiges Backup</b><small>JSON herunterladen</small></button><button class="action-tile" id="exportCsv"><span>↓</span><b>Training als Tabelle</b><small>CSV herunterladen</small></button><label class="action-tile"><span>↑</span><b>Backup einspielen</b><small>JSON auswählen</small><input type="file" id="importJson" accept="application/json,.json"></label></div><div class="warning"><b>Wichtig</b><p>Beim Import werden die aktuellen lokalen Daten überschrieben. Exportiere vorher ein Backup, wenn du sie behalten möchtest.</p></div></main>`;
+  `<main class="shell narrow">${backRow('Backup', 'more')}<section class="page-head compact"><div><h1>Sichern und mitnehmen</h1><p>Das JSON-Backup enthält Pläne, Trainings, Einstellungen und Körperdaten mit Fotos.</p></div></section><div class="backup-grid"><button class="action-tile" id="exportJson"><b>Vollständiges Backup</b><small>JSON herunterladen</small></button><button class="action-tile" id="exportCsv"><b>Trainings als Tabelle</b><small>CSV herunterladen</small></button><label class="action-tile"><b>Backup einspielen</b><small>JSON auswählen</small><input type="file" id="importJson" accept="application/json,.json"></label></div><p class="warning">Beim Import werden die aktuellen lokalen Daten ersetzt. Exportiere vorher ein Backup, wenn du sie behalten möchtest.</p></main>`;
 
 function settingsView() {
   const s = getSettings();
-  const option = (value, label) =>
-    `<option value="${value}" ${s.theme === value ? 'selected' : ''}>${label}</option>`;
-  return `<main class="shell narrow">${backRow('Einstellungen', 'more')}<section class="page-head compact"><div><span class="eyebrow">App</span><h1>Einstellungen</h1></div></section><form class="settings-form" id="settingsForm"><label><span>Darstellung</span><select name="theme">${option('auto', 'Automatisch')}${option('light', 'Hell')}${option('dark', 'Dunkel')}</select></label><label class="toggle-setting"><input name="restTimer" type="checkbox" ${s.restTimer ? 'checked' : ''}><span><b>Pausentimer</b><small>Nach einem erledigten Satz automatisch starten</small></span></label>${'Notification' in window ? `<label class="toggle-setting"><input name="restNotify" type="checkbox" ${s.restNotify ? 'checked' : ''}><span><b>Benachrichtigung bei Pausenende</b><small>Meldet sich, wenn die App im Hintergrund ist</small></span></label>` : ''}<label><span>Pausendauer</span><div class="unit-input"><input name="rest" type="number" min="0" max="600" value="${esc(s.rest)}"><i>Sek.</i></div></label><label><span>Standard-Gewichtsschritt</span><div class="unit-input"><input name="increment" type="number" min="0.25" step="0.25" value="${esc(s.increment)}"><i>kg</i></div></label><label class="toggle-setting"><input name="showRir" type="checkbox" ${s.showRir ? 'checked' : ''}><span><b>RIR anzeigen</b><small>Optionale Wiederholungsreserve beim Training</small></span></label><button class="primary" type="submit">Speichern</button></form><button class="secondary full install-settings" id="installHelp">Volumora auf dem Homescreen installieren</button></main>`;
+  const option = (value, label, current) =>
+    `<option value="${value}" ${current === value ? 'selected' : ''}>${label}</option>`;
+  const planDays = activePlan()?.days?.filter((d) => d.exercises.length).length || 3;
+  const toggle = (name, title, text, checked) =>
+    `<label class="toggle-setting"><input name="${name}" type="checkbox" ${checked ? 'checked' : ''}><span><b>${title}</b><small>${text}</small></span></label>`;
+  return `<main class="shell narrow">${backRow('Einstellungen', 'more')}<section class="page-head compact"><h1>Einstellungen</h1></section><form class="settings-form" id="settingsForm">
+    <h2>Training</h2>
+    <label><span>Gewichtseinheit</span><select name="unit">${option('kg', 'Kilogramm', s.unit)}${option('lbs', 'Pfund (lbs)', s.unit)}</select></label>
+    <label><span>Standard-Gewichtsschritt</span><div class="unit-input"><input name="increment" type="number" min="0.25" step="0.25" value="${esc(fieldValue(s.increment))}"><i>${unit()}</i></div></label>
+    <label><span>Stangengewicht</span><div class="unit-input"><input name="barWeight" type="number" min="0" step="0.5" value="${esc(fieldValue(s.barWeight))}"><i>${unit()}</i></div></label>
+    <label><span>Wochenziel</span><select name="weeklyGoal">${option('0', `Wie der Plan (${planDays} Einheiten)`, String(s.weeklyGoal))}${[1, 2, 3, 4, 5, 6, 7].map((n) => option(String(n), `${n} pro Woche`, String(s.weeklyGoal))).join('')}</select></label>
+    ${toggle('showRir', 'RIR anzeigen', 'Wiederholungsreserve pro Satz', s.showRir)}
+    <h2>Pause</h2>
+    ${toggle('restTimer', 'Pausentimer', 'Startet nach jedem erledigten Satz', s.restTimer)}
+    <label><span>Pausendauer</span><div class="unit-input"><input name="rest" type="number" min="0" max="600" value="${esc(s.rest)}"><i>Sek.</i></div></label>
+    ${'Notification' in window ? toggle('restNotify', 'Benachrichtigung bei Pausenende', 'Nur wenn die App im Hintergrund ist', s.restNotify) : ''}
+    <h2>Darstellung</h2>
+    <label><span>Design</span><select name="theme">${option('auto', 'Automatisch', s.theme)}${option('light', 'Hell', s.theme)}${option('dark', 'Dunkel', s.theme)}</select></label>
+    <button class="primary" type="submit">Speichern</button></form><button class="secondary full install-settings" id="installHelp">Auf dem Homescreen installieren</button></main>`;
 }
 
 export function view() {
@@ -75,10 +92,16 @@ export function bind() {
         toast('Benachrichtigungen wurden nicht erlaubt.');
       }
     }
+    // Weight fields were typed in the unit that was active while the form was open.
+    const current = getSettings();
     saveSettings({
+      ...current,
       theme: f.get('theme'),
       rest: number(f.get('rest')),
-      increment: number(f.get('increment')),
+      increment: number(fromDisplay(f.get('increment'))) || 2.5,
+      barWeight: number(fromDisplay(f.get('barWeight'))),
+      unit: f.get('unit') === 'lbs' ? 'lbs' : 'kg',
+      weeklyGoal: number(f.get('weeklyGoal')),
       showRir: f.get('showRir') === 'on',
       restTimer,
       restNotify,

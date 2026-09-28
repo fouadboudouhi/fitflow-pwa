@@ -2,7 +2,7 @@
 
 Offline-fähige, installierbare Fitness-PWA für frei konfigurierbare Trainingspläne.
 
-Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) dokumentiert.
+Die visuellen Regeln sind in [`DESIGN.md`](DESIGN.md) dokumentiert, im neunteiligen DESIGN.md-Format, damit auch KI-Werkzeuge konsistent daran weiterbauen.
 
 ## Funktionen
 - Beliebig viele Trainingspläne und Tage mit 100 häufigen Übungen erstellen
@@ -20,6 +20,8 @@ Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) 
 - Abgeschlossene Trainings lassen sich öffnen, korrigieren und löschen; Bestwerte werden beim Abhaken erkannt
 - Übungs-Historie direkt im Training; Pausentimer überlebt einen Neustart und kann im Hintergrund benachrichtigen
 - Homescreen-Shortcut „Training starten“
+- Gewichtseinheit kg oder lbs (intern immer Kilogramm), Scheibenrechner für Langhantelübungen
+- Wochenziel mit Serie auf der Startseite
 - Körpermaße und komprimierte Fortschrittsfotos (Fotos liegen in IndexedDB, Messwerte in `localStorage`)
 - JSON-Backup, validierter JSON-Import und CSV-Export
 - Dark Mode, Favoriten sowie Deload-, Krankheits- und Schmerzmarker
@@ -41,6 +43,7 @@ Kein Build-Schritt, kein Framework: `index.html` lädt `src/app.js` als ES-Modul
 | `src/backup.js` | JSON-Export, Validierung und Import, CSV |
 | `src/charts.js` | Canvas-Diagramme |
 | `src/ui.js` | Toast mit Rückgängig, Bottom-Sheets für Bestätigungen und Inhalte (ersetzt `alert`/`confirm`) |
+| `src/units.js`, `src/plates.js` | Einheitenumrechnung und Scheibenrechner |
 | `src/render.js` | Rendert die aktive View und bindet ihre Events |
 | `src/views/*.js` | Eine Datei pro Bildschirm, jeweils `view()` und `bind()` |
 

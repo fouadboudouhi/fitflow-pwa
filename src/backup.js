@@ -204,6 +204,10 @@ export function validateBackup(data) {
     increment: asNum(s.increment, 2.5, 0.25, 50),
     showRir: !!s.showRir,
     restTimer: !!s.restTimer,
+    restNotify: !!s.restNotify,
+    unit: s.unit === 'lbs' ? 'lbs' : 'kg',
+    weeklyGoal: asNum(s.weeklyGoal, 0, 0, 14),
+    barWeight: asNum(s.barWeight, 20, 0, 50),
   };
   const prefs = data.exercisePrefs && typeof data.exercisePrefs === 'object' ? data.exercisePrefs : {};
   const exercisePrefs = {

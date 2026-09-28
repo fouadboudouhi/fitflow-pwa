@@ -8,6 +8,7 @@ import {
   saveActive,
   saveHistory,
 } from './storage.js';
+import { roundToStep } from './units.js';
 import { dayKey, doneSets, e1rm, exerciseKey, number, rangeMax, uid, volumeOf } from './util.js';
 
 const emptySet = (overrides = {}) => ({
@@ -96,7 +97,7 @@ export const sessionStarted = (session) => doneSets(session) > 0;
 
 export function suggestion(ex) {
   const previous = previousEntry(ex);
-  if (!previous) return { text: 'Starte konservativ und lasse 2–3 Wiederholungen im Tank.', weight: null };
+  if (!previous) return { kind: 'start', weight: null };
   const work = previous.sets.filter((s) => !s.warmup && s.done);
   const max = rangeMax(ex.range);
   const best = Math.max(...work.map((s) => number(s.weight)), 0);
@@ -108,18 +109,17 @@ export function suggestion(ex) {
     `${ex.sourceName || ''} ${ex.name || ''}`
   );
   const inc = heavy ? Math.max(5, base) : base;
-  return ready
-    ? { text: `Progression: ${best + inc} kg versuchen`, weight: best + inc }
-    : { text: `Ziel: ${best} kg bestätigen und Wiederholungen steigern`, weight: best };
+  return ready ? { kind: 'progress', weight: best + inc } : { kind: 'confirm', weight: best };
 }
 
 export function warmupSets(target) {
-  const round = (v) => Math.max(2.5, Math.round(v / 2.5) * 2.5);
   return [
     [0.4, 8],
     [0.6, 5],
     [0.8, 3],
-  ].map(([factor, reps]) => emptySet({ weight: round(target * factor), reps, warmup: true }));
+  ].map(([factor, reps]) =>
+    emptySet({ weight: String(Math.round(roundToStep(target * factor) * 1000) / 1000), reps, warmup: true })
+  );
 }
 export const newSet = (overrides) => emptySet(overrides);
 

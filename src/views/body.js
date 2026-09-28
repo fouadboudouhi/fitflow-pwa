@@ -1,6 +1,7 @@
 import { render } from '../render.js';
 import { getBody, photos, saveBody } from '../storage.js';
 import { toast, undoToast } from '../ui.js';
+import { fieldValue, fmtWeight, fromDisplay, unit } from '../units.js';
 import { dayKey, esc, fmtDate, number, uid } from '../util.js';
 import { backRow } from './shell.js';
 
@@ -43,10 +44,10 @@ const numberField = (name, label) =>
 
 export function view() {
   const entries = getBody();
-  return `<main class="shell">${backRow('Körper & Fotos', 'more')}<section class="page-head compact"><div><span class="eyebrow">Entwicklung</span><h1>Körperdaten</h1><p>Private Messungen und Bilder – nur lokal gespeichert.</p></div></section>
-    <form class="body-form" id="bodyForm"><label><span>Datum</span><input type="date" name="date" value="${dayKey()}" required></label>${numberField('weight', 'Gewicht (kg)')}${numberField('waist', 'Taille (cm)')}${numberField('chest', 'Brust (cm)')}${numberField('arm', 'Arm (cm)')}${numberField('thigh', 'Oberschenkel (cm)')}<label class="photo-field"><span>Fortschrittsfoto</span><input type="file" name="photo" accept="image/*"></label><button class="primary" type="submit">Messung speichern</button></form>
+  return `<main class="shell">${backRow('Körper & Fotos', 'more')}<section class="page-head compact"><h1>Körper</h1></section>
+    <form class="body-form" id="bodyForm"><label><span>Datum</span><input type="date" name="date" value="${dayKey()}" required></label><label><span>Gewicht (${unit()})</span><input type="number" step="0.1" name="weight"></label>${numberField('waist', 'Taille (cm)')}${numberField('chest', 'Brust (cm)')}${numberField('arm', 'Arm (cm)')}${numberField('thigh', 'Oberschenkel (cm)')}<label class="photo-field"><span>Fortschrittsfoto</span><input type="file" name="photo" accept="image/*"></label><button class="primary" type="submit">Messung speichern</button></form>
     ${entries.some((x) => x.weight) ? '<section class="chart-card"><h2>Gewichtsverlauf</h2><canvas id="bodyChart" height="210" role="img" aria-label="Gewichtsverlauf"></canvas></section>' : ''}
-    <section class="body-grid">${entries.map((e) => `<article class="body-entry">${photoMarkup(e)}<div><span class="eyebrow">${fmtDate(e.day || e.date)}</span><h3>${e.weight ? `${esc(e.weight)} kg` : 'Messung'}</h3><p>${measures(e)}</p></div><button class="icon-btn danger" data-delete-body="${e.id}" aria-label="Messung löschen">×</button></article>`).join('')}</section></main>`;
+    <section class="body-grid">${entries.map((e) => `<article class="body-entry">${photoMarkup(e)}<div><span class="entry-date">${fmtDate(e.day || e.date)}</span><h3>${e.weight ? fmtWeight(e.weight) : 'Messung'}</h3><p>${measures(e)}</p></div><button class="icon-btn danger" data-delete-body="${e.id}" aria-label="Messung löschen">×</button></article>`).join('')}</section></main>`;
 }
 
 function loadPhotos() {
@@ -67,7 +68,7 @@ export function bind() {
       id: uid(),
       date: new Date(`${day}T12:00:00`).toISOString(),
       day,
-      weight: number(f.get('weight')) || '',
+      weight: number(fromDisplay(f.get('weight'))) || '',
       waist: number(f.get('waist')) || '',
       chest: number(f.get('chest')) || '',
       arm: number(f.get('arm')) || '',

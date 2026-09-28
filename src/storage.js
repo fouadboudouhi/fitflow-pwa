@@ -20,6 +20,9 @@ export const DEFAULT_SETTINGS = {
   showRir: false,
   restTimer: false,
   restNotify: false,
+  unit: 'kg',
+  weeklyGoal: 0,
+  barWeight: 20,
 };
 
 export const read = (key, fallback) => {

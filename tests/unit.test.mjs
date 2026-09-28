@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { dayKey, exerciseKey, fmtDate, parseDate, rangeMax, volumeOf } from '../src/util.js';
 import { createSuggestedPlan, nextSession, scheduleLabel } from '../src/plans.js';
 import { validateBackup } from '../src/backup.js';
+import { platesPerSide } from '../src/plates.js';
+import { weekStats } from '../src/plans.js';
 
 test('day keys are local and round-trip without shifting', () => {
   const d = new Date(2026, 0, 31, 23, 30);
@@ -127,6 +129,32 @@ test('backup validation coerces hostile input', () => {
     increment: 2.5,
     showRir: false,
     restTimer: false,
+    restNotify: false,
+    unit: 'kg',
+    weeklyGoal: 0,
+    barWeight: 20,
   });
   assert.throws(() => validateBackup({ plans: {} }));
+});
+
+test('plate calculator loads the heaviest plates first', () => {
+  assert.deepEqual(platesPerSide(100, 20, [25, 20, 15, 10, 5, 2.5, 1.25]).plates, [25, 15]);
+  assert.deepEqual(platesPerSide(62.5, 20, [25, 20, 15, 10, 5, 2.5, 1.25]).plates, [20, 1.25]);
+  assert.equal(platesPerSide(61, 20, [25, 20, 15, 10, 5, 2.5, 1.25]).remainder, 0.5);
+  assert.deepEqual(platesPerSide(15, 20).plates, []);
+});
+
+test('weekly goal counts sessions per week and streaks of met weeks', () => {
+  const monday = new Date(2026, 8, 28);
+  const history = [
+    { day: '2026-09-28' },
+    { day: '2026-09-22' },
+    { day: '2026-09-24' },
+    { day: '2026-09-15' },
+    { day: '2026-09-17' },
+    { day: '2026-09-01' },
+  ];
+  assert.deepEqual(weekStats(history, 2, monday), { thisWeek: 1, streak: 2, goal: 2 });
+  assert.deepEqual(weekStats(history, 1, monday), { thisWeek: 1, streak: 3, goal: 1 });
+  assert.equal(weekStats([], 3, monday).streak, 0);
 });

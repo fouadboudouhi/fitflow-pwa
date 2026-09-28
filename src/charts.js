@@ -1,6 +1,7 @@
 // Canvas line charts with crosshair tooltips, plus the aggregations the analytics screen shows.
 import { categoryOf } from './library.js';
 import { getBody, getHistory } from './storage.js';
+import { toDisplay, unit } from './units.js';
 import { dayKey, e1rm, exerciseKey, fmtDate, number, rangeCutoff, volumeOf } from './util.js';
 
 const token = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -174,16 +175,17 @@ const weightPoints = (range) =>
     .filter((x) => x.weight)
     .slice()
     .reverse()
-    .map((x) => ({ label: fmtDate(x.day || x.date), value: number(x.weight) }));
+    .map((x) => ({ label: fmtDate(x.day || x.date), value: toDisplay(x.weight) }));
 
 export function drawAnalytics(selectedKey, range) {
   const history = historyInRange(range).slice().reverse();
   lineChart(
     document.querySelector('#volumeChart'),
-    history
-      .slice(-16)
-      .map((h) => ({ label: fmtDate(h.day || h.finishedAt), value: Math.round(h.volume || volumeOf(h)) })),
-    { suffix: ' kg' }
+    history.slice(-16).map((h) => ({
+      label: fmtDate(h.day || h.finishedAt),
+      value: Math.round(toDisplay(h.volume || volumeOf(h))),
+    })),
+    { suffix: ` ${unit()}` }
   );
   const strength = history
     .map((h) => {
@@ -192,21 +194,21 @@ export function drawAnalytics(selectedKey, range) {
         0,
         ...(e?.sets || []).filter((s) => s.done && !s.warmup).map((s) => e1rm(s.weight, s.reps))
       );
-      return best ? { label: fmtDate(h.day || h.finishedAt), value: Math.round(best) } : null;
+      return best ? { label: fmtDate(h.day || h.finishedAt), value: Math.round(toDisplay(best)) } : null;
     })
     .filter(Boolean);
   lineChart(document.querySelector('#strengthChart'), strength.slice(-16), {
     color: token('--orange'),
-    suffix: ' kg',
+    suffix: ` ${unit()}`,
   });
   lineChart(document.querySelector('#weightChart'), weightPoints(range), {
     color: token('--blue'),
-    suffix: ' kg',
+    suffix: ` ${unit()}`,
   });
 }
 export function drawBodyChart() {
   lineChart(document.querySelector('#bodyChart'), weightPoints('all'), {
     color: token('--blue'),
-    suffix: ' kg',
+    suffix: ` ${unit()}`,
   });
 }

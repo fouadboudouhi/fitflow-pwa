@@ -1,40 +1,87 @@
 # Volumora Design System
 
-## Direction
+Quiet, private workout companion. One obvious next action per screen, no explanatory copy, no decoration. The interface is mobile-first and usable one-handed in a gym.
 
-Volumora is a quiet, private workout companion. It should feel focused, calm and fast in a gym: one obvious next action, little explanatory copy and no decorative dashboard clutter. The interface is mobile-first and must remain usable one-handed.
+## 1. Visual Theme
 
-## Foundations
+- Calm and precise. The content (a plan, a set, a number) is the design; chrome stays out of the way.
+- One accent hue, green, used only for action, selection, progress and completion.
+- Depth comes from tonal layers and 1px hairlines, never from shadows on resting elements.
+- Nothing is decorated: no uppercase tracked labels above headings, no arrows appended to buttons, no marketing copy inside the product, no cards inside cards.
 
-- Use one functional accent: Volumora green. Green means action, selection, progress or completion.
-- Build on neutral canvas, surface and inset layers. Never use gradients or large decorative color fields.
-- Use the system sans-serif stack. Screen titles are 32–40px/800, section titles 18–20px/800, body 14–16px/500–650, labels 10–12px/750.
-- Follow a 4/8px spacing grid. Mobile outer margin is 16px; card padding 16–20px; section rhythm 24–32px.
-- Minimum interactive target is 44×44px. Inputs used during training are at least 48px high.
-- Corners: 10px controls, 14px grouped rows, 18–20px major surfaces. Avoid excessive pill shapes.
-- Depth comes from tonal separation and 1px borders. Use shadows only for temporary overlays.
+## 2. Color Palette
 
-## Color roles
+Tokens live in `styles.css` on `:root` and `html[data-theme=dark]`.
 
-- Light canvas `#F6F7F4`, surface `#FFFFFF`, inset `#EEF1ED`, ink `#131713`, muted `#606760`, line `#DDE2DC`.
-- Dark canvas `#0B0E0C`, surface `#121713`, inset `#1A211C`, ink `#F2F5F2`, muted `#98A099`, line `#293129`.
-- Action green `#16B86A` light and `#34D889` dark for fills. Text on a green fill is dark ink `#0B1A10`; green text and links use `#0D7A45` in light mode (4.5:1 on every surface) and `#34D889` in dark mode.
-- Red is destructive only; amber is caution only.
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--paper` | `#F6F7F4` | `#0B0E0C` | canvas |
+| `--surface` | `#FFFFFF` | `#121713` | lists, cards, sheets |
+| `--cloud` | `#EEF1ED` | `#1A211C` | inset fields, tracks, chips |
+| `--line` | `#DDE2DC` | `#293129` | hairlines |
+| `--ink` | `#131713` | `#F2F5F2` | text |
+| `--muted` | `#606760` | `#98A099` | secondary text (4.5:1 on every surface) |
+| `--green` | `#16B86A` | `#34D889` | fills: primary button, progress, chips |
+| `--on-green` | `#0B1A10` | `#0B1A10` | text on green fills |
+| `--green-ink` | `#0D7A45` | `#34D889` | green text and links |
+| `--danger` | `#C43B37` | `#FF756F` | destructive only |
+| `--orange`, `--blue` | | | second and third chart series only |
 
-## Core components
+Rules: text never wears a fill color; red is destructive only; amber is caution only; never rely on color alone for state.
 
-- Navigation bars are flat, safe-area aware and use a hairline separator.
-- A screen gets one primary filled action. Secondary actions are text or neutral outline controls.
-- Major cards contain one concept only. Avoid cards inside cards.
-- Workout sets use a compact table: one shared column header, one row per set, tabular numerals and a trailing completion control.
-- Exercise media is secondary. Show a compact preview and let the user expand it; never push logging controls below a full-screen animation by default.
-- Optional state such as illness, pain and deload stays collapsed until requested.
-- Motion is 160–220ms ease-out and respects `prefers-reduced-motion`.
+## 3. Typography Rules
 
-## Guardrails
+- System sans-serif stack. No web font is loaded.
+- Scale: page title 30–40px/800 with `-0.03em` tracking, card title 28–36px/800, section heading 15–16px/800, body 14–16px/500–650, secondary 12–13px muted, table headers 9–10px/800 uppercase.
+- Numbers that line up use `font-variant-numeric: tabular-nums`.
+- Sentence case everywhere. The only uppercase text is a settings group heading or a table column header.
+- Headings carry the page. No label above a heading, no subtitle copy below it unless it names a date, a plan or another fact.
 
-- Do not repeat labels in every set row.
-- Do not use oversized marketing headlines inside the product.
-- Do not stack multiple bordered callouts before the main task.
-- Do not rely on color alone for status.
-- Never place controls behind browser or PWA safe areas.
+## 4. Component Stylings
+
+- **Primary button**: green fill, dark text, 12px radius, 48–52px tall, centered label, no icon. One per screen.
+- **Secondary button**: surface fill, 1px line. **Text button**: green-ink text, no border.
+- **List** (`.list` + `.row`): one surface with 16px radius, rows separated by hairlines, a chevron at the right of every tappable row. Used for days, sessions and menus.
+- **Next card**: the one bordered card on the home screen; label (sentence case, green-ink), title, one fact line, primary button.
+- **Stat row**: three numbers between two hairlines, no fill.
+- **Chart card**: surface, 1px line, 20px radius, sentence-case title, canvas with crosshair tooltip.
+- **Segmented control**: inset track, active segment on surface with a 1px shadow.
+- **Set table**: one shared header row, one row per set, inputs on `--cloud`, trailing completion control, "Zuletzt" hint under the inputs.
+- **Chips**: hairline pill for state, green fill for positive state (Aktiv, Bestwert, PR).
+- **Sheet**: bottom sheet on surface for confirmations and details; **Toast**: ink pill with optional Rückgängig.
+
+## 5. Layout Principles
+
+- 4/8px grid. Outer margin 16px on phones, 24px on wider screens. Content column 760px for reading views, 680px for the workout, 1120px max.
+- Section rhythm 24–28px. Card padding 18–22px. List row 60px minimum, 44px minimum for every control, 48px for inputs used during training.
+- Summary before detail on every screen. One primary action visible without scrolling.
+- Optional state (Tagesform, RIR, notes) stays collapsed until requested.
+
+## 6. Depth & Elevation
+
+- Resting elements: 1px `--line` borders on `--surface`, no shadow.
+- Temporary overlays (sheet, toast, tooltip, segmented active state): a single soft shadow.
+- Blur is reserved for the sticky top and bottom bars.
+
+## 7. Do's and Don'ts
+
+Do: sentence case, one accent, lists over cards, chevrons on tappable rows, facts instead of copy, undo instead of confirm.
+Don't: eyebrows, tracked uppercase labels, appended arrows, middle-dot meta strings longer than two facts, dark "stat tile" blocks, gradients, nested cards, bounce easing, decorative icons.
+
+## 8. Responsive Behavior
+
+- Phone first (390px). Rows stack, stat row keeps three columns, backup tiles collapse to one column.
+- 600px+: sheets center on screen, the shell widens, cards keep their padding.
+- Safe areas: bars add `env(safe-area-inset-*)` padding; nothing sits behind them.
+- Motion: one 160ms fade on view change, 120ms press feedback, 180ms color transitions; all off under `prefers-reduced-motion`.
+
+## 9. Agent Prompt Guide
+
+When adding or changing a screen:
+
+1. Start from an existing view module; reuse `.list`/`.row`, `.stat-row`, `.chart-card`, `.segmented`, `.chip`, `sheet()`, `toast()` before writing new CSS.
+2. Only tokens for color. Text on green is `--on-green`; green text is `--green-ink`.
+3. No eyebrow labels, no arrows in button labels, no explanatory sentence under a title.
+4. Every destructive action gets `undoToast`; only truly irreversible actions get `confirmDialog`.
+5. Every tappable row shows a chevron; every icon button has an `aria-label`.
+6. Run `npm test`. The axe check must stay at zero serious violations in both themes.

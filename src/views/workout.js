@@ -1,8 +1,10 @@
 import { icon } from '../icons.js';
+import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { allPlans, getDay, getSettings, savePlans, saveRestUntil, saveSettings } from '../storage.js';
 import { confirmDialog, sheet, toast, undoToast } from '../ui.js';
+import { fieldValue, fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
 import { esc, exerciseKey, fmtLong, number } from '../util.js';
 import {
   activeSession,
@@ -20,19 +22,38 @@ import {
 } from '../workout.js';
 import * as home from './home.js';
 
-const field = (name, label, set, i, exerciseIndex, workNumber, attrs) =>
-  `<label><span>${label}</span><input aria-label="${label} Satz ${workNumber}" type="number" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${i}" value="${esc(set[name])}"></label>`;
+const field = (name, label, set, i, exerciseIndex, workNumber, attrs, value) =>
+  `<label><span>${label}</span><input aria-label="${label} Satz ${workNumber}" type="number" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${i}" value="${esc(value)}"></label>`;
 
 function setRow(set, i, last, workIndex, showRir, exerciseIndex) {
   const workNumber = set.warmup ? 'W' : workIndex;
-  return `<div class="set-row"><button class="set-delete" data-delete-set="${i}" data-exercise="${exerciseIndex}" aria-label="Satz löschen">Löschen</button><div class="set-card ${set.done ? 'complete' : ''} ${set.warmup ? 'warmup' : ''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span class="${set.pr ? 'pr' : ''}">${set.warmup ? 'Warm-up' : set.pr ? 'PR' : ''}</span></div>${field('weight', 'kg', set, i, exerciseIndex, workNumber, 'inputmode="decimal" step="0.5" min="0"')}${field('reps', 'Wdh.', set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0"')}${
+  const u = unit();
+  return `<div class="set-row"><button class="set-delete" data-delete-set="${i}" data-exercise="${exerciseIndex}" aria-label="Satz löschen">Löschen</button><div class="set-card ${set.done ? 'complete' : ''} ${set.warmup ? 'warmup' : ''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span class="${set.pr ? 'pr' : ''}">${set.warmup ? 'Warm-up' : set.pr ? 'PR' : ''}</span></div>${field('weight', u, set, i, exerciseIndex, workNumber, 'inputmode="decimal" step="0.5" min="0"', fieldValue(set.weight))}${field('reps', 'Wdh.', set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0"', set.reps)}${
     showRir
-      ? field('rir', 'RIR', set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0" max="10"')
+      ? field(
+          'rir',
+          'RIR',
+          set,
+          i,
+          exerciseIndex,
+          workNumber,
+          'inputmode="numeric" min="0" max="10"',
+          set.rir
+        )
       : ''
-  }<button class="set-check" data-set-done="${i}" data-exercise="${exerciseIndex}" aria-label="Satz fertig" aria-pressed="${set.done}">${set.done ? '✓' : '○'}</button>${
-    last ? `<small>Zuletzt ${esc(last.weight || '–')} kg × ${esc(last.reps || '–')}</small>` : ''
+  }<button class="set-check" data-set-done="${i}" data-exercise="${exerciseIndex}" aria-label="Satz fertig" aria-pressed="${set.done}">${set.done ? '✓' : ''}</button>${
+    last
+      ? `<small>Zuletzt ${last.weight ? fmtWeight(last.weight) : '–'} × ${esc(last.reps || '–')}</small>`
+      : ''
   }</div></div>`;
 }
+
+const suggestionText = (s) =>
+  s.kind === 'progress'
+    ? `${fmtWeight(s.weight)} versuchen`
+    : s.kind === 'confirm'
+      ? `${fmtWeight(s.weight)} bestätigen, Wiederholungen steigern`
+      : 'Konservativ starten, 2–3 Wiederholungen im Tank lassen';
 
 function exerciseSection(ex, index, entry, total, showRir) {
   const complete = entryComplete(entry);
@@ -45,12 +66,12 @@ function exerciseSection(ex, index, entry, total, showRir) {
     )
     .join('');
   return `<section class="workout-exercise ${complete ? 'complete' : ''}" id="exercise-${index}">
-      <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><small>Übung ${index + 1} von ${total}</small><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="Verlauf von ${esc(ex.name)} anzeigen">${esc(ex.name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)} Wdh.</p></div><button class="favorite ${ex.favorite ? 'active' : ''}" data-favorite-exercise="${index}" aria-label="Favorit" aria-pressed="${!!ex.favorite}">★</button></div>
+      <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="Verlauf von ${esc(ex.name)} anzeigen">${esc(ex.name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)} Wdh.</p></div></div>
       ${ex.gif ? `<details class="technique compact-technique" id="technique-${index}"><summary><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><span><b>Technik</b><small>${esc(ex.note || 'Bewegungsablauf ansehen')}</small></span><i>⌄</i></summary><div class="exercise-media"><img class="exercise-gif" src="${esc(ex.gif)}" alt="Ausführung ${esc(ex.name)}" loading="lazy" decoding="async"></div></details>` : ex.note ? `<p class="coach-note">${esc(ex.note)}</p>` : ''}
-      ${suggest.weight !== null ? `<div class="progression-row compact-progression"><span>${icon('trend')}</span><div><small>Empfehlung</small><b>${esc(suggest.text)}</b></div><button class="tiny" data-apply-suggestion="${index}" data-weight="${suggest.weight}">Nutzen</button></div>` : ''}
-      <div class="set-table ${showRir ? '' : 'no-rir'}"><div class="set-head"><span>Satz</span><span>kg</span><span>Wdh.</span>${showRir ? '<span>RIR</span>' : ''}<span></span></div><div class="set-list">${rows}</div></div>
-      <div class="exercise-tools"><button class="text-btn" data-add-warmup="${index}">+ Aufwärmsatz</button><button class="text-btn" data-auto-warmup="${index}">Aufwärmen berechnen</button></div>
-      <details class="exercise-notes" id="notes-${index}" ${entry.note ? 'open' : ''}><summary>${entry.note ? 'Notiz bearbeiten' : '＋ Notiz hinzufügen'}</summary><textarea data-exercise-note="${index}" placeholder="Technik, Geräteeinstellung, Gefühl …">${esc(entry.note || '')}</textarea></details>
+      ${suggest.weight !== null ? `<div class="progression-row"><span>${icon('trend')}</span><b>${esc(suggestionText(suggest))}</b><button class="tiny" data-apply-suggestion="${index}" data-weight="${suggest.weight}">Nutzen</button></div>` : ''}
+      <div class="set-table ${showRir ? '' : 'no-rir'}"><div class="set-head"><span>Satz</span><span>${unit()}</span><span>Wdh.</span>${showRir ? '<span>RIR</span>' : ''}<span></span></div><div class="set-list">${rows}</div></div>
+      <div class="exercise-tools"><button class="text-btn" data-add-warmup="${index}">+ Aufwärmsatz</button><button class="text-btn" data-auto-warmup="${index}">Aufwärmen berechnen</button>${isBarbell(ex) ? `<button class="text-btn" data-plates="${index}">Scheiben</button>` : ''}</div>
+      <details class="exercise-notes" id="notes-${index}" ${entry.note ? 'open' : ''}><summary>${entry.note ? 'Notiz bearbeiten' : 'Notiz hinzufügen'}</summary><textarea data-exercise-note="${index}" placeholder="Technik, Geräteeinstellung, Gefühl …">${esc(entry.note || '')}</textarea></details>
     </section>`;
 }
 
@@ -66,7 +87,7 @@ export function view() {
   const list = day.exercises
     .map((ex, index) => exerciseSection(ex, index, session.entries[index], day.exercises.length, showRir))
     .join('');
-  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="Training verlassen">←</button><div><h1>${esc(day.name)}</h1><b>${completed} / ${day.exercises.length} Übungen</b></div><div class="workout-top-actions"><button class="icon-btn" id="quickTheme" aria-label="Farbschema wechseln">${icon('theme')}</button><button class="text-btn" id="finishWorkout">Beenden</button></div></div>
+  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="Training verlassen">←</button><div><h1>${esc(day.name)}</h1><b>${completed} / ${day.exercises.length} Übungen</b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">Beenden</button></div></div>
     <div class="progress-line" role="progressbar" aria-label="Fortschritt: ${completed} von ${day.exercises.length} Übungen" aria-valuenow="${completed}" aria-valuemax="${day.exercises.length}"><i style="width:${(completed / day.exercises.length) * 100}%"></i></div>
     <div class="workout-options"><details class="session-status" id="session-status"><summary>Tagesform <span>optional</span></summary><div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload ? 'checked' : ''}> Deload</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill ? 'checked' : ''}> Krank</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain ? 'checked' : ''}> Schmerzen</label></div></details><button class="optional-field" id="toggleRir">${showRir ? 'RIR ausblenden' : 'RIR einblenden'}</button></div>
     <div class="workout-exercise-list">${list}</div>
@@ -79,6 +100,61 @@ const mutate = (fn, rerender = false) => {
   if (rerender) render();
 };
 
+function openPlates(ex, entry) {
+  const u = unit();
+  const start =
+    toDisplay(number(entry.sets.find((x) => !x.warmup)?.weight) || suggestion(ex).weight || 0) || '';
+  const bar = toDisplay(getSettings().barWeight) || defaultBar();
+  const box = document.createElement('div');
+  box.className = 'plates';
+  box.innerHTML = `<div class="plates-inputs"><label><span>Gewicht (${u})</span><input type="number" inputmode="decimal" step="0.5" min="0" id="plateTarget" value="${esc(start)}"></label><label><span>Stange (${u})</span><select id="plateBar">${BARS[u].map((b) => `<option value="${b}" ${b === bar ? 'selected' : ''}>${b}</option>`).join('')}${BARS[u].includes(bar) ? '' : `<option value="${bar}" selected>${bar}</option>`}</select></label></div><div class="plates-result" id="plateResult"></div><p class="muted">Pro Seite, größte Scheibe zuerst. Verfügbar: ${PLATES[u].join(', ')} ${u}.</p>`;
+  const result = box.querySelector('#plateResult');
+  const update = () => {
+    const target = number(box.querySelector('#plateTarget').value);
+    const barValue = number(box.querySelector('#plateBar').value);
+    const { plates, remainder, perSide } = platesPerSide(target, barValue);
+    result.textContent = '';
+    if (!target) {
+      result.textContent = 'Zielgewicht eintragen.';
+      return;
+    }
+    if (target < barValue) {
+      result.textContent = 'Das Ziel liegt unter dem Stangengewicht.';
+      return;
+    }
+    const counts = new Map();
+    plates.forEach((p) => counts.set(p, (counts.get(p) || 0) + 1));
+    const row = document.createElement('div');
+    row.className = 'plate-row';
+    counts.forEach((count, plate) => {
+      const chip = document.createElement('span');
+      chip.className = 'plate';
+      chip.textContent = `${count} × ${plate}`;
+      row.append(chip);
+    });
+    if (!counts.size) {
+      const none = document.createElement('span');
+      none.className = 'muted';
+      none.textContent = 'Nur die Stange.';
+      row.append(none);
+    }
+    const summary = document.createElement('b');
+    summary.textContent = `${perSide.toLocaleString('de-DE')} ${u} pro Seite`;
+    result.append(summary, row);
+    if (remainder) {
+      const rest = document.createElement('small');
+      rest.className = 'muted';
+      rest.textContent = `${remainder.toLocaleString('de-DE')} ${u} pro Seite bleiben übrig.`;
+      result.append(rest);
+    }
+  };
+  box.querySelector('#plateTarget').oninput = update;
+  box.querySelector('#plateBar').onchange = update;
+  update();
+  sheet({ title: 'Scheibenrechner', content: box });
+  setTimeout(() => box.querySelector('#plateTarget').focus({ preventScroll: true }), 50);
+}
+
 export function bind() {
   document.querySelectorAll('[data-marker]').forEach((x) => {
     x.onchange = () =>
@@ -89,7 +165,8 @@ export function bind() {
   document.querySelectorAll('[data-set-field]').forEach((x) => {
     x.oninput = () =>
       mutate((s) => {
-        s.entries[number(x.dataset.exercise)].sets[number(x.dataset.index)][x.dataset.setField] = x.value;
+        const set = s.entries[number(x.dataset.exercise)].sets[number(x.dataset.index)];
+        set[x.dataset.setField] = x.dataset.setField === 'weight' ? fromDisplay(x.value) : x.value;
       });
   });
   document.querySelectorAll('[data-set-done]').forEach((b) => {
@@ -112,7 +189,8 @@ export function bind() {
         }
         navigator.vibrate?.(40);
       }, true);
-      if (record) toast(`Neuer Bestwert: ${esc(record.weight)} kg × ${esc(record.reps)}`, { duration: 4000 });
+      if (record)
+        toast(`Neuer Bestwert: ${fmtWeight(record.weight)} × ${esc(record.reps)}`, { duration: 4000 });
     };
   });
   document.querySelectorAll('[data-delete-set]').forEach((b) => {
@@ -175,6 +253,15 @@ export function bind() {
       }, true);
     };
   });
+  document.querySelectorAll('[data-plates]').forEach((b) => {
+    b.onclick = () => {
+      const index = number(b.dataset.plates);
+      openPlates(
+        getDay(state.planId, state.dayId).exercises[index],
+        activeSession(state.planId, state.dayId).entries[index]
+      );
+    };
+  });
   document.querySelector('#toggleRir')?.addEventListener('click', () => {
     const s = getSettings();
     s.showRir = !s.showRir;
@@ -188,21 +275,10 @@ export function bind() {
           s.entries[number(b.dataset.applySuggestion)].sets
             .filter((x) => !x.warmup)
             .forEach((x) => {
-              x.weight = b.dataset.weight;
+              x.weight = String(b.dataset.weight);
             }),
         true
       );
-  });
-  document.querySelectorAll('[data-favorite-exercise]').forEach((b) => {
-    b.onclick = () => {
-      const d = allPlans();
-      const ex = d.items.find((p) => p.id === state.planId).days.find((x) => x.id === state.dayId).exercises[
-        number(b.dataset.favoriteExercise)
-      ];
-      ex.favorite = !ex.favorite;
-      savePlans(d);
-      render();
-    };
   });
   document.querySelector('#finishWorkout').onclick = async () => {
     const session = activeSession(state.planId, state.dayId);
@@ -240,7 +316,7 @@ export function bind() {
         ? `<div class="history-rows">${rows
             .map(
               (r) =>
-                `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(s.weight)}×${esc(s.reps)}${s.pr ? '<i class="pr-chip">PR</i>' : ''}`).join(' · ')}</b><small>1RM ≈ ${Math.round(r.best)} kg</small></div>`
+                `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(toDisplay(s.weight))}×${esc(s.reps)}${s.pr ? '<i class="pr-chip">PR</i>' : ''}`).join(' · ')}</b><small>1RM ≈ ${fmtWeight(r.best, 0)}</small></div>`
             )
             .join('')}</div>`
         : '<p class="muted">Noch keine abgeschlossenen Sätze für diese Übung.</p>';
