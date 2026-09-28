@@ -39,11 +39,15 @@ html {
   background: var(--paper);
   color: var(--ink);
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 body {
   margin: 0;
   min-width: 320px;
   background: var(--paper);
+  -webkit-tap-highlight-color: transparent;
+  font-feature-settings: 'tnum' 1;
+  overflow-x: hidden;
 }
 button,
 input,
@@ -51,9 +55,7 @@ select,
 textarea {
   font: inherit;
   color: inherit;
-}
-button {
-  cursor: pointer;
+  font-variant-numeric: tabular-nums;
 }
 a {
   color: inherit;
@@ -61,7 +63,7 @@ a {
 .shell {
   width: min(1120px, 100%);
   margin: auto;
-  padding: 42px 24px 125px;
+  padding: 32px 24px 125px;
 }
 .narrow {
   max-width: 760px;
@@ -82,6 +84,7 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 64px;
 }
 .brand {
   border: 0;
@@ -176,6 +179,7 @@ a {
   display: grid;
   gap: 4px;
   place-items: center;
+  min-height: 52px;
 }
 .nav-btn.active {
   color: var(--green);
@@ -228,6 +232,7 @@ a {
 .page-head h1 {
   letter-spacing: -0.055em;
   line-height: 0.95;
+  font-size: clamp(36px, 6vw, 56px);
 }
 .page-head.compact {
   margin-top: 30px;
@@ -454,6 +459,8 @@ a {
 }
 .workout-top > div {
   display: grid;
+  text-align: left;
+  line-height: 1.1;
 }
 .workout-top span {
   font-size: 12px;
@@ -482,11 +489,17 @@ a {
   font-size: 12px;
   border: 1px solid var(--line);
   border-radius: 99px;
+  background: transparent;
+  padding: 8px 11px;
 }
 .favorite {
   border-radius: 99px;
   color: var(--muted);
   font-size: 20px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  background: var(--surface);
 }
 .favorite.active {
   background: #ffed9c;
@@ -560,6 +573,11 @@ a {
   grid-template-columns: 1fr repeat(3, 1fr) 46px;
   align-items: end;
   gap: 8px;
+  padding: 8px 9px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
 }
 .set-label label {
   font-size: 10px;
@@ -567,6 +585,7 @@ a {
 }
 .set-card > label {
   gap: 5px;
+  display: block;
 }
 .set-card > label span {
   font-size: 10px;
@@ -578,6 +597,12 @@ a {
   min-width: 0;
   text-align: center;
   font-weight: 800;
+  height: 44px;
+  padding: 6px 3px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--cloud);
+  font-size: 16px;
 }
 .set-check {
   font-size: 22px;
@@ -590,6 +615,8 @@ a {
 }
 .set-card small {
   color: var(--muted);
+  grid-column: 2/-1;
+  font-size: 9px;
 }
 .rest-timer {
   position: fixed;
@@ -810,7 +837,7 @@ a {
 }
 @media (max-width: 760px) {
   .shell {
-    padding: 28px 16px 112px;
+    padding: 32px 16px 112px;
   }
   .topbar-inner {
     padding: 0 16px;
@@ -1326,11 +1353,6 @@ body {
   .suggestion b {
     font-size: 12px;
   }
-  .set-card {
-    grid-template-columns: 42px repeat(3, 1fr) 40px;
-    align-items: end;
-    gap: 6px;
-  }
   .set-label {
     grid-column: auto;
     align-self: center;
@@ -1654,9 +1676,6 @@ body {
   color: var(--muted);
 }
 @media (max-width: 600px) {
-  .home-shell {
-    padding-top: 18px;
-  }
   .next-card {
     padding: 20px;
   }
@@ -1689,26 +1708,12 @@ body {
     margin-top: 0;
   }
 }
-/* Volumora DESIGN.md — quiet,data-first mobile system */
-html {
-  -webkit-text-size-adjust: 100%;
-}
-body {
-  -webkit-tap-highlight-color: transparent;
-  font-feature-settings: 'tnum' 1;
-  overflow-x: hidden;
-}
-button,
-input,
-select,
-textarea {
-  font-variant-numeric: tabular-nums;
-}
 button {
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease,
     transform 0.18s ease;
+  cursor: pointer;
 }
 button:active {
   transform: scale(0.98);
@@ -1717,19 +1722,10 @@ button:active {
   outline: 3px solid color-mix(in srgb, var(--green) 35%, transparent);
   outline-offset: 2px;
 }
-.topbar-inner {
-  height: 64px;
-}
 .brand img {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-}
-.shell {
-  padding-top: 32px;
-}
-.page-head h1 {
-  font-size: clamp(36px, 6vw, 56px);
 }
 .page-head p {
   font-size: 16px;
@@ -1752,9 +1748,6 @@ button:active {
 .compact-btn {
   min-height: 46px;
   border-radius: 11px;
-}
-.nav-btn {
-  min-height: 52px;
 }
 .nav-btn span {
   font-size: 16px;
@@ -1784,10 +1777,6 @@ button:active {
 .progression-row > span .icon {
   width: 22px;
   height: 22px;
-}
-.workout-top > div {
-  text-align: left;
-  line-height: 1.1;
 }
 .workout-top > div > span {
   font-size: 11px;
@@ -1826,16 +1815,6 @@ button:active {
 .session-status .marker-row {
   margin: 0;
   padding: 8px 0 2px;
-}
-.marker-row label {
-  background: transparent;
-  padding: 8px 11px;
-}
-.favorite {
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--line);
-  background: var(--surface);
 }
 .technique {
   border: 1px solid var(--line);
@@ -1952,13 +1931,6 @@ button:active {
 .set-head span:first-child {
   text-align: left;
 }
-.set-card {
-  padding: 8px 9px;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: var(--surface);
-}
 .set-card:first-child {
   border-top: 0;
 }
@@ -1978,9 +1950,6 @@ button:active {
   color: var(--muted);
   line-height: 1;
 }
-.set-card > label {
-  display: block;
-}
 .set-card > label > span {
   position: absolute;
   width: 1px;
@@ -1988,22 +1957,10 @@ button:active {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
 }
-.set-card input[type='number'] {
-  height: 44px;
-  padding: 6px 3px;
-  border: 0;
-  border-radius: 9px;
-  background: var(--cloud);
-  font-size: 16px;
-}
 .set-card.complete .set-check {
   border-color: var(--green);
   background: var(--green);
   color: #fff;
-}
-.set-card small {
-  grid-column: 2/-1;
-  font-size: 9px;
 }
 @media (max-width: 600px) {
   .shell {
@@ -2249,7 +2206,6 @@ button:active {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-/* Continuous workout flow */
 .workout-options {
   display: flex;
   align-items: flex-start;
@@ -2396,7 +2352,6 @@ button:active {
     gap: 4px;
   }
 }
-/* Home essentials */
 .home-week-summary {
   margin-top: 24px;
 }
@@ -2441,7 +2396,6 @@ button:active {
 .empty-plan-card p {
   max-width: 430px;
 }
-/* Swipe a set to the left to reveal delete */
 .set-row {
   position: relative;
   overflow: hidden;
@@ -2485,8 +2439,5 @@ button:active {
   }
   .topbar-inner {
     min-height: 60px;
-  }
-  .home-shell {
-    padding-top: 24px;
   }
 }
