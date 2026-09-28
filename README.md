@@ -16,7 +16,10 @@ Die visuellen Regeln und Komponentenprinzipien sind in [`DESIGN.md`](DESIGN.md) 
 - Sätze lassen sich mobil durch Wischen nach links löschen
 - Automatisch berechnete Aufwärmsätze
 - Automatische Progressive-Overload-Empfehlungen und optionaler Pausentimer
-- Trainingsvolumen, geschätztes 1RM und Körpergewicht als Diagramme
+- Trainingsvolumen, geschätztes 1RM und Körpergewicht als Diagramme mit Tooltip, Zeitraumwahl und Volumen pro Muskelgruppe
+- Abgeschlossene Trainings lassen sich öffnen, korrigieren und löschen; Bestwerte werden beim Abhaken erkannt
+- Übungs-Historie direkt im Training; Pausentimer überlebt einen Neustart und kann im Hintergrund benachrichtigen
+- Homescreen-Shortcut „Training starten“
 - Körpermaße und komprimierte Fortschrittsfotos (Fotos liegen in IndexedDB, Messwerte in `localStorage`)
 - JSON-Backup, validierter JSON-Import und CSV-Export
 - Dark Mode, Favoriten sowie Deload-, Krankheits- und Schmerzmarker
@@ -37,7 +40,7 @@ Kein Build-Schritt, kein Framework: `index.html` lädt `src/app.js` als ES-Modul
 | `src/workout.js` | Sessions anlegen, fortsetzen, abschließen, Progressionsvorschläge |
 | `src/backup.js` | JSON-Export, Validierung und Import, CSV |
 | `src/charts.js` | Canvas-Diagramme |
-| `src/ui.js` | Toast mit Rückgängig und Bottom-Sheet für Bestätigungen (ersetzt `alert`/`confirm`) |
+| `src/ui.js` | Toast mit Rückgängig, Bottom-Sheets für Bestätigungen und Inhalte (ersetzt `alert`/`confirm`) |
 | `src/render.js` | Rendert die aktive View und bindet ihre Events |
 | `src/views/*.js` | Eine Datei pro Bildschirm, jeweils `view()` und `bind()` |
 
