@@ -2,7 +2,6 @@
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { toggleTheme } from '../theme.js';
 
 const NAV = [
   ['home', 'Heute', 'home'],
@@ -11,10 +10,7 @@ const NAV = [
   ['more', 'Mehr', 'more'],
 ];
 
-export const topbar = () => `<header class="topbar"><div class="topbar-inner">
-  <button class="brand" data-nav="home"><img src="assets/brand/volumora-mark.png" alt=""><span>VOLUMORA</span></button>
-  <div class="top-actions"><button class="icon-btn" id="quickTheme" aria-label="Farbschema wechseln">${icon('theme')}</button>${state.installPrompt ? '<button class="compact-btn" id="installBtn">Installieren</button>' : ''}</div>
-</div></header>`;
+export const topbar = () => '';
 
 export const nav = (active) =>
   `<nav class="bottom-nav" aria-label="Hauptnavigation"><div class="bottom-nav-inner">${NAV.map(
@@ -35,14 +31,5 @@ export function bindShell() {
       if (b.dataset.nav === 'calendar' && state.view !== 'calendar') state.calendarOffset = 0;
       navigate(b.dataset.nav);
     };
-  });
-  document.querySelector('#quickTheme')?.addEventListener('click', () => {
-    toggleTheme();
-    render();
-  });
-  document.querySelector('#installBtn')?.addEventListener('click', async () => {
-    await state.installPrompt?.prompt();
-    state.installPrompt = null;
-    render();
   });
 }

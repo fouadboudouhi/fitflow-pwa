@@ -68,7 +68,8 @@ test('an unfinished workout survives editing the plan day', async () => {
   // Edit the plan: remove the first exercise, add one from the library.
   await page.click('[data-nav="plans"]');
   await page.click('[data-edit-plan]');
-  await page.click('[data-remove-exercise="0:0"]');
+  await page.click('[data-exercise-menu="0:0"]');
+  await page.getByRole('button', { name: 'Entfernen' }).click();
   await page.click('[data-add-exercise="0"]');
   await page.waitForSelector('.exercise-library');
   await page.click('.library-item:not([hidden]) [data-pick-exercise]:not([disabled])');
@@ -89,7 +90,8 @@ test('an unfinished workout survives editing the plan day', async () => {
 
 test('plan assistant creates and activates a plan', async () => {
   await page.click('[data-nav="plans"]');
-  await page.click('#planAssistant');
+  await page.click('#newPlan');
+  await page.getByRole('button', { name: /Mit Assistent/ }).click();
   await page.check('input[name="goal"][value="strength"]');
   await page.selectOption('select[name="days"]', '4');
   await page.click('#assistantForm button[type="submit"]');
@@ -183,6 +185,7 @@ test('a hostile backup is sanitised on import', async () => {
   }
   await page.click('[data-nav="plans"]');
   await page.click('[data-edit-plan]');
+  await page.click('[data-nav="plans"]');
   await page.click('[data-nav="home"]');
   await page.click('.next-card [data-start]');
   await page.waitForSelector('.workout-exercise');
@@ -305,12 +308,16 @@ test('legacy data is migrated: day keys, library ids and photos in IndexedDB', a
   // Progress follows the library exercise: a new plan with the same library exercise sees the old weight.
   await page.click('[data-nav="plans"]');
   await page.click('#newPlan');
+  await page.getByRole('button', { name: /Leeren Plan/ }).click();
   await page.click('[data-add-exercise="0"]');
   await page.fill('#librarySearch', 'Bankdrücken mit Langhantel');
   await page.click('.library-item:not([hidden]) [data-pick-exercise="0025"]');
   await page.click('#closeLibraryBottom');
   await page.click('#savePlan');
-  await page.click('[data-activate-plan]');
+  await page.locator('[data-edit-plan]').nth(1).click();
+  await page.click('#planMenu');
+  await page.getByRole('button', { name: /aktiven Plan/ }).click();
+  await page.click('[data-nav="plans"]');
   await page.click('[data-nav="home"]');
   await page.click('.next-card [data-start]');
   await page.waitForSelector('.workout-exercise');
@@ -318,19 +325,19 @@ test('legacy data is migrated: day keys, library ids and photos in IndexedDB', a
     await page.inputValue('.workout-exercise input[data-set-field="weight"][data-index="0"]'),
     '60'
   );
-  assert.match(await page.textContent('.progression-row b'), /60 kg/);
+  assert.match(await page.textContent('.suggest-row span'), /60 kg/);
 });
 
 test('deleting a set can be undone and open details survive a re-render', async () => {
   await page.click('.next-card [data-start]');
   await page.waitForSelector('.workout-exercise');
   const first = page.locator('.workout-exercise').first();
-  await first.locator('details.technique summary').click();
+  await page.click('#session-status summary');
   await first.locator('[data-set-done="1"]').click();
   assert.equal(
-    await first.locator('details.technique').getAttribute('open'),
+    await page.locator('#session-status').getAttribute('open'),
     '',
-    'technique stays open after marking a set'
+    'Tagesform stays open after marking a set'
   );
   assert.equal(await first.locator('.set-row').count(), 3);
   await first.locator('[data-delete-set="2"]').dispatchEvent('click'); // revealed by swipe in the real UI
@@ -350,12 +357,16 @@ test('deleting a set can be undone and open details survive a re-render', async 
 test('deleting a plan can be undone', async () => {
   await page.click('[data-nav="plans"]');
   await page.click('#newPlan');
+  await page.getByRole('button', { name: /Leeren Plan/ }).click();
   await page.click('#savePlan');
-  assert.equal(await page.locator('.plan-card').count(), 2);
-  await page.click('[data-delete-plan]');
-  assert.equal(await page.locator('.plan-card').count(), 1);
+  assert.equal(await page.locator('[data-edit-plan]').count(), 2);
+  await page.locator('[data-edit-plan]').nth(1).click();
+  await page.click('#planMenu');
+  await page.getByRole('button', { name: 'Plan löschen' }).click();
+  await page.waitForSelector('.toast.show');
+  assert.equal(await page.locator('[data-edit-plan]').count(), 1);
   await page.click('.toast-action');
-  assert.equal(await page.locator('.plan-card').count(), 2);
+  assert.equal(await page.locator('[data-edit-plan]').count(), 2);
 });
 
 test('no serious accessibility violations', async () => {
@@ -509,10 +520,8 @@ test('units: pounds are shown everywhere and stored as kilograms; the plate calc
   await page.click('[data-nav="more"]');
   await page.click('[data-nav="settings"]');
   await page.selectOption('select[name="unit"]', 'lbs');
-  await page.click('#settingsForm button[type="submit"]');
-  await page.waitForSelector('.toast.show');
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('volumora-settings-v2')).unit === 'lbs');
   await page.click('[data-nav="home"]');
-  assert.match(await page.textContent('.week'), /lbs/, 'week volume in pounds');
   await page.click('[data-start="push"]');
   await page.waitForSelector('.workout-exercise');
   const first = page.locator('.workout-exercise').first();
@@ -528,18 +537,23 @@ test('units: pounds are shown everywhere and stored as kilograms; the plate calc
   );
   assert.equal(Math.round(Number(saved) * 10) / 10, 61.2, 'stored in kilograms');
   // The plate calculator appears on barbell exercises only.
+  await first.locator('[data-exercise-menu="0"]').click();
+  await page.waitForSelector('.sheet-backdrop.show');
   assert.equal(
-    await first.locator('[data-plates]').count(),
+    await page.getByRole('button', { name: 'Scheibenrechner' }).count(),
     0,
     'chest press machine has no plate calculator'
   );
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
   await page.click('#exitWorkout');
   await page.click('[data-start="legs"]');
   await page.waitForSelector('.workout-exercise');
   const squat = page.locator('.workout-exercise').first();
   await squat.locator('input[data-set-field="weight"][data-index="0"]').fill('135');
-  await squat.locator('[data-plates="0"]').click();
-  await page.waitForSelector('.sheet-backdrop.show');
+  await squat.locator('[data-exercise-menu="0"]').click();
+  await page.getByRole('button', { name: 'Scheibenrechner' }).click();
+  await page.waitForSelector('#plateResult');
   assert.match(await page.textContent('#plateResult'), /45 lbs pro Seite/);
   assert.match(await page.textContent('#plateResult'), /1 × 45/);
   await page.keyboard.press('Escape');

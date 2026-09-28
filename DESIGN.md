@@ -8,6 +8,8 @@ Quiet, private workout companion. One obvious next action per screen, no explana
 - One accent hue, green, used only for action, selection, progress and completion.
 - Depth comes from tonal layers and 1px hairlines, never from shadows on resting elements.
 - Nothing is decorated: no uppercase tracked labels above headings, no arrows appended to buttons, no marketing copy inside the product, no cards inside cards.
+- No top bar. The bottom navigation is the only chrome; each screen starts with its title.
+- One primary action per screen. Everything secondary lives in a „⋯“ action sheet, never as a row of visible buttons.
 
 ## 2. Color Palette
 
@@ -48,7 +50,8 @@ Rules: text never wears a fill color; red is destructive only; amber is caution 
 - **Segmented control**: inset track, active segment on surface with a 1px shadow.
 - **Set table**: one shared header row, one row per set, inputs on `--cloud`, trailing completion control, "Zuletzt" hint under the inputs.
 - **Chips**: hairline pill for state, green fill for positive state (Aktiv, Bestwert, PR).
-- **Sheet**: bottom sheet on surface for confirmations and details; **Toast**: ink pill with optional Rückgängig.
+- **Sheet**: bottom sheet on surface for confirmations and details; **Action sheet**: list of secondary actions, destructive ones in red; **Toast**: ink pill with optional Rückgängig.
+- **Settings** save on change. No Speichern button.
 
 ## 5. Layout Principles
 
@@ -65,7 +68,7 @@ Rules: text never wears a fill color; red is destructive only; amber is caution 
 
 ## 7. Do's and Don'ts
 
-Do: sentence case, one accent, lists over cards, chevrons on tappable rows, facts instead of copy, undo instead of confirm.
+Do: sentence case, one accent, lists over cards, chevrons on tappable rows, facts instead of copy, undo instead of confirm, placeholders instead of hint lines, „⋯“ menus instead of button rows.
 Don't: eyebrows, tracked uppercase labels, appended arrows, middle-dot meta strings longer than two facts, dark "stat tile" blocks, gradients, nested cards, bounce easing, decorative icons.
 
 ## 8. Responsive Behavior
@@ -81,7 +84,8 @@ When adding or changing a screen:
 
 1. Start from an existing view module; reuse `.list`/`.row`, `.stat-row`, `.chart-card`, `.segmented`, `.chip`, `sheet()`, `toast()` before writing new CSS.
 2. Only tokens for color. Text on green is `--on-green`; green text is `--green-ink`.
-3. No eyebrow labels, no arrows in button labels, no explanatory sentence under a title.
+3. No eyebrow labels, no arrows in button labels, no explanatory sentence under a title, no top bar.
+   A screen has at most one primary button; put further actions into `actionSheet()`.
 4. Every destructive action gets `undoToast`; only truly irreversible actions get `confirmDialog`.
 5. Every tappable row shows a chevron; every icon button has an `aria-label`.
 6. Run `npm test`. The axe check must stay at zero serious violations in both themes.
