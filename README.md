@@ -71,3 +71,6 @@ npm run format
 
 ## Daten
 Alle Trainings- und Körperdaten bleiben im Browser des Geräts. Es gibt keinen Account und kein Backend. Für einen Gerätewechsel steht der JSON-Export zur Verfügung; er enthält auch die Fotos aus IndexedDB. Beim Import werden alle Werte geprüft und auf das erwartete Format gebracht.
+
+## Lizenz
+Der Quellcode steht unter der [MIT-Lizenz](LICENSE). Übungsanimationen und andere Medien von Dritten sind davon ausgenommen und gehören ihren jeweiligen Rechteinhabern, siehe [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md).
