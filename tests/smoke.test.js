@@ -572,3 +572,21 @@ test('home shows the weekly goal and streak', async () => {
   assert.match(await page.textContent('.week-line'), /1 von 1/);
   assert.match(await page.textContent('.week-line em'), /1 Woche in Folge/);
 });
+
+test('touch targets in the workout are at least 44px on a phone', async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  const targets = [
+    ['#exitWorkout', true],
+    ['[data-exercise-menu]', true],
+    ['[data-set-done="0"]', true],
+    ['[data-add-set]', false],
+    ['input[data-set-field="weight"][data-index="0"]', false],
+  ];
+  for (const [selector, checkWidth] of targets) {
+    const box = await page.locator(selector).first().boundingBox();
+    assert.ok(box && box.height >= 44, `${selector} is ${box?.height}px tall`);
+    if (checkWidth) assert.ok(box.width >= 44, `${selector} is ${box.width}px wide`);
+  }
+});
