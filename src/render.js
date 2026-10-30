@@ -9,6 +9,7 @@ import * as calendar from './views/calendar.js';
 import * as editor from './views/editor.js';
 import * as home from './views/home.js';
 import * as more from './views/more.js';
+import * as onboarding from './views/onboarding.js';
 import * as plans from './views/plans.js';
 import * as session from './views/session.js';
 import { bindShell, nav, topbar } from './views/shell.js';
@@ -27,8 +28,9 @@ const VIEWS = {
   more,
   backup: more,
   settings: more,
+  onboarding,
 };
-const BARE = ['workout', 'planEditor', 'assistant'];
+const BARE = ['workout', 'planEditor', 'assistant', 'onboarding'];
 const NAV_FOR = {
   calendar: 'analytics',
   session: 'analytics',

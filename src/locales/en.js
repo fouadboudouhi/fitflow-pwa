@@ -320,6 +320,32 @@ const ui = {
   'settings.language': 'Language',
   'language.auto': 'Same as the device',
 
+  // First run
+  'onboarding.title': 'Getting started',
+  'onboarding.step': 'Step {step} of {total}',
+  'onboarding.skip': 'Skip',
+  'onboarding.welcomeTitle': 'Welcome to Volumora',
+  'onboarding.welcomeText':
+    'Your training app without an account: everything stays on this device. A few questions and your first plan is ready.',
+  'onboarding.haveBackup': 'I already have a backup',
+  'onboarding.unitTitle': 'How do you count weights?',
+  'onboarding.unitText': 'You can change this in Settings at any time.',
+  'onboarding.kgHint': 'Plates of 20, 10 and 5 kg',
+  'onboarding.lbsHint': 'Plates of 45, 25 and 10 lbs',
+  'onboarding.levelTitle': 'How much experience do you have?',
+  'level.beginner': 'Beginner',
+  'level.beginnerHint': 'Less than a year of strength training',
+  'level.intermediate': 'Intermediate',
+  'level.intermediateHint': 'One to three years, training regularly',
+  'level.advanced': 'Advanced',
+  'level.advancedHint': 'More than three years',
+  'onboarding.daysTitle': 'How often per week?',
+  'onboarding.daysText': 'Two to six sessions. The plan spreads them sensibly.',
+  'onboarding.previewText': 'Your starter plan. You can adjust it at any time.',
+  'onboarding.use': 'Let’s go',
+  'onboarding.installTip': 'Tip: Volumora can be installed on your home screen like an app.',
+  'onboarding.installHow': 'How?',
+
   // CSV export
   'csv.date': 'Date',
   'csv.plan': 'Plan',

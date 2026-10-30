@@ -188,9 +188,16 @@ const MIGRATIONS = [
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
+// A fresh installation: no plans yet and the first-run flow has not run. It seeds the plan itself.
+export const needsOnboarding = () => !isOnboarded() && !localStorage.getItem(LS.plans);
+
 export function runMigrations() {
-  if (!localStorage.getItem(LS.plans)) savePlans(defaultPlans());
   if (!localStorage.getItem(LS.settings)) saveSettings(DEFAULT_SETTINGS);
+  if (needsOnboarding()) {
+    write(LS.schema, SCHEMA_VERSION);
+    return;
+  }
+  if (!localStorage.getItem(LS.plans)) savePlans(defaultPlans());
   // Installations from before the first-run flow existed count as onboarded.
   if (!isOnboarded()) markOnboarded();
   const current = read(LS.schema, 0);

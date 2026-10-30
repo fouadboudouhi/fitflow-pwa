@@ -190,7 +190,13 @@ const goalName = (goal) =>
   t('goal.muscle');
 const isCompound = (sourceName) => /press|squat|deadlift|row|pull-up/.test(sourceName);
 
-export function createSuggestedPlan(goal, dayCount, scheduleMode = 'flexible') {
+// `level` 'beginner' keeps every exercise at three sets; the other levels add a fourth set to compounds.
+export function createSuggestedPlan(
+  goal,
+  dayCount,
+  scheduleMode = 'flexible',
+  { level = 'intermediate' } = {}
+) {
   const layout = LAYOUTS[dayCount] || LAYOUTS[3];
   const days = layout.map(([nameKey, key]) => ({
     id: uid(),
@@ -202,7 +208,7 @@ export function createSuggestedPlan(goal, dayCount, scheduleMode = 'flexible') {
         const compound = isCompound(source.sourceName);
         return {
           ...planExerciseFromLibrary(source),
-          sets: goal === 'fitness' ? 3 : compound ? 4 : 3,
+          sets: goal === 'fitness' || level === 'beginner' ? 3 : compound ? 4 : 3,
           range: goal === 'strength' && compound ? '4–6' : goal === 'fitness' ? '10–15' : '8–12',
           rest: goal === 'strength' ? 150 : goal === 'fitness' ? 60 : 90,
         };

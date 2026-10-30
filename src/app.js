@@ -10,6 +10,7 @@ import {
   getRestUntil,
   getSettings,
   migratePhotos,
+  needsOnboarding,
   runMigrations,
 } from './storage.js';
 import { applyTheme } from './theme.js';
@@ -20,6 +21,8 @@ setLanguage(getSettings().language);
 runMigrations();
 applyTheme();
 state.restUntil = getRestUntil();
+const firstRun = needsOnboarding();
+if (firstRun) state.view = 'onboarding';
 initRouter(applyRoute);
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -72,7 +75,7 @@ window.addEventListener('pageshow', () => window.scrollTo(0, 0));
 
 render();
 // Homescreen shortcut: jump straight into the next session.
-if (new URLSearchParams(location.search).get('action') === 'start') {
+if (!firstRun && new URLSearchParams(location.search).get('action') === 'start') {
   history.replaceState(history.state, '', location.pathname);
   const plan = activePlan();
   const { day } = nextSession(plan, getHistory());

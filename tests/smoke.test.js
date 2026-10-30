@@ -27,6 +27,8 @@ after(async () => {
 });
 beforeEach(async () => {
   context = await browser.newContext({ acceptDownloads: true, locale: 'de-DE' });
+  // Every test starts as an installation that has already passed the first-run flow.
+  await context.addInitScript(() => localStorage.setItem('volumora-onboarded', '1'));
   page = await context.newPage();
   errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -361,18 +363,21 @@ test('deleting a plan can be undone', async () => {
   assert.equal(await page.locator('[data-edit-plan]').count(), 2);
 });
 
+// WCAG 2.0 A/AA check of the current page; only serious and critical violations fail.
+const axeCheck = async (name) => {
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+  await page.addScriptTag({ content: AXE });
+  const result = await page.evaluate(() => axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] }));
+  const serious = result.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
+  assert.deepEqual(
+    serious.map((v) => `${v.id}: ${v.nodes.length} nodes`),
+    [],
+    `${name} has accessibility violations`
+  );
+};
+
 test('no serious accessibility violations', async () => {
-  const check = async (name) => {
-    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
-    await page.addScriptTag({ content: AXE });
-    const result = await page.evaluate(() => axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] }));
-    const serious = result.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
-    assert.deepEqual(
-      serious.map((v) => `${v.id}: ${v.nodes.length} nodes`),
-      [],
-      `${name} has accessibility violations`
-    );
-  };
+  const check = axeCheck;
   for (const scheme of ['light', 'dark']) {
     await page.emulateMedia({ colorScheme: scheme });
     await page.evaluate(() => localStorage.removeItem('volumora-settings-v2'));
@@ -586,6 +591,7 @@ test('touch targets in the workout are at least 44px on a phone', async () => {
 test('the interface follows the device language and the language setting', async () => {
   await context.close();
   context = await browser.newContext({ locale: 'en-US' });
+  await context.addInitScript(() => localStorage.setItem('volumora-onboarded', '1'));
   page = await context.newPage();
   await page.goto(baseURL + '/');
   await page.waitForSelector('.next-card');
@@ -641,4 +647,52 @@ test('charts follow the viewport width', async () => {
   const before = await page.locator('#volumeChart').evaluate((c) => c.width);
   await page.setViewportSize({ width: 520, height: 800 });
   await page.waitForFunction((w) => document.querySelector('#volumeChart').width !== w, before);
+});
+
+test('first run: the onboarding builds a plan from language, unit, goal and days', async () => {
+  await context.close();
+  context = await browser.newContext({ locale: 'de-DE' });
+  page = await context.newPage();
+  await page.goto(baseURL + '/');
+  await page.waitForSelector('#onboardingForm');
+  await axeCheck('onboarding');
+  await page.check('input[name="language"][value="en"]');
+  await page.waitForSelector('input[name="language"][value="en"]:checked');
+  assert.match(await page.textContent('.assistant-hero h1'), /Welcome/);
+  await page.click('#onboardingForm button[type="submit"]');
+  await page.check('input[name="unit"][value="lbs"]');
+  await page.click('#onboardingForm button[type="submit"]');
+  await page.check('input[name="goal"][value="strength"]');
+  await page.check('input[name="level"][value="intermediate"]');
+  await page.click('#onboardingForm button[type="submit"]');
+  await page.selectOption('select[name="days"]', '4');
+  await page.click('#onboardingForm button[type="submit"]');
+  assert.match(await page.textContent('.preview-head h1'), /Strength · 4 days/);
+  await page.click('#onboardingUse');
+  await page.waitForSelector('.next-card');
+  assert.match(await page.textContent('.home-intro p'), /Strength · 4 days/);
+  const stored = await page.evaluate(() => ({
+    onboarded: localStorage.getItem('volumora-onboarded'),
+    settings: JSON.parse(localStorage.getItem('volumora-settings-v2')),
+    plans: JSON.parse(localStorage.getItem('volumora-plans-v2')),
+  }));
+  assert.equal(stored.onboarded, '1');
+  assert.equal(stored.settings.unit, 'lbs');
+  assert.equal(stored.settings.language, 'en');
+  assert.equal(stored.plans.items.length, 1, 'only the generated plan');
+  assert.equal(stored.plans.items[0].days.length, 4);
+});
+
+test('first run: skipping the onboarding starts with the default plan', async () => {
+  await context.close();
+  context = await browser.newContext({ locale: 'de-DE' });
+  page = await context.newPage();
+  await page.goto(baseURL + '/');
+  await page.waitForSelector('#onboardingSkip');
+  await page.click('#onboardingSkip');
+  await page.waitForSelector('.next-card');
+  assert.match(await page.textContent('.home-intro p'), /Push · Pull · Legs/);
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  assert.equal(await page.locator('#onboardingForm').count(), 0, 'the flow shows only once');
 });
