@@ -3329,3 +3329,33 @@ label.row {
   position: relative;
   z-index: 2;
 }
+
+/* Analytics: weekly sets with guideline markers, compact segmented control */
+.bar-track.target {
+  position: relative;
+}
+.bar-track.target em {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--muted);
+  opacity: 0.55;
+  border-radius: 1px;
+}
+.segmented.small {
+  margin: 0 0 14px;
+}
+.segmented.small button {
+  min-height: 38px;
+  font-size: 12px;
+}
+.analytics-hint {
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+.chart-tip small {
+  display: block;
+  color: var(--muted);
+}

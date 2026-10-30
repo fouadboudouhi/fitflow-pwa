@@ -2,6 +2,7 @@
 import { fmtNumber, t } from './i18n.js';
 import { groupOf } from './library.js';
 import { setScore, trackTypeOf } from './sets.js';
+import { frequency, strengthVsBodyweight, weeklyVolume } from './stats.js';
 import { getBody, getHistory } from './storage.js';
 import { toDisplay, unit } from './units.js';
 import { dayKey, exerciseKey, fmtDate, rangeCutoff, setVolume, volumeOf } from './util.js';
@@ -10,7 +11,13 @@ const token = (name) => getComputedStyle(document.documentElement).getPropertyVa
 const fmt = (value, suffix) => `${fmtNumber(Math.round(value))}${suffix}`;
 
 // Single-series line chart. Hover, touch and arrow keys move a crosshair; the tooltip shows value and date.
-export function lineChart(canvas, points, { color = token('--green'), suffix = '', fill = true } = {}) {
+// `secondary` adds a second series on its own right-hand axis: { points: [{ value|null }], color, suffix },
+// aligned with `points` by index; null values leave a gap.
+export function lineChart(
+  canvas,
+  points,
+  { color = token('--green'), suffix = '', fill = true, secondary = null } = {}
+) {
   if (!canvas || !points.length) return;
   const card = canvas.parentElement;
   const dpr = devicePixelRatio || 1;
@@ -19,7 +26,7 @@ export function lineChart(canvas, points, { color = token('--green'), suffix = '
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   const c = canvas.getContext('2d');
-  const pad = { l: 46, r: 14, t: 18, b: 28 };
+  const pad = { l: 46, r: secondary ? 46 : 14, t: 18, b: 28 };
   const vals = points.map((p) => p.value);
   const min = Math.min(...vals);
   const max = Math.max(...vals);
@@ -27,6 +34,11 @@ export function lineChart(canvas, points, { color = token('--green'), suffix = '
   const x = (i) => pad.l + (i / Math.max(1, points.length - 1)) * (w - pad.l - pad.r);
   const y = (v) => pad.t + (1 - (v - min) / span) * (h - pad.t - pad.b);
   const surface = token('--surface') || '#fff';
+  const second = secondary?.points?.filter((p) => p.value != null).map((p) => p.value) || [];
+  const min2 = second.length ? Math.min(...second) : 0;
+  const max2 = second.length ? Math.max(...second) : 0;
+  const span2 = max2 - min2 || Math.max(1, max2 * 0.1);
+  const y2 = (v) => pad.t + (1 - (v - min2) / span2) * (h - pad.t - pad.b);
 
   const draw = (highlight) => {
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -42,6 +54,31 @@ export function lineChart(canvas, points, { color = token('--green'), suffix = '
       c.lineTo(w - pad.r, yy);
       c.stroke();
       c.fillText(fmt(max - (i * span) / 2, suffix), 4, yy + 4);
+      if (second.length) {
+        const text = fmt(max2 - (i * span2) / 2, secondary.suffix || '');
+        c.fillStyle = secondary.color || token('--blue');
+        c.fillText(text, w - c.measureText(text).width - 4, yy + 4);
+        c.fillStyle = token('--muted');
+      }
+    }
+    if (second.length) {
+      c.beginPath();
+      let pen = false;
+      secondary.points.forEach((p, i) => {
+        if (p.value == null) {
+          pen = false;
+          return;
+        }
+        if (pen) c.lineTo(x(i), y2(p.value));
+        else c.moveTo(x(i), y2(p.value));
+        pen = true;
+      });
+      c.lineWidth = 2;
+      c.strokeStyle = secondary.color || token('--blue');
+      c.setLineDash([4, 4]);
+      c.stroke();
+      c.setLineDash([]);
+      c.lineWidth = 1;
     }
     if (fill) {
       c.beginPath();
@@ -110,6 +147,11 @@ export function lineChart(canvas, points, { color = token('--green'), suffix = '
     const label = document.createElement('span');
     label.textContent = points[i].label;
     tip.append(value, label);
+    if (secondary?.points?.[i]?.value != null) {
+      const extra = document.createElement('small');
+      extra.textContent = fmt(secondary.points[i].value, secondary.suffix || '');
+      tip.append(extra);
+    }
     tip.hidden = false;
     const left = canvas.offsetLeft + x(i);
     tip.style.left = `${Math.max(canvas.offsetLeft + 40, Math.min(left, canvas.offsetLeft + w - 40))}px`;
@@ -211,10 +253,32 @@ export function drawAnalytics(selectedKey, range) {
     color: token('--orange'),
     suffix,
   });
-  lineChart(document.querySelector('#weightChart'), weightPoints(range), {
-    color: token('--blue'),
-    suffix: ` ${unit()}`,
-  });
+  // Body weight next to the strength of the selected exercise, both in the display unit.
+  const combo = strengthVsBodyweight(historyInRange(range), bodyInRange(range), selectedKey);
+  if (combo.points.length >= 2)
+    lineChart(
+      document.querySelector('#bodyStrengthChart'),
+      combo.points.slice(-16).map((p) => ({ label: p.label, value: Math.round(toDisplay(p.value)) })),
+      {
+        color: token('--orange'),
+        suffix,
+        fill: false,
+        secondary: {
+          points: combo.weight
+            .slice(-16)
+            .map((p) => ({ value: p.value == null ? null : Math.round(toDisplay(p.value) * 10) / 10 })),
+          color: token('--blue'),
+          suffix: ` ${unit()}`,
+        },
+      }
+    );
+  const all = getHistory();
+  lineChart(
+    document.querySelector('#weeklyVolumeChart'),
+    weeklyVolume(all, 12).map((p) => ({ label: p.label, value: Math.round(toDisplay(p.value)) })),
+    { suffix: ` ${unit()}` }
+  );
+  lineChart(document.querySelector('#frequencyChart'), frequency(all, 12), { color: token('--blue') });
 }
 export function drawBodyChart() {
   lineChart(document.querySelector('#bodyChart'), weightPoints('all'), {
