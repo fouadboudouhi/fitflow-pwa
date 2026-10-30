@@ -1,5 +1,6 @@
 // Renders the current view into #app and wires its event handlers.
 import { drawAnalytics, drawBodyChart } from './charts.js';
+import { pushView } from './router.js';
 import { state } from './state.js';
 import * as analytics from './views/analytics.js';
 import * as assistant from './views/assistant.js';
@@ -37,20 +38,29 @@ const NAV_FOR = {
 };
 const $app = document.querySelector('#app');
 
-export function navigate(view, patch = {}) {
+export function navigate(view, patch = {}, { replace = false } = {}) {
+  Object.assign(state, patch);
+  state.view = view;
+  pushView(view, patch, replace);
+  render();
+}
+
+// The router calls this when the user steps back through the history: same as navigate, without a new entry.
+export function applyRoute(view, patch = {}) {
   Object.assign(state, patch);
   state.view = view;
   render();
+}
+
+export function redrawCharts() {
+  if (state.view === 'analytics') drawAnalytics(state.analyticsExercise, state.analyticsRange || '3m');
+  if (state.view === 'body') drawBodyChart();
 }
 
 export function render() {
   clearInterval(state.restTimer);
   const viewChanged = state.lastRenderedView !== state.view;
   state.lastRenderedView = state.view;
-  if (viewChanged && state.reloadPending && state.view !== 'workout') {
-    location.reload();
-    return;
-  }
   if (viewChanged) window.scrollTo(0, 0);
   const module = VIEWS[state.view] || more;
   // A view may redirect (e.g. workout without exercises); render whatever the state says afterwards.
@@ -58,6 +68,7 @@ export function render() {
   if (state.view !== state.lastRenderedView) {
     state.lastRenderedView = state.view;
     content = (VIEWS[state.view] || more).view();
+    pushView(state.view, {}, true);
   }
   const bare = BARE.includes(state.view);
   // Re-rendering the same view must not lose what the user opened or where they were typing.
@@ -74,8 +85,6 @@ export function render() {
   bindShell();
   (VIEWS[state.view] || more).bind();
   if (viewChanged) requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
-  if (state.view === 'analytics')
-    requestAnimationFrame(() => drawAnalytics(state.analyticsExercise, state.analyticsRange || '3m'));
-  if (state.view === 'body') requestAnimationFrame(drawBodyChart);
+  requestAnimationFrame(redrawCharts);
   if (state.view === 'workout') workout.startRestTicker();
 }

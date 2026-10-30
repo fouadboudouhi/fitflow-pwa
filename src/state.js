@@ -22,5 +22,4 @@ export const state = {
   installPrompt: null,
   restUntil: 0,
   restTimer: null,
-  reloadPending: false,
 };

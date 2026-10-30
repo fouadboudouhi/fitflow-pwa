@@ -21,6 +21,8 @@ const ui = {
   'nav.history': 'History',
   'nav.more': 'More',
   'credit.media': 'Exercise media:',
+  'update.ready': 'A new version is ready.',
+  'update.reload': 'Reload',
   'storage.full': 'Saving failed: local storage is full. Export a backup and delete old data.',
   'exercises.one': '{n} exercise',
   'exercises.other': '{n} exercises',
