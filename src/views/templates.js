@@ -13,7 +13,7 @@ import {
   templateName,
 } from '../templates.js';
 import { esc } from '../util.js';
-import { backRow } from './shell.js';
+import { parentRow } from './shell.js';
 
 const equipmentLabel = (key) => t(`equipmentChoice.${key}`);
 
@@ -37,7 +37,7 @@ export function view() {
     (x) =>
       `<button type="button" class="row" data-template="${x.id}"><span class="row-main"><b>${esc(templateName(x))}</b><small>${esc(templateDescription(x))} · ${plural(x.days, 'trainingDays')} · ${esc(equipmentLabel(x.equipment))}</small></span>${icon('chevron-right')}</button>`
   ).join('');
-  return `<main class="shell">${backRow(t('plans.title'), 'plans')}<section class="page-head compact"><h1>${t('templates.title')}</h1></section><p class="muted templates-intro">${t('templates.intro')}</p><div class="list">${rows}</div></main>`;
+  return `<main class="shell">${parentRow('plans')}<section class="page-head compact"><h1>${t('templates.title')}</h1></section><p class="muted templates-intro">${t('templates.intro')}</p><div class="list">${rows}</div></main>`;
 }
 
 export function bind() {
@@ -52,7 +52,7 @@ export function bind() {
     data.activePlanId = plan.id;
     savePlans(data);
     Object.assign(state, { templateId: null, templatePreview: null });
-    if (customize) navigate('planEditor', { editPlanId: plan.id, editorDayIndex: 0 });
+    if (customize) navigate('planEditor', { editorReturn: 'home', editPlanId: plan.id, editorDayIndex: 0 });
     else navigate('home');
   };
   document.querySelector('#useTemplate')?.addEventListener('click', () => accept(false));

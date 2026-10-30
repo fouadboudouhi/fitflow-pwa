@@ -13,7 +13,7 @@ import {
 import { actionSheet, toast, undoToast } from '../ui.js';
 import { esc } from '../util.js';
 import { openCustomForm } from './customForm.js';
-import { backRow, empty } from './shell.js';
+import { empty, parentRow } from './shell.js';
 
 export function view() {
   const list = getCustomExercises().sort((a, b) => a.name.localeCompare(b.name));
@@ -23,7 +23,7 @@ export function view() {
         `<button type="button" class="row" data-custom-exercise="${esc(x.id)}"><span class="row-main"><b>${esc(x.name)}</b><small>${esc([groupLabel(x.category || 'other'), equipmentLabel(x.equipment || 'other'), trackTypeLabel(x.trackType || 'weight_reps')].join(' · '))}</small></span>${icon('chevron-right')}</button>`
     )
     .join('');
-  return `<main class="shell narrow">${backRow(t('custom.title'), 'more')}<section class="page-head compact"><h1>${t('custom.title')}</h1></section>${
+  return `<main class="shell narrow">${parentRow('more')}<section class="page-head compact"><h1>${t('custom.title')}</h1></section>${
     rows ? `<div class="list">${rows}</div>` : empty(t('custom.empty'), t('custom.emptyText'))
   }<button type="button" class="primary full custom-new" id="newCustomExercise">${t('custom.new')}</button></main>`;
 }

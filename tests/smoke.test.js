@@ -600,7 +600,7 @@ test('the interface follows the device language and the language setting', async
   await page.waitForSelector('.next-card');
   assert.equal(await page.textContent('.home-intro h1'), 'Today');
   assert.equal(await page.getAttribute('html', 'lang'), 'en');
-  assert.match(await page.textContent('.bottom-nav'), /History/);
+  assert.match(await page.textContent('.bottom-nav'), /Progress/);
   await page.click('[data-nav="more"]');
   await page.click('[data-nav="settings"]');
   await page.selectOption('select[name="language"]', 'de');

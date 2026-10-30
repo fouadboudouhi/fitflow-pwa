@@ -101,7 +101,7 @@ export function view() {
     <div class="workout-exercise-list">${list || `<div class="empty"><strong>${t('workout.emptyTitle')}</strong><p>${t('workout.emptyText')}</p></div>`}</div>
     <button type="button" class="choose-exercise" id="addSessionExercise">${icon('plus')}<b>${t('workout.addExercise')}</b></button>
     <details class="session-status" id="session-status" ${Object.values(session.markers).some(Boolean) ? 'open' : ''}><summary>${t('workout.status')}</summary><div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload ? 'checked' : ''}> ${t('marker.deload')}</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill ? 'checked' : ''}> ${t('marker.ill')}</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain ? 'checked' : ''}> ${t('marker.pain')}</label></div></details>
-    <div class="rest-timer ${state.restUntil > Date.now() ? 'show' : ''}" id="restTimer" role="timer" aria-live="off"><div><span>${t('rest.title')}</span><b id="restCount">0:00</b></div><button data-rest-add>+30</button><button data-rest-skip>${t('rest.skip')}</button></div>
+    <div class="rest-timer ${state.restUntil > Date.now() ? 'show' : ''}" id="restTimer" role="timer" aria-live="off"><div><span>${t('rest.title')}</span><b id="restCount">0:00</b></div><button data-rest-add aria-label="${t('rest.addAria')}">+30</button><button data-rest-skip>${t('rest.skip')}</button></div>
   </main>`;
 }
 
@@ -197,6 +197,7 @@ const fieldDisplayWeight = (kg) => (kg === '' || kg == null ? '' : String(toDisp
 // Picker for adding exercises to the running session; it stays open for several picks.
 function addExercises() {
   openPicker({
+    addedLabel: t('picker.addedWorkout'),
     subtitle: current().dayName,
     isAdded: (id) => sessionExercises(current()).some((x) => (x.libraryId || x.id) === id),
     onPick: (source) => mutate((s) => addSessionExercise(s, planExerciseFromLibrary(source)), true),
@@ -204,6 +205,7 @@ function addExercises() {
 }
 function replaceExercise(index) {
   openPicker({
+    addedLabel: t('picker.addedWorkout'),
     title: t('picker.replaceTitle'),
     subtitle: t('picker.replaceHint'),
     closeOnPick: true,
@@ -264,13 +266,20 @@ export function bind() {
     b.onclick = () => {
       const exerciseIndex = number(b.dataset.exercise);
       const setIndex = number(b.dataset.setType);
-      actionSheet(
-        t('workout.setType'),
-        SET_TYPES.map((type) => ({
+      actionSheet(t('workout.setType'), [
+        ...SET_TYPES.map((type) => ({
           label: t(`setType.${type}`),
           onClick: () => mutate((s) => setSetType(s.entries[exerciseIndex].sets[setIndex], type), true),
-        }))
-      );
+        })),
+        {
+          label: t('workout.deleteSet'),
+          danger: true,
+          onClick: () =>
+            document
+              .querySelector(`[data-delete-set="${setIndex}"][data-exercise="${exerciseIndex}"]`)
+              ?.click(),
+        },
+      ]);
     };
   });
   document.querySelectorAll('[data-delete-set]').forEach((b) => {

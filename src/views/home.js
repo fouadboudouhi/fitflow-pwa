@@ -1,9 +1,17 @@
 import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
-import { navigate } from '../render.js';
-import { activePlan, getActive, getHistory, getSettings } from '../storage.js';
-import { confirmDialog } from '../ui.js';
+import { navigate, render } from '../render.js';
+import {
+  activePlan,
+  clearActive,
+  findPlan,
+  getActive,
+  getHistory,
+  getSettings,
+  saveActive,
+} from '../storage.js';
+import { confirmDialog, undoToast } from '../ui.js';
 import { doneSets, esc, fmtLong } from '../util.js';
 import { sessionStarted } from '../workout.js';
 import { empty } from './shell.js';
@@ -22,7 +30,7 @@ export function view() {
   let { day: next, label: nextLabel } = nextSession(plan, history, today);
   const active = getActive();
   const activeDay =
-    active && plan?.id === active.planId ? plan.days.find((d) => d.id === active.dayId) : null;
+    active && active.planId != null ? findPlan(active.planId)?.days.find((d) => d.id === active.dayId) : null;
   const freeActive = !!(active && active.planId == null && sessionStarted(active));
   const resume = freeActive || !!(activeDay?.exercises.length && sessionStarted(active));
   if (freeActive) next = { id: '', name: active.dayName, exercises: active.exercises || [] };
@@ -31,7 +39,7 @@ export function view() {
   const startAttr = freeActive
     ? 'id="startFree"'
     : next?.exercises.length
-      ? `data-start="${next.id}" data-plan="${plan.id}"`
+      ? `data-start="${next.id}" data-plan="${resume && !freeActive ? active.planId : plan.id}"`
       : 'id="editActivePlan"';
   const nextCard = next
     ? `<section class="next-card ${resume ? 'resume-card' : ''} ${next.exercises.length ? '' : 'empty-plan-card'}"><span class="next-label">${esc(next.exercises.length ? nextLabel : t('home.completePlan'))}</span><h2>${esc(next.name)}</h2><p>${
@@ -42,8 +50,11 @@ export function view() {
             : t('home.pickExercises')
       }</p><button class="primary start-main" ${startAttr}>${
         resume ? t('home.resume') : next.exercises.length ? t('home.start') : t('home.chooseExercises')
-      }</button></section>`
-    : empty(t('home.emptyTitle'), t('home.emptyText'));
+      }</button>${resume ? `<button type="button" class="text-btn discard-btn" id="discardSession">${t('home.discard')}</button>` : ''}</section>`
+    : empty(t('home.emptyTitle'), t('home.emptyText'), {
+        label: t('home.emptyAction'),
+        attrs: 'id="editActivePlan"',
+      });
   const others = readyDays.filter((d) => d.id !== next?.id);
   const weekStrip = readyDays.length
     ? `<section class="week" aria-label="${t('home.weeklyGoal')}"><div class="week-progress" role="progressbar" aria-label="${t('home.weeklyGoal')}" aria-valuenow="${stats.thisWeek}" aria-valuemax="${goal}"><i style="width:${Math.min(100, (stats.thisWeek / Math.max(1, goal)) * 100)}%"></i></div><div class="week-line"><span><b>${t('home.weekCount', { done: stats.thisWeek, goal })}</b> ${t('home.weekSuffix')}</span>${stats.streak ? `<em>${plural(stats.streak, 'home.streak')}</em>` : ''}</div></section>`
@@ -76,11 +87,25 @@ async function start(planId, dayId) {
 }
 
 export function bind() {
-  document
-    .querySelector('#editActivePlan')
-    ?.addEventListener('click', () =>
-      navigate('planEditor', { editPlanId: activePlan().id, editorDayIndex: 0 })
-    );
+  document.querySelector('#editActivePlan')?.addEventListener('click', () =>
+    navigate('planEditor', {
+      editPlanId: activePlan().id,
+      editorDayIndex: Math.max(
+        0,
+        activePlan().days.findIndex((d) => !d.exercises.length)
+      ),
+      editorReturn: 'home',
+    })
+  );
+  document.querySelector('#discardSession')?.addEventListener('click', () => {
+    const session = getActive();
+    clearActive();
+    render();
+    undoToast(t('home.discarded', { name: session?.dayName || '' }), () => {
+      saveActive(session);
+      render();
+    });
+  });
   document.querySelectorAll('[data-start]').forEach((b) => {
     b.onclick = () => start(b.dataset.plan, b.dataset.start);
   });

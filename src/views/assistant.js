@@ -73,7 +73,7 @@ export function bind() {
     data.activePlanId = plan.id;
     savePlans(data);
     Object.assign(state, { assistantStep: 1, assistantDraft: null, assistantPreview: null });
-    if (customize) navigate('planEditor', { editPlanId: plan.id, editorDayIndex: 0 });
+    if (customize) navigate('planEditor', { editorReturn: 'home', editPlanId: plan.id, editorDayIndex: 0 });
     else navigate('home');
   };
   document.querySelector('#useSuggestedPlan')?.addEventListener('click', () => accept(false));

@@ -100,7 +100,11 @@ function finish(plan, customize = false) {
   }
   saveSettings(settings);
   savePlans({ activePlanId: plan.id, items: [plan] });
-  leave(customize ? ['planEditor', { editPlanId: plan.id, editorDayIndex: 0 }] : ['home', {}]);
+  leave(
+    customize
+      ? ['planEditor', { editPlanId: plan.id, editorDayIndex: 0, editorReturn: 'home' }]
+      : ['home', {}]
+  );
 }
 function leave([view, patch]) {
   markOnboarded();
