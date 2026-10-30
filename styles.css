@@ -3277,3 +3277,8 @@ label.row {
 #addSessionExercise {
   margin: 16px 0 8px;
 }
+
+/* Templates */
+.templates-intro {
+  margin: -8px 0 16px;
+}

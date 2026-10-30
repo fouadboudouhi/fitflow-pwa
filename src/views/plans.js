@@ -21,6 +21,11 @@ export function bind() {
   document.querySelector('#newPlan')?.addEventListener('click', () =>
     actionSheet(t('plans.newTitle'), [
       {
+        label: t('plans.fromTemplate'),
+        hint: t('plans.fromTemplateHint'),
+        onClick: () => navigate('templates', { templateId: null, templatePreview: null }),
+      },
+      {
         label: t('plans.withAssistant'),
         hint: t('plans.withAssistantHint'),
         onClick: () =>

@@ -15,6 +15,8 @@ export const state = {
   openNotes: null,
   editorDetails: null,
   calendarOffset: 0,
+  templateId: null,
+  templatePreview: null,
   onboardingStep: 1,
   onboardingDraft: null,
   onboardingPreview: null,

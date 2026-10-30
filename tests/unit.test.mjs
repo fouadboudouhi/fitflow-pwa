@@ -457,3 +457,33 @@ test('supersets link consecutive exercises; a free workout becomes a plan day', 
   assert.equal(day.exercises[0].id, 'x', 'exercise ids are kept');
   assert.ok(day.id);
 });
+
+test('every template resolves to catalogue exercises and the first-run picker fits the answers', async () => {
+  const { TEMPLATES, planFromTemplate, pickTemplate } = await import('../src/templates.js');
+  setLanguage('de');
+  assert.ok(TEMPLATES.length >= 10);
+  for (const template of TEMPLATES) {
+    const plan = planFromTemplate(template.id);
+    assert.equal(plan.days.length, template.days, template.id);
+    assert.ok(plan.days.length >= 2 && plan.days.length <= 6, template.id);
+    plan.days.forEach((d) => {
+      assert.ok(d.exercises.length >= 3, `${template.id}: ${d.name}`);
+      d.exercises.forEach((ex) =>
+        assert.ok(ex.libraryId && ex.sets >= 1 && ex.range, `${template.id}: ${ex.name}`)
+      );
+    });
+    assert.ok(
+      de[`template.${template.id}.name`] && en[`template.${template.id}.name`],
+      `${template.id} names`
+    );
+  }
+  assert.equal(planFromTemplate('upperLower4', { level: 'beginner' }).days[0].exercises[0].sets, 3);
+  assert.equal(pickTemplate({ days: 4, equipment: 'gym' }).id, 'upperLower4');
+  assert.equal(pickTemplate({ days: 3, equipment: 'home' }).id, 'home3');
+  assert.equal(pickTemplate({ days: 5, equipment: 'dumbbell' }).id, 'dumbbell3', 'nearest day count');
+  assert.equal(
+    pickTemplate({ days: 3, equipment: 'gym', goal: 'strength', level: 'beginner' }).id,
+    'linear2'
+  );
+  assert.equal(pickTemplate({ days: 6, equipment: 'gym' }).id, 'ppl6');
+});

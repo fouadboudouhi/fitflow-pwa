@@ -670,10 +670,10 @@ test('first run: the onboarding builds a plan from language, unit, goal and days
   await page.click('#onboardingForm button[type="submit"]');
   await page.selectOption('select[name="days"]', '4');
   await page.click('#onboardingForm button[type="submit"]');
-  assert.match(await page.textContent('.preview-head h1'), /Strength · 4 days/);
+  assert.match(await page.textContent('.preview-head h1'), /Upper\/lower · 4 days/);
   await page.click('#onboardingUse');
   await page.waitForSelector('.next-card');
-  assert.match(await page.textContent('.home-intro p'), /Strength · 4 days/);
+  assert.match(await page.textContent('.home-intro p'), /Upper\/lower · 4 days/);
   const stored = await page.evaluate(() => ({
     onboarded: localStorage.getItem('volumora-onboarded'),
     settings: JSON.parse(localStorage.getItem('volumora-settings-v2')),
@@ -897,4 +897,20 @@ test('supersets: linked exercises rest after the round, not in between', async (
   await second.locator('input[data-set-field="reps"][data-index="0"]').fill('8');
   await second.locator('[data-set-done="0"]').click();
   await page.waitForSelector('#restTimer.show');
+});
+
+test('a plan can be created from a template', async () => {
+  await page.click('[data-nav="plans"]');
+  await page.click('#newPlan');
+  await page.getByRole('button', { name: /Vorlage wählen/ }).click();
+  await page.waitForSelector('[data-template="full3"]');
+  await page.click('[data-template="full3"]');
+  await page.waitForSelector('#useTemplate');
+  assert.match(await page.textContent('.preview-head h1'), /Ganzkörper · 3 Tage/);
+  assert.equal(await page.locator('.plan-preview article').count(), 3);
+  await page.click('#useTemplate');
+  await page.waitForSelector('.next-card');
+  assert.match(await page.textContent('.home-intro p'), /Ganzkörper · 3 Tage/);
+  await page.click('[data-nav="plans"]');
+  assert.equal(await page.locator('[data-edit-plan]').count(), 2);
 });

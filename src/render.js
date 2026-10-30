@@ -15,6 +15,7 @@ import * as records from './views/records.js';
 import * as session from './views/session.js';
 import { bindShell, nav, topbar } from './views/shell.js';
 import * as summary from './views/summary.js';
+import * as templates from './views/templates.js';
 import * as workout from './views/workout.js';
 
 const VIEWS = {
@@ -33,12 +34,14 @@ const VIEWS = {
   onboarding,
   summary,
   records,
+  templates,
 };
 const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary'];
 const NAV_FOR = {
   calendar: 'analytics',
   session: 'analytics',
   records: 'analytics',
+  templates: 'plans',
   body: 'more',
   backup: 'more',
   settings: 'more',
