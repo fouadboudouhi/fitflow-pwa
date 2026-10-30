@@ -244,6 +244,10 @@ export function validateBackup(data) {
     unit: s.unit === 'lbs' ? 'lbs' : 'kg',
     weeklyGoal: asNum(s.weeklyGoal, 0, 0, 14),
     barWeight: asNum(s.barWeight, 20, 0, 50),
+    restSound: !!s.restSound,
+    restVibrate: s.restVibrate !== false,
+    defaultSets: asNum(s.defaultSets, 3, 1, 12),
+    defaultRange: asStr(s.defaultRange, 20) || '8–12',
   };
   const prefs = data.exercisePrefs && typeof data.exercisePrefs === 'object' ? data.exercisePrefs : {};
   const exercisePrefs = {

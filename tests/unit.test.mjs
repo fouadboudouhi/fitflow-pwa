@@ -637,3 +637,20 @@ test('progression: stall detection, per-exercise increment and 1RM reps table', 
   assert.equal(repsAtPercent(100), 1);
   assert.equal(repsAtPercent(80), 8);
 });
+
+test('settings validation covers the rest feedback and the defaults for new exercises', () => {
+  const backup = validateBackup({
+    plans: { activePlanId: 'p1', items: [{ id: 'p1', name: 'P', days: [] }] },
+    history: [],
+    settings: { restSound: 1, restVibrate: false, defaultSets: 99, defaultRange: '' },
+  });
+  assert.equal(backup.settings.restSound, true);
+  assert.equal(backup.settings.restVibrate, false);
+  assert.equal(backup.settings.defaultSets, 12);
+  assert.equal(backup.settings.defaultRange, '8–12');
+  assert.equal(
+    validateBackup({ plans: { items: [{ id: 'p', name: 'P', days: [] }] }, history: [] }).settings
+      .restVibrate,
+    true
+  );
+});

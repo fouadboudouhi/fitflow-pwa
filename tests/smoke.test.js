@@ -1035,3 +1035,42 @@ test('the 1RM calculator estimates from a set and lists percentages', async () =
   assert.equal(await page.locator('.onerm-table > div').count(), 9);
   assert.match(await page.textContent('.onerm-table > div:nth-child(5)'), /80 %/);
 });
+
+test('legal page in both languages, then deleting all data returns to the first-run flow', async () => {
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="legal"]');
+  await page.waitForSelector('.legal');
+  assert.match(await page.textContent('.legal'), /GitHub Pages/);
+  assert.match(await page.textContent('.legal'), /Impressum/);
+  await axeCheck('legal');
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('volumora-settings-v2')) || {};
+    s.language = 'en';
+    localStorage.setItem('volumora-settings-v2', JSON.stringify(s));
+  });
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="legal"]');
+  assert.match(await page.textContent('.legal'), /Privacy/);
+  // A context without the onboarding seed, so the wipe really lands on the first-run flow.
+  await context.close();
+  context = await browser.newContext({ locale: 'de-DE' });
+  page = await context.newPage();
+  await page.goto(baseURL + '/');
+  await page.waitForSelector('#onboardingForm');
+  await page.click('#onboardingSkip');
+  await page.waitForSelector('.next-card');
+  await seedHistory();
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="settings"]');
+  await page.click('#deleteAll');
+  await page.click('.sheet [data-ok]');
+  await page.waitForSelector('#onboardingForm');
+  const left = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('volumora')));
+  assert.deepEqual(
+    left.filter((k) => !['volumora-settings-v2', 'volumora-schema-version'].includes(k)),
+    [],
+    'only the fresh defaults remain'
+  );
+});
