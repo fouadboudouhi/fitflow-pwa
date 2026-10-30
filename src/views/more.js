@@ -92,37 +92,40 @@ async function saveForm(form) {
   if (unitChanged || languageChanged || restNotify !== (f.get('restNotify') === 'on')) render();
 }
 
+// Validates the chosen file, asks once, replaces everything and goes home. Resolves true when data was imported.
+export async function importBackupFile(input, { replace = false } = {}) {
+  const file = input.files?.[0];
+  if (!file) return false;
+  let backup;
+  try {
+    backup = validateBackup(JSON.parse(await file.text()));
+  } catch {
+    toast(t('backup.invalid'));
+    input.value = '';
+    return false;
+  }
+  const ok = await confirmDialog({
+    title: t('backup.importTitle'),
+    text: t('backup.importText'),
+    confirmLabel: t('backup.replace'),
+    danger: true,
+  });
+  if (!ok) {
+    input.value = '';
+    return false;
+  }
+  const failed = await importBackup(backup);
+  setLanguage(getSettings().language);
+  applyTheme();
+  navigate('home', {}, { replace });
+  toast(failed ? t('backup.importedPhotosFailed', { n: failed }) : t('backup.imported'));
+  return true;
+}
+
 export function bind() {
   document.querySelector('#exportJson')?.addEventListener('click', exportBackup);
   document.querySelector('#exportCsv')?.addEventListener('click', exportCsv);
-  document.querySelector('#importJson')?.addEventListener('change', async (e) => {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
-    let backup;
-    try {
-      backup = validateBackup(JSON.parse(await file.text()));
-    } catch {
-      toast(t('backup.invalid'));
-      input.value = '';
-      return;
-    }
-    const ok = await confirmDialog({
-      title: t('backup.importTitle'),
-      text: t('backup.importText'),
-      confirmLabel: t('backup.replace'),
-      danger: true,
-    });
-    if (!ok) {
-      input.value = '';
-      return;
-    }
-    const failed = await importBackup(backup);
-    setLanguage(getSettings().language);
-    applyTheme();
-    navigate('home');
-    toast(failed ? t('backup.importedPhotosFailed', { n: failed }) : t('backup.imported'));
-  });
+  document.querySelector('#importJson')?.addEventListener('change', (e) => importBackupFile(e.target));
   const form = document.querySelector('#settingsForm');
   if (form) {
     form.addEventListener('submit', (e) => e.preventDefault());

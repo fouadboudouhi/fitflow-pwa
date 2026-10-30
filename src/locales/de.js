@@ -324,6 +324,32 @@ const ui = {
   'settings.language': 'Sprache',
   'language.auto': 'Wie das Gerät',
 
+  // First run
+  'onboarding.title': 'Erste Schritte',
+  'onboarding.step': 'Schritt {step} von {total}',
+  'onboarding.skip': 'Überspringen',
+  'onboarding.welcomeTitle': 'Willkommen bei Volumora',
+  'onboarding.welcomeText':
+    'Deine Trainings-App ohne Konto: Alles bleibt auf diesem Gerät. Ein paar Fragen, dann steht dein erster Plan.',
+  'onboarding.haveBackup': 'Ich habe schon ein Backup',
+  'onboarding.unitTitle': 'Wie zählst du Gewichte?',
+  'onboarding.unitText': 'Du kannst das jederzeit in den Einstellungen ändern.',
+  'onboarding.kgHint': 'Scheiben zu 20, 10 und 5 kg',
+  'onboarding.lbsHint': 'Scheiben zu 45, 25 und 10 lbs',
+  'onboarding.levelTitle': 'Wie viel Erfahrung hast du?',
+  'level.beginner': 'Einsteiger',
+  'level.beginnerHint': 'Unter einem Jahr Krafttraining',
+  'level.intermediate': 'Fortgeschritten',
+  'level.intermediateHint': 'Ein bis drei Jahre regelmäßig',
+  'level.advanced': 'Erfahren',
+  'level.advancedHint': 'Mehr als drei Jahre',
+  'onboarding.daysTitle': 'Wie oft pro Woche?',
+  'onboarding.daysText': 'Zwei bis sechs Einheiten. Der Plan verteilt sie sinnvoll.',
+  'onboarding.previewText': 'Dein Startplan. Du kannst ihn jederzeit anpassen.',
+  'onboarding.use': 'Los geht’s',
+  'onboarding.installTip': 'Tipp: Volumora lässt sich wie eine App auf dem Homescreen installieren.',
+  'onboarding.installHow': 'Wie?',
+
   // CSV export
   'csv.date': 'Datum',
   'csv.plan': 'Plan',

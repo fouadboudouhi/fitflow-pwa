@@ -3084,3 +3084,21 @@ label.row {
 .unit-input input {
   padding-right: 48px;
 }
+
+/* First-run flow */
+.assistant-progress.five {
+  grid-template-columns: repeat(5, 1fr) auto;
+}
+.back-spacer {
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.onboarding-subhead {
+  font-size: 16px;
+  margin: 22px 0 10px;
+}
+.onboarding-foot {
+  text-align: center;
+  margin: 18px 0 0;
+}
