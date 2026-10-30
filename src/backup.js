@@ -149,6 +149,7 @@ const asExercise = (ex) =>
     gif: asUrl(ex?.gif),
     note: asStr(ex?.note, 300),
     ...(TRACK_TYPES.includes(ex?.trackType) ? { trackType: ex.trackType } : {}),
+    ...(asStr(ex?.supersetId, 40) ? { supersetId: asStr(ex.supersetId, 40) } : {}),
     custom: ex?.custom ? true : undefined,
   });
 
@@ -197,12 +198,16 @@ export function validateBackup(data) {
         duration: asNum(h.duration, 0, 0),
         totalSets: asNum(h.totalSets, 0, 0),
         markers: { deload: !!h.markers?.deload, ill: !!h.markers?.ill, pain: !!h.markers?.pain },
+        ...(h.detached
+          ? { detached: true, exercises: (Array.isArray(h.exercises) ? h.exercises : []).map(asExercise) }
+          : {}),
         entries: (Array.isArray(h.entries) ? h.entries : []).map((e) => ({
           exerciseId: asStr(e?.exerciseId),
           libraryId: asStr(e?.libraryId) || undefined,
           name: asStr(e?.name, 80) || t('exercise.fallback'),
           note: asStr(e?.note, 500),
           ...(TRACK_TYPES.includes(e?.trackType) ? { trackType: e.trackType } : {}),
+          ...(asStr(e?.supersetId, 40) ? { supersetId: asStr(e.supersetId, 40) } : {}),
           sets: (Array.isArray(e?.sets) ? e.sets : []).map(asSet),
         })),
       };

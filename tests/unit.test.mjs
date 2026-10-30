@@ -429,3 +429,31 @@ test('records: bests per kind, record flags in chronological order, session diff
     '1RM and weight improved; set volume (480 < 550) and push-up reps (12 < 14) did not'
   );
 });
+
+test('supersets link consecutive exercises; a free workout becomes a plan day', async () => {
+  const { linkSuperset, unlinkSuperset, supersetLetters, supersetPosition, dayFromSession } =
+    await import('../src/plans.js');
+  const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+  linkSuperset(list, 0);
+  linkSuperset(list, 1);
+  assert.equal(list[0].supersetId, list[2].supersetId);
+  assert.equal(list[3].supersetId, undefined);
+  assert.deepEqual(
+    [0, 1, 2, 3].map((i) => supersetPosition(list, i)),
+    ['first', 'mid', 'last', 'single']
+  );
+  assert.deepEqual(Object.values(supersetLetters(list)), ['A']);
+  unlinkSuperset(list, 1);
+  assert.ok(
+    list.every((ex) => !ex.supersetId),
+    'dissolving removes the whole group'
+  );
+  const day = dayFromSession({
+    dayName: 'Frei',
+    exercises: [{ id: 'x', libraryId: '0025', name: 'Bank', sets: 3, range: '8–12' }],
+  });
+  assert.equal(day.name, 'Frei');
+  assert.equal(day.exercises.length, 1);
+  assert.equal(day.exercises[0].id, 'x', 'exercise ids are kept');
+  assert.ok(day.id);
+});

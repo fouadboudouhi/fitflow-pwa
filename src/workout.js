@@ -1,4 +1,5 @@
 // Session logic: creating, resuming and finishing a workout, progression suggestions, warm-up sets.
+import { t } from './i18n.js';
 import { annotatePrs } from './records.js';
 import { newSetFor, setScore, trackTypeOf } from './sets.js';
 import {
@@ -12,7 +13,7 @@ import {
 } from './storage.js';
 import { libraryOf } from './library.js';
 import { roundToStep } from './units.js';
-import { dayKey, doneSets, exerciseKey, isWorkSet, number, rangeMax, uid, volumeOf } from './util.js';
+import { clone, dayKey, doneSets, exerciseKey, isWorkSet, number, rangeMax, uid, volumeOf } from './util.js';
 
 // What a new set inherits from the matching set of the last session: weight, time and distance, never reps.
 const carry = (set) =>
@@ -37,33 +38,55 @@ export const workSets = (entry) => entry.sets.filter(isWorkSet);
 export const entryComplete = (entry) => workSets(entry).length > 0 && workSets(entry).every((s) => s.done);
 export const entryTrackType = (entry) => entry.trackType || trackTypeOf(entry);
 
+// The exercises a session trains: its own list once detached (free workouts, edits during the workout),
+// otherwise the plan day's.
+export const sessionExercises = (session) =>
+  session?.exercises || findPlan(session?.planId)?.days.find((d) => d.id === session?.dayId)?.exercises || [];
+
+const entryFor = (ex) => {
+  const trackType = trackTypeOf(ex);
+  const previous = previousEntry(ex);
+  const previousWork = previous ? workSets(previous) : [];
+  return {
+    exerciseId: ex.id,
+    libraryId: ex.libraryId || undefined,
+    name: ex.name,
+    trackType,
+    ...(ex.supersetId ? { supersetId: ex.supersetId } : {}),
+    note: '',
+    sets: Array.from({ length: ex.sets || 3 }, (_, i) => newSetFor(trackType, carry(previousWork[i]))),
+  };
+};
+const blankSession = () => ({
+  id: uid(),
+  startedAt: new Date().toISOString(),
+  markers: { deload: false, ill: false, pain: false },
+});
+
 export function freshSession(planId, dayId) {
   const plan = findPlan(planId);
   const day = plan?.days.find((d) => d.id === dayId);
   if (!plan || !day) return null;
   return {
-    id: uid(),
+    ...blankSession(),
     planId,
     planName: plan.name,
     dayId,
     dayName: day.name,
-    startedAt: new Date().toISOString(),
-    markers: { deload: false, ill: false, pain: false },
-    entries: day.exercises.map((ex) => {
-      const trackType = trackTypeOf(ex);
-      const previous = previousEntry(ex);
-      const previousWork = previous ? workSets(previous) : [];
-      return {
-        exerciseId: ex.id,
-        libraryId: ex.libraryId || undefined,
-        name: ex.name,
-        trackType,
-        note: '',
-        sets: Array.from({ length: ex.sets }, (_, i) => newSetFor(trackType, carry(previousWork[i]))),
-      };
-    }),
+    entries: day.exercises.map(entryFor),
   };
 }
+// A workout without a plan: exercises are added as you go.
+export const freshFreeSession = () => ({
+  ...blankSession(),
+  planId: null,
+  planName: '',
+  dayId: null,
+  dayName: t('workout.freeName'),
+  detached: true,
+  exercises: [],
+  entries: [],
+});
 
 // The plan day may have been edited while this session was open: entries follow the current exercise list,
 // new exercises get fresh sets, removed ones are dropped. Returns true when something changed.
@@ -84,16 +107,59 @@ export function syncSessionWithDay(session, day) {
   return session.entries.map((e) => e.exerciseId).join('|') !== before;
 }
 
+// `planId` null means the free workout.
 export function activeSession(planId, dayId) {
   const saved = getActive();
-  if (saved?.planId === planId && saved?.dayId === dayId) {
-    const day = findPlan(planId)?.days.find((d) => d.id === dayId);
-    if (day && syncSessionWithDay(saved, day)) saveActive(saved);
+  const free = planId == null;
+  if (saved && (free ? saved.planId == null : saved.planId === planId && saved.dayId === dayId)) {
+    if (!saved.detached) {
+      const day = findPlan(planId)?.days.find((d) => d.id === dayId);
+      if (day && syncSessionWithDay(saved, day)) saveActive(saved);
+    }
     return saved;
   }
-  const fresh = freshSession(planId, dayId);
+  const fresh = free ? freshFreeSession() : freshSession(planId, dayId);
   if (fresh) saveActive(fresh);
   return fresh;
+}
+
+// Edits during a workout detach the session from its plan day; the plan itself stays as it is.
+export function detachSession(session) {
+  if (session.detached) return session;
+  session.exercises = clone(sessionExercises(session));
+  session.detached = true;
+  return session;
+}
+export function addSessionExercise(session, ex) {
+  detachSession(session);
+  session.exercises.push(ex);
+  session.entries.push(entryFor(ex));
+}
+export function removeSessionExercise(session, index) {
+  detachSession(session);
+  const [ex] = session.exercises.splice(index, 1);
+  const [entry] = session.entries.splice(index, 1);
+  return { ex, entry };
+}
+export function restoreSessionExercise(session, index, ex, entry) {
+  detachSession(session);
+  const at = Math.min(index, session.exercises.length);
+  session.exercises.splice(at, 0, ex);
+  session.entries.splice(at, 0, entry);
+}
+export function moveSessionExercise(session, from, to) {
+  detachSession(session);
+  if (to < 0 || to >= session.exercises.length) return;
+  for (const list of [session.exercises, session.entries]) [list[from], list[to]] = [list[to], list[from]];
+}
+// The replacement keeps the slot's targets (sets, range, rest, superset) and starts with fresh sets.
+export function replaceSessionExercise(session, index, ex) {
+  detachSession(session);
+  const old = session.exercises[index];
+  const next = { ...ex, sets: old.sets, range: old.range, rest: old.rest };
+  if (old.supersetId) next.supersetId = old.supersetId;
+  session.exercises[index] = next;
+  session.entries[index] = entryFor(next);
 }
 export function mutateSession(planId, dayId, fn) {
   const session = activeSession(planId, dayId);

@@ -69,13 +69,57 @@ export function duplicatePlan(plan) {
   return copy;
 }
 
-export function addDay(plan) {
-  const day = { id: uid(), name: t('day.nth', { n: plan.days.length + 1 }), subtitle: '', exercises: [] };
+export function addDay(
+  plan,
+  day = { id: uid(), name: t('day.nth', { n: plan.days.length + 1 }), subtitle: '', exercises: [] }
+) {
   plan.days.push(day);
   const slots = scheduleSlots(plan.days.length);
   plan.schedule = plan.schedule || { mode: 'flexible', assignments: {} };
   plan.schedule.assignments[day.id] = slots[slots.length - 1] ?? 0;
   return day;
+}
+// A finished free (or edited) workout as a plan day; exercise ids are kept so custom-exercise history stays linked.
+export const dayFromSession = (session) => ({
+  id: uid(),
+  name: session.dayName || t('day.fallback'),
+  subtitle: '',
+  exercises: clone(session.exercises || []),
+});
+
+// Supersets: consecutive exercises that share a supersetId are trained alternately, with the rest after the round.
+export function linkSuperset(list, index) {
+  const a = list[index];
+  const b = list[index + 1];
+  if (!a || !b) return;
+  const id = a.supersetId || b.supersetId || uid();
+  a.supersetId = id;
+  b.supersetId = id;
+}
+// Dissolves the whole group the exercise belongs to.
+export function unlinkSuperset(list, index) {
+  const id = list[index]?.supersetId;
+  if (!id) return;
+  list.forEach((ex) => {
+    if (ex.supersetId === id) delete ex.supersetId;
+  });
+}
+// Letters per group in list order: { [supersetId]: 'A' }.
+export function supersetLetters(list) {
+  const letters = {};
+  let n = 0;
+  list.forEach((ex) => {
+    if (ex.supersetId && !letters[ex.supersetId]) letters[ex.supersetId] = String.fromCharCode(65 + n++);
+  });
+  return letters;
+}
+// Where an exercise sits in its group: 'single' | 'first' | 'mid' | 'last'.
+export function supersetPosition(list, index) {
+  const id = list[index]?.supersetId;
+  if (!id) return 'single';
+  const prev = list[index - 1]?.supersetId === id;
+  const next = list[index + 1]?.supersetId === id;
+  return prev && next ? 'mid' : prev ? 'last' : next ? 'first' : 'single';
 }
 
 const GROUPS = {
