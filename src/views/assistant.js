@@ -1,14 +1,14 @@
-import { t, weekdayShort } from '../i18n.js';
+import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
-import { createSuggestedPlan, planSchedule, scheduleLabel } from '../plans.js';
+import { createSuggestedPlan } from '../plans.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { allPlans, savePlans } from '../storage.js';
 import { esc, number } from '../util.js';
 
 const progress = (step) =>
-  `<div class="assistant-progress"><i class="active"></i><i class="${step >= 2 ? 'active' : ''}"></i><i class="${step >= 3 ? 'active' : ''}"></i><span>${t('wizard.step', { step })}</span></div>`;
+  `<div class="assistant-progress"><i class="active"></i><i class="${step >= 2 ? 'active' : ''}"></i><span>${t('wizard.step', { step })}</span></div>`;
 const head = (backAttr) =>
   `<div class="backrow"><button class="back" ${backAttr} aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${t('wizard.title')}</span></div>`;
 const GOALS = [
@@ -20,16 +20,12 @@ const GOALS = [
 export function view() {
   const step = state.assistantStep || 1;
   const draft = state.assistantDraft || { goal: 'muscle', days: 3 };
-  if (step === 2) {
-    return `<main class="shell narrow">${head('id="assistantBack"')}${progress(step)}<section class="assistant-hero"><h1>${t('wizard.whenTitle')}</h1><p>${t('wizard.whenText')}</p></section><form id="assistantScheduleForm" class="assistant-form"><fieldset><label><input type="radio" name="scheduleMode" value="flexible" checked><span><b>${t('schedule.flexible')}</b><small>${t('wizard.flexibleHint')}</small></span></label><label><input type="radio" name="scheduleMode" value="fixed"><span><b>${t('schedule.fixedDays')}</b><small>${t('wizard.fixedHint', { n: draft.days })}</small></span></label></fieldset><button class="primary full" type="submit">${t('wizard.preview')}</button></form></main>`;
-  }
-  if (step === 3 && state.assistantPreview) {
+  if (step === 2 && state.assistantPreview) {
     const p = state.assistantPreview;
-    const schedule = planSchedule(p);
-    return `<main class="shell narrow">${head('id="assistantBack"')}${progress(step)}<section class="assistant-hero preview-head"><h1>${esc(p.name)}</h1><p>${esc(t('wizard.previewText', { schedule: scheduleLabel(p) }))}</p></section><div class="plan-preview">${p.days
+    return `<main class="shell narrow">${head('id="assistantBack"')}${progress(step)}<section class="assistant-hero preview-head"><h1>${esc(p.name)}</h1><p>${esc(t('wizard.previewText', { schedule: plural(p.days.length, 'trainingDays') }))}</p></section><div class="plan-preview">${p.days
       .map(
         (d, i) =>
-          `<article><span>${schedule.mode === 'fixed' ? weekdayShort(schedule.assignments[d.id]) : i + 1}</span><div><h2>${esc(d.name)}</h2><p>${d.exercises.map((x) => esc(exerciseName(x))).join(' · ')}</p></div><b>${d.exercises.length}</b></article>`
+          `<article><span>${i + 1}</span><div><h2>${esc(d.name)}</h2><p>${d.exercises.map((x) => esc(exerciseName(x))).join(' · ')}</p></div><b>${d.exercises.length}</b></article>`
       )
       .join(
         ''
@@ -48,18 +44,8 @@ export function bind() {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     state.assistantDraft = { goal: f.get('goal'), days: number(f.get('days')) };
+    state.assistantPreview = createSuggestedPlan(state.assistantDraft.goal, state.assistantDraft.days);
     state.assistantStep = 2;
-    render();
-  });
-  document.querySelector('#assistantScheduleForm')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const f = new FormData(e.currentTarget);
-    state.assistantPreview = createSuggestedPlan(
-      state.assistantDraft.goal,
-      state.assistantDraft.days,
-      f.get('scheduleMode')
-    );
-    state.assistantStep = 3;
     render();
   });
   document.querySelector('#assistantBack')?.addEventListener('click', () => {

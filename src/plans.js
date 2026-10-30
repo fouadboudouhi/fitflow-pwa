@@ -1,5 +1,5 @@
 // Plan logic without DOM: schedules, the assistant's suggested plans, plan helpers.
-import { t, weekdayShort } from './i18n.js';
+import { t } from './i18n.js';
 import { EXERCISE_LIBRARY, exerciseName, libraryBySourceName } from './library.js';
 import { getSettings } from './storage.js';
 import { clone, dayKey, uid, weekdayIndex } from './util.js';
@@ -7,17 +7,6 @@ import { clone, dayKey, uid, weekdayIndex } from './util.js';
 export const scheduleSlots = (count) =>
   ({ 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4], 6: [0, 1, 2, 3, 4, 5] })[count] ||
   [];
-export const planSchedule = (plan) => plan?.schedule || { mode: 'flexible', assignments: {} };
-export const scheduleLabel = (plan) => {
-  const schedule = planSchedule(plan);
-  if (schedule.mode !== 'fixed') return t('schedule.flexible');
-  return (
-    plan.days
-      .map((d) => weekdayShort(schedule.assignments?.[d.id]))
-      .filter(Boolean)
-      .join(' · ') || t('schedule.fixed')
-  );
-};
 // A plan keeps only what the catalogue cannot provide; name is a readable snapshot for backups and CSV.
 export const planExerciseFromLibrary = (source) => {
   const settings = getSettings();
@@ -298,36 +287,13 @@ export function createSuggestedPlan(
   };
 }
 
-// Which day comes next? Flexible plans rotate after the last completed day of this plan; fixed plans look at the weekday.
+// Which day comes next? Plans rotate after the last completed day of this plan.
 export function nextSession(plan, history, today = new Date()) {
   if (!plan?.days?.length) return { day: null, label: t('home.next') };
   const lastOfPlan = history.find((h) => h.planId === plan.id);
   const lastIndex = plan.days.findIndex((d) => d.id === lastOfPlan?.dayId);
   let day = plan.days[lastIndex >= 0 ? (lastIndex + 1) % plan.days.length : 0];
   let label = t('home.next');
-  const schedule = planSchedule(plan);
-  if (schedule.mode === 'fixed') {
-    const todayIndex = weekdayIndex(today);
-    const todayKey = dayKey(today);
-    const doneToday = history.some(
-      (h) => h.planId === plan.id && (h.day || dayKey(h.finishedAt)) === todayKey
-    );
-    const scheduledToday = plan.days.find((d) => schedule.assignments?.[d.id] === todayIndex);
-    if (scheduledToday && !doneToday) {
-      day = scheduledToday;
-      label = t('home.plannedToday');
-    } else {
-      for (let offset = 1; offset <= 7; offset++) {
-        const target = (todayIndex + offset) % 7;
-        const found = plan.days.find((d) => schedule.assignments?.[d.id] === target);
-        if (found) {
-          day = found;
-          label = t('home.nextOn', { day: weekdayShort(target) });
-          break;
-        }
-      }
-    }
-  }
   const ready = plan.days.filter((d) => d.exercises.length);
   if (day && !day.exercises.length && ready.length) day = ready[0];
   return { day, label };

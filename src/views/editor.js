@@ -1,5 +1,5 @@
 // Plan editor. Exercises come from the picker overlay; secondary actions live in "⋯" menus; rows can be dragged.
-import { plural, t, weekdayShort } from '../i18n.js';
+import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
 import {
@@ -9,9 +9,7 @@ import {
   linkSuperset,
   moveExerciseToDay,
   planExerciseFromLibrary,
-  planSchedule,
   reorderExercises,
-  scheduleSlots,
   supersetLetters,
   unlinkSuperset,
 } from '../plans.js';
@@ -27,10 +25,9 @@ import { empty } from './shell.js';
 import * as plansView from './plans.js';
 
 const detailsOpen = (di, ei) => state.editorDetails?.has(`${di}:${ei}`);
-const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
 const exerciseRow = (ex, di, ei, letters) =>
-  `<article class="plan-exercise-row" data-ex-index="${ei}"><button type="button" class="drag-handle" data-drag="${ei}" aria-label="${esc(t('editor.dragHandle', { name: exerciseName(ex) }))}">${icon('drag')}</button>${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : '<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${
+  `<article class="plan-exercise-row" data-ex-index="${ei}"><button type="button" class="drag-handle" data-drag="${ei}" aria-label="${esc(t('editor.dragHandle', { name: exerciseName(ex) }))}">${icon('drag')}</button>${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : `<div class="custom-exercise-icon">${icon('dumbbell')}</div>`}<div class="plan-exercise-main">${
     ex.custom
       ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="${t('editor.customName')}">`
       : `<h3>${esc(exerciseName(ex))}</h3>`
@@ -46,19 +43,11 @@ export function view() {
     state.view = 'plans';
     return plansView.view();
   }
-  const schedule = planSchedule(p);
   state.editorDayIndex = Math.min(state.editorDayIndex, p.days.length - 1);
   const di = Math.max(0, state.editorDayIndex);
   const d = p.days[di];
-  const scheduleDays = p.days
-    .map(
-      (day, i) =>
-        `<label><span>${esc(day.name)}</span><select data-schedule-day="${day.id}">${WEEKDAYS.map((weekday) => `<option value="${weekday}" ${(schedule.assignments?.[day.id] ?? scheduleSlots(p.days.length)[i]) === weekday ? 'selected' : ''}>${weekdayShort(weekday)}</option>`).join('')}</select></label>`
-    )
-    .join('');
   return `<main class="shell simple-editor"><div class="backrow"><button class="back" id="editorBack" data-nav="plans" aria-label="${t('common.back')}">${icon('chevron-left')}</button><h1>${t('editor.title')}</h1><button type="button" class="icon-btn quiet backrow-action" id="planMenu" aria-label="${t('editor.planMenu')}">${icon('more')}</button></div>
     <section class="simple-plan-head"><label><span>${t('editor.planName')}</span><input id="planName" value="${esc(p.name)}" maxlength="60"></label><input id="planDescription" type="hidden" value="${esc(p.description || '')}"></section>
-    <section class="schedule-editor"><div class="schedule-mode"><label><input type="radio" name="planScheduleMode" value="flexible" ${schedule.mode !== 'fixed' ? 'checked' : ''}> ${t('schedule.flexible')}</label><label><input type="radio" name="planScheduleMode" value="fixed" ${schedule.mode === 'fixed' ? 'checked' : ''}> ${t('schedule.fixedDays')}</label></div><div class="schedule-days" id="scheduleDays" ${schedule.mode === 'fixed' ? '' : 'hidden'}>${scheduleDays}</div></section>
     <div class="editor-day-tabs">${p.days.map((day, i) => `<button class="${i === di ? 'active' : ''}" data-editor-day="${i}" aria-pressed="${i === di}"><span>${i + 1}</span>${esc(day.name)}</button>`).join('')}<button type="button" class="add-day" id="addDay" aria-label="${t('editor.newDay')}">${icon('plus')}</button></div>
     ${
       d
@@ -75,14 +64,6 @@ function collectPlan() {
   const p = data.items.find((x) => x.id === state.editPlanId);
   p.name = document.querySelector('#planName').value.trim() || t('plan.defaultName');
   p.description = document.querySelector('#planDescription').value.trim();
-  const assignments = {};
-  document.querySelectorAll('[data-schedule-day]').forEach((x) => {
-    assignments[x.dataset.scheduleDay] = number(x.value);
-  });
-  p.schedule = {
-    mode: document.querySelector('[name="planScheduleMode"]:checked')?.value || 'flexible',
-    assignments,
-  };
   document.querySelectorAll('.editor-day').forEach((el) => {
     const di = number(el.dataset.dayIndex);
     const d = p.days[di];
@@ -356,10 +337,6 @@ export function bind() {
       state.editorDayIndex = number(b.dataset.editorDay);
       render();
     };
-  });
-  document.querySelectorAll('[name="planScheduleMode"]').forEach((x) => {
-    x.onchange = () =>
-      document.querySelector('#scheduleDays')?.toggleAttribute('hidden', x.value !== 'fixed');
   });
   const leave = () => {
     collectPlan();
