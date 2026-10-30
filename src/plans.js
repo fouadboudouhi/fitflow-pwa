@@ -1,6 +1,7 @@
 // Plan logic without DOM: schedules, the assistant's suggested plans, plan helpers.
 import { t, weekdayShort } from './i18n.js';
 import { EXERCISE_LIBRARY, exerciseName, libraryBySourceName } from './library.js';
+import { getSettings } from './storage.js';
 import { clone, dayKey, uid, weekdayIndex } from './util.js';
 
 export const scheduleSlots = (count) =>
@@ -18,15 +19,22 @@ export const scheduleLabel = (plan) => {
   );
 };
 // A plan keeps only what the catalogue cannot provide; name is a readable snapshot for backups and CSV.
-export const planExerciseFromLibrary = (source) => ({
-  id: uid(),
-  libraryId: source.id,
-  name: exerciseName(source),
-  gif: source.gif,
-  sets: source.sets || 3,
-  range: source.range || '8–12',
-  note: '',
-});
+export const planExerciseFromLibrary = (source) => {
+  const settings = getSettings();
+  return {
+    id: uid(),
+    libraryId: source.id,
+    name: exerciseName(source),
+    gif: source.gif,
+    sets: Number(settings.defaultSets) || source.sets || 3,
+    // A changed default rep range applies everywhere; otherwise the catalogue's range for the exercise wins.
+    range:
+      settings.defaultRange && settings.defaultRange !== '8–12'
+        ? settings.defaultRange
+        : source.range || '8–12',
+    note: '',
+  };
+};
 export const setCount = (day) => day.exercises.reduce((sum, ex) => sum + Number(ex.sets || 0), 0);
 
 export function createEmptyPlan() {

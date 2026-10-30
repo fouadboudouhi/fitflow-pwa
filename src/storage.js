@@ -29,6 +29,10 @@ export const DEFAULT_SETTINGS = {
   unit: 'kg',
   weeklyGoal: 0,
   barWeight: 20,
+  restSound: false,
+  restVibrate: true,
+  defaultSets: 3,
+  defaultRange: '8–12',
 };
 
 export const read = (key, fallback) => {

@@ -1,3 +1,4 @@
+import { beep, buzz, primeAudio } from '../audio.js';
 import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
@@ -232,6 +233,7 @@ export function bind() {
       const exerciseIndex = number(b.dataset.exercise);
       let record = null;
       let recordType = 'weight_reps';
+      primeAudio();
       mutate((s) => {
         const entry = s.entries[exerciseIndex];
         const set = entry.sets[number(b.dataset.setDone)];
@@ -252,7 +254,7 @@ export function bind() {
           saveRestUntil(state.restUntil);
           armRestNotification();
         }
-        navigator.vibrate?.(40);
+        buzz(40);
       }, true);
       if (record) toast(t('workout.record', { set: describeSet(record, recordType) }), { duration: 4000 });
     };
@@ -457,7 +459,8 @@ function updateRest() {
   box.classList.toggle('show', left > 0);
   count.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   if (left === 0 && state.restUntil) {
-    navigator.vibrate?.([100, 80, 100]);
+    buzz([100, 80, 100]);
+    beep();
     state.restUntil = 0;
     saveRestUntil(0);
   }

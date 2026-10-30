@@ -355,6 +355,8 @@ const ui = {
   'more.installText':
     'iPhone und iPad: In Safari „Teilen“ und dann „Zum Home-Bildschirm“ wählen. Android: Im Browser-Menü „App installieren“ oder „Zum Startbildschirm hinzufügen“.',
   'more.about': 'Volumora speichert alles nur auf diesem Gerät. Kein Konto, kein Server.',
+  'more.legal': 'Datenschutz & Lizenzen',
+  'more.legalHint': 'Datenschutz, Impressum, Quellen',
   'backup.title': 'Backup',
   'backup.export': 'Backup exportieren',
   'backup.exportHint': 'Pläne, Trainings, Einstellungen, Fotos als JSON',
@@ -379,6 +381,8 @@ const ui = {
   'settings.weeklyGoal': 'Wochenziel',
   'settings.likePlan': 'Wie der Plan ({n})',
   'settings.perWeek': '{n} pro Woche',
+  'settings.defaultSets': 'Sätze bei neuen Übungen',
+  'settings.defaultRange': 'Wiederholungsbereich bei neuen Übungen',
   'settings.showRir': 'RIR anzeigen',
   'settings.showRirHint': 'Wiederholungen in Reserve pro Satz',
   'settings.rest': 'Pause',
@@ -386,6 +390,10 @@ const ui = {
   'settings.restTimerHint': 'Startet nach jedem erledigten Satz',
   'settings.restDuration': 'Pausendauer',
   'settings.seconds': 'Sek.',
+  'settings.restSound': 'Ton bei Pausenende',
+  'settings.restSoundHint': 'Kurzer Signalton',
+  'settings.restVibrate': 'Vibration bei Pausenende',
+  'settings.restVibrateHint': 'Wenn das Gerät vibrieren kann',
   'settings.restNotify': 'Benachrichtigung bei Pausenende',
   'settings.restNotifyHint': 'Wenn die App im Hintergrund ist',
   'settings.notifyDenied': 'Benachrichtigungen wurden nicht erlaubt.',
@@ -395,6 +403,23 @@ const ui = {
   'theme.light': 'Hell',
   'theme.dark': 'Dunkel',
   'settings.language': 'Sprache',
+  'settings.data': 'Daten',
+  'settings.deleteAll': 'Alle Daten löschen',
+  'settings.deleteAllHint':
+    'Entfernt Pläne, Trainings, Körperdaten, Fotos und Einstellungen von diesem Gerät. Ein Backup vorher lohnt sich.',
+  'settings.deleteAllTitle': 'Wirklich alles löschen?',
+  'settings.deleteAllText':
+    'Alle Pläne, Trainings, Messungen, Fotos und Einstellungen auf diesem Gerät werden unwiderruflich gelöscht.',
+  'settings.deleteAllConfirm': 'Alles löschen',
+  'legal.title': 'Datenschutz & Lizenzen',
+  'legal.privacy': 'Datenschutz',
+  'legal.privacyText':
+    'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) ausschließlich auf deinem Gerät im Speicher des Browsers. Es gibt kein Konto, keinen Server und keine Übertragung an uns.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
+  'legal.imprint': 'Impressum',
+  'legal.imprintText': 'Verantwortlich für diese App: Fouad Boudouhi. Kontakt über die Webseite.',
+  'legal.licenses': 'Quellen und Lizenzen',
+  'legal.licensesText':
+    'Der Quellcode von Volumora steht unter der MIT-Lizenz.\nÜbungsdaten und Animationen stammen aus dem öffentlichen Datensatz „Exercises Dataset“ (YaKohen, nur für Bildungs- und nicht-kommerzielle Zwecke) sowie von ExerciseDB (nicht-kommerzielle Nutzung). Volumora ist kostenlos und werbefrei; die Medien werden nur verlinkt.',
   'language.auto': 'Wie das Gerät',
 
   // First run

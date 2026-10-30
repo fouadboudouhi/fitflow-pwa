@@ -3384,3 +3384,27 @@ label.row {
 .onerm-table small {
   color: var(--muted);
 }
+
+/* Legal page and settings extras */
+.legal-section {
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.legal-section h2 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+.legal-section p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.legal-links {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+.settings-hint {
+  font-size: 12px;
+  margin: 8px 0 0;
+}
