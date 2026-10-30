@@ -696,3 +696,33 @@ test('first run: skipping the onboarding starts with the default plan', async ()
   await page.waitForSelector('.next-card');
   assert.equal(await page.locator('#onboardingForm').count(), 0, 'the flow shows only once');
 });
+
+test('exercise picker: folded multi-word search, equipment and group filters, detail sheet', async () => {
+  await page.click('[data-nav="plans"]');
+  await page.click('[data-edit-plan]');
+  await page.click('[data-add-exercise="0"]');
+  await page.waitForSelector('.exercise-library');
+  await page.fill('#librarySearch', 'ruecken kabel');
+  const visible = page.locator('.library-item:not([hidden])');
+  assert.ok((await visible.count()) >= 1, 'umlaut-free query finds Rücken exercises');
+  assert.match(await visible.first().textContent(), /Rücken · Kabelzug/);
+  await page.fill('#librarySearch', '');
+  await page.selectOption('#libraryEquipment', 'body weight');
+  const equipment = await page
+    .locator('.library-item:not([hidden])')
+    .evaluateAll((els) => els.map((e) => e.dataset.equipment));
+  assert.ok(equipment.length > 0 && equipment.every((e) => e === 'body weight'));
+  await page.click('[data-library-category="legs"]');
+  const groups = await page
+    .locator('.library-item:not([hidden])')
+    .evaluateAll((els) => els.map((e) => e.dataset.group));
+  assert.ok(groups.length > 0 && groups.every((g) => g === 'legs'));
+  await page.locator('.library-item:not([hidden]) [data-library-info]').first().click();
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.sheet-body'), /Beine · Körpergewicht/);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+  assert.equal(await page.locator('.exercise-library').count(), 1, 'the picker stays open under the sheet');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.exercise-library').count(), 0);
+});

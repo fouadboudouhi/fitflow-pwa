@@ -150,6 +150,11 @@ const ui = {
   'picker.added': 'Bereits im Plan',
   'picker.add': 'Übung hinzufügen',
   'picker.custom': 'Eigene Übung ohne Animation',
+  'picker.equipment': 'Gerät',
+  'picker.allEquipment': 'Alle Geräte',
+  'picker.noResults': 'Keine Übung gefunden.',
+  'picker.details': 'Details zu {name}',
+  'exercise.lastSessions': 'Letzte Einheiten',
 
   // Workout
   'workout.exit': 'Training verlassen',

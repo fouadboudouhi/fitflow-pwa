@@ -1,15 +1,7 @@
-// Plan editor with the exercise library dialog. Secondary actions live in "⋯" menus.
+// Plan editor. Exercises come from the picker overlay; secondary actions live in "⋯" menus.
 import { plural, t, weekdayShort } from '../i18n.js';
 import { icon } from '../icons.js';
-import {
-  EXERCISE_LIBRARY,
-  GROUPS,
-  equipmentLabel,
-  exerciseName,
-  groupLabel,
-  libraryExercise,
-  muscleLabel,
-} from '../library.js';
+import { exerciseName } from '../library.js';
 import {
   addDay,
   customExercise,
@@ -19,11 +11,11 @@ import {
   scheduleSlots,
 } from '../plans.js';
 import { navigate, render } from '../render.js';
-import { popOverlay, pushOverlay } from '../router.js';
 import { state } from '../state.js';
-import { allPlans, getPrefs, persistPlan, savePlans, savePrefs } from '../storage.js';
+import { allPlans, persistPlan, savePlans } from '../storage.js';
 import { actionSheet, toast, undoToast } from '../ui.js';
 import { esc, number } from '../util.js';
+import { openPicker } from './picker.js';
 import { empty } from './shell.js';
 import * as plansView from './plans.js';
 
@@ -40,28 +32,6 @@ const exerciseRow = (ex, di, ei) =>
       ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label></div>`
       : ''
   }</div><button type="button" class="icon-btn quiet" data-exercise-menu="${di}:${ei}" aria-label="${esc(t('exercise.more', { name: exerciseName(ex) }))}">${icon('more')}</button></article>`;
-
-function libraryDialog(plan) {
-  const day = plan.days[state.libraryDayIndex];
-  const prefs = getPrefs();
-  const replacing = state.replaceExerciseIndex !== null;
-  const rank = (id) => (prefs.recent.indexOf(id) < 0 ? 99 : prefs.recent.indexOf(id));
-  const sorted = EXERCISE_LIBRARY.slice().sort(
-    (a, b) => prefs.favorites.includes(b.id) - prefs.favorites.includes(a.id) || rank(a.id) - rank(b.id)
-  );
-  const items = sorted
-    .map((ex) => {
-      const added = !replacing && day?.exercises.some((x) => (x.libraryId || x.id) === ex.id);
-      const favorite = prefs.favorites.includes(ex.id);
-      const name = exerciseName(ex);
-      const search =
-        `${name} ${ex.sourceName || ''} ${groupLabel(ex.group)} ${equipmentLabel(ex.equipment)} ${muscleLabel(ex.target)} ${ex.equipment || ''} ${ex.target || ''}`.toLowerCase();
-      return `<article class="library-item" data-category="${esc(ex.group)}" data-search="${esc(search)}"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><div><h3>${esc(name)}</h3><span>${esc(groupLabel(ex.group))} · ${esc(equipmentLabel(ex.equipment))}</span></div><div class="library-actions"><button class="star ${favorite ? 'active' : ''}" data-library-favorite="${ex.id}" aria-label="${t('picker.favorite')}" aria-pressed="${favorite}">★</button><button class="${added ? 'added' : ''}" data-pick-exercise="${ex.id}" ${added ? 'disabled' : ''} aria-label="${added ? t('picker.added') : t('picker.add')}">${added ? '✓' : '＋'}</button></div></article>`;
-    })
-    .join('');
-  const chips = ['all', ...GROUPS];
-  return `<div class="library-backdrop"><section class="exercise-library" role="dialog" aria-modal="true" aria-label="${t('picker.title')}"><div class="library-head"><div><h2>${replacing ? t('picker.replaceTitle') : t('picker.title')}</h2><p class="muted">${replacing ? t('picker.replaceHint') : esc(day?.name || t('day.fallback'))} · ${plural(EXERCISE_LIBRARY.length, 'exercises')}</p></div><button class="icon-btn" id="closeLibrary" aria-label="${t('common.close')}">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="${t('picker.search')}" autocomplete="off" value="${esc(state.libraryQuery || '')}"></label><div class="category-chips">${chips.map((c) => `<button class="${state.libraryCategory === c ? 'active' : ''}" data-library-category="${c}" aria-pressed="${state.libraryCategory === c}">${esc(groupLabel(c))}</button>`).join('')}</div><div class="library-list">${items}</div><button class="custom-exercise-button" id="addCustomExercise">${t('picker.custom')}</button><button class="primary full library-done" id="closeLibraryBottom">${t('common.done')}</button></section></div>`;
-}
 
 export function view() {
   const p = allPlans().items.find((x) => x.id === state.editPlanId);
@@ -89,7 +59,7 @@ export function view() {
       <div class="editor-exercises">${d.exercises.length ? d.exercises.map((ex, ei) => exerciseRow(ex, di, ei)).join('') : empty(t('editor.noExercisesTitle'), t('editor.noExercisesText'))}</div><button class="choose-exercise" data-add-exercise="${di}">${icon('plus')}<b>${t('editor.addExercise')}</b></button></section></div>`
         : ''
     }
-    <div class="editor-footer"><span>${plural(p.days.length, 'trainingDays')}</span><button class="primary" id="savePlan">${t('common.done')}</button></div></main>${state.libraryDayIndex !== null ? libraryDialog(p) : ''}`;
+    <div class="editor-footer"><span>${plural(p.days.length, 'trainingDays')}</span><button class="primary" id="savePlan">${t('common.done')}</button></div></main>`;
 }
 
 // Reads the editor form back into the plan and persists it.
@@ -122,118 +92,37 @@ function collectPlan() {
   return p;
 }
 
-// The library is rendered inside the view, but behaves like an overlay for the back button.
-let libraryOverlay = null;
-const openLibrary = (dayIndex, replaceIndex) => {
-  collectPlan();
-  Object.assign(state, {
-    libraryDayIndex: dayIndex,
-    replaceExerciseIndex: replaceIndex,
-    libraryCategory: 'all',
-    libraryQuery: '',
-  });
-  if (!libraryOverlay) libraryOverlay = pushOverlay(() => closeLibrary());
-  render();
-};
-const closeLibrary = () => {
-  Object.assign(state, { libraryDayIndex: null, replaceExerciseIndex: null });
-  const entry = libraryOverlay;
-  libraryOverlay = null;
-  if (entry) popOverlay(entry);
-  render();
-};
+const currentPlan = () => allPlans().items.find((x) => x.id === state.editPlanId);
 
-function bindLibrary() {
-  const dialog = document.querySelector('.exercise-library');
-  if (!dialog) return;
-  document.querySelectorAll('[data-library-category]').forEach((b) => {
-    b.onclick = () => {
-      state.libraryCategory = b.dataset.libraryCategory;
-      render();
-    };
-  });
-  const filter = () => {
-    const q = (state.libraryQuery || '').toLowerCase().trim();
-    document.querySelectorAll('.library-item').forEach((card) => {
-      card.hidden =
-        (state.libraryCategory !== 'all' && card.dataset.category !== state.libraryCategory) ||
-        !card.dataset.search.includes(q);
-    });
-  };
-  document.querySelector('#librarySearch')?.addEventListener('input', (e) => {
-    state.libraryQuery = e.target.value;
-    filter();
-  });
-  filter();
-  document.querySelectorAll('[data-library-favorite]').forEach((b) => {
-    b.onclick = () => {
-      const prefs = getPrefs();
-      const id = b.dataset.libraryFavorite;
-      prefs.favorites = prefs.favorites.includes(id)
-        ? prefs.favorites.filter((x) => x !== id)
-        : [id, ...prefs.favorites];
-      savePrefs(prefs);
-      render();
-    };
-  });
-  document.querySelectorAll('[data-pick-exercise]').forEach((b) => {
-    b.onclick = () => {
+// Opens the picker for a day; with `replaceIndex` the chosen exercise takes that slot and keeps its targets.
+function openLibrary(dayIndex, replaceIndex = null) {
+  const plan = collectPlan();
+  const replacing = replaceIndex !== null;
+  openPicker({
+    title: replacing ? t('picker.replaceTitle') : t('picker.title'),
+    subtitle: replacing ? t('picker.replaceHint') : plan.days[dayIndex]?.name || t('day.fallback'),
+    isAdded: (id) =>
+      !replacing && !!currentPlan()?.days[dayIndex]?.exercises.some((x) => (x.libraryId || x.id) === id),
+    closeOnPick: replacing,
+    onPick: (source) => {
       const data = allPlans();
-      const plan = data.items.find((x) => x.id === state.editPlanId);
-      const source = libraryExercise(b.dataset.pickExercise);
+      const list = data.items.find((x) => x.id === state.editPlanId).days[dayIndex].exercises;
       const picked = planExerciseFromLibrary(source);
-      const list = plan.days[state.libraryDayIndex].exercises;
-      if (state.replaceExerciseIndex !== null) {
-        const old = list[state.replaceExerciseIndex];
+      if (replacing) {
+        const old = list[replaceIndex];
         Object.assign(picked, { sets: old.sets, range: old.range, rest: old.rest });
-        list[state.replaceExerciseIndex] = picked;
+        list[replaceIndex] = picked;
       } else list.push(picked);
-      const prefs = getPrefs();
-      prefs.recent = [source.id, ...prefs.recent.filter((x) => x !== source.id)].slice(0, 12);
-      savePrefs(prefs);
       savePlans(data);
-      if (state.replaceExerciseIndex !== null) closeLibrary();
-      else render();
-    };
+      render();
+    },
+    onCustom: () => {
+      const data = allPlans();
+      data.items.find((x) => x.id === state.editPlanId).days[dayIndex].exercises.push(customExercise());
+      savePlans(data);
+      render();
+    },
   });
-  document.querySelector('#closeLibrary')?.addEventListener('click', closeLibrary);
-  document.querySelector('#closeLibraryBottom')?.addEventListener('click', closeLibrary);
-  document.querySelector('#addCustomExercise')?.addEventListener('click', () => {
-    const data = allPlans();
-    data.items
-      .find((x) => x.id === state.editPlanId)
-      .days[state.libraryDayIndex].exercises.push(customExercise());
-    savePlans(data);
-    closeLibrary();
-  });
-  const focusable = () =>
-    [...dialog.querySelectorAll('button:not([disabled]),input,select,textarea,a[href]')].filter(
-      (el) => !el.closest('[hidden]')
-    );
-  document.onkeydown = (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeLibrary();
-      return;
-    }
-    if (e.key !== 'Tab') return;
-    const items = focusable();
-    if (!items.length) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (!dialog.contains(document.activeElement)) {
-      e.preventDefault();
-      first.focus();
-    } else if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-  if (!dialog.contains(document.activeElement))
-    document.querySelector('#librarySearch')?.focus({ preventScroll: true });
 }
 
 function bindPlanMenu() {
@@ -377,9 +266,8 @@ export function bind() {
     };
   });
   document.querySelectorAll('[data-add-exercise]').forEach((b) => {
-    b.onclick = () => openLibrary(number(b.dataset.addExercise), null);
+    b.onclick = () => openLibrary(number(b.dataset.addExercise));
   });
   bindPlanMenu();
   bindExerciseMenus();
-  bindLibrary();
 }
