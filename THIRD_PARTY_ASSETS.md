@@ -1,16 +1,29 @@
-# Third-party exercise media
+# Third-party exercise media and data
 
-Exercise demonstrations are loaded from [AscendAPI / ExerciseDB](https://ascendapi.com).
+Volumora does not ship any exercise media. Animations are hot-linked from two sources; the catalogue only
+stores file names and dataset keys.
 
-- Usage: private, non-commercial PWA
-- Source API: https://oss.exercisedb.dev
-- Media host: https://static.exercisedb.dev
-- Attribution: AscendAPI / ExerciseDB
+## YaKohen / Exercises Dataset (296 catalogue exercises)
 
-The free ExerciseDB V1 media is restricted to personal, educational, community and other non-commercial use. A paid plan is required before commercial or monetized use.
+- Repository: https://github.com/YaKohen/exercises-dataset (1,324 exercises with GIFs, thumbnails and
+  English instructions). Its README carries a "License: Educational Only" badge and no licence text.
+- What Volumora uses: the exercise ids, names, muscle and equipment fields, the GIF file names (loaded from
+  `raw.githubusercontent.com/YaKohen/exercises-dataset/main/videos/`) and the English instructions, shortened
+  to at most six steps. German names and instructions were written for Volumora on that basis.
+- Pipeline: `tools/exercise-selection.json` (curated ids and names), `tools/steps.en.json`, `tools/steps.de.json`
+  and `tools/import-exercises.mjs`, which generates `assets/data/exercises.js` and `assets/data/steps.*.js`.
+  `tools/dataset-notes.md` documents the selection and known inaccuracies of the source texts.
+- Usage: personal, non-commercial app. The app stays free and ad-free; the sources are named in the app
+  (More › media credit).
 
-The expanded 100-exercise catalogue currently references GIF files curated from the public
-[YaKohen exercises dataset](https://github.com/YaKohen/exercises-dataset). Its repository does
-not state a clear commercial license. These links are therefore suitable only for this personal
-prototype. Before any public commercial release, replace them with owned media or media covered
-by an explicit commercial license and update the attribution shown in the app.
+## AscendAPI / ExerciseDB (16 default-plan exercises)
+
+- Media host: https://static.exercisedb.dev (ExerciseDB V1 free media).
+- The free V1 media is restricted to personal, educational, community and other non-commercial use; a paid
+  plan is required before any commercial or monetised use.
+
+## Before any commercial release
+
+Replace both media sources with owned media or media under an explicit commercial licence, regenerate the
+catalogue, and update the attribution shown in the app. The data pipeline keeps this to `assets/data/*` and
+`tools/*`.

@@ -19,7 +19,7 @@ const parse = (file, create) => {
   }
 };
 
-const modules = [...walk('src'), 'assets/data/exercises.js'];
+const modules = [...walk('src'), ...walk('assets/data')];
 if (typeof vm.SourceTextModule !== 'function') {
   console.error('vm.SourceTextModule is unavailable: run with --experimental-vm-modules');
   process.exit(1);

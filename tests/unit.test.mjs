@@ -347,3 +347,30 @@ test('a version-3 backup from the live site still restores', async () => {
   assert.equal(backup.settings.restTimer, true);
   assert.equal(backup.body[0].weight, 80.5);
 });
+
+test('the exercise catalogue is complete and consistent', async () => {
+  const { EXERCISES } = await import('../assets/data/exercises.js');
+  const { EXERCISE_LIBRARY, GROUPS } = await import('../src/library.js');
+  const stepsEn = (await import('../assets/data/steps.en.js')).default;
+  const stepsDe = (await import('../assets/data/steps.de.js')).default;
+  assert.ok(EXERCISES.length >= 290, `${EXERCISES.length} exercises`);
+  assert.equal(new Set(EXERCISES.map((e) => e.id)).size, EXERCISES.length, 'ids are unique');
+  for (const id of ['0025', '0662', '0630', '0199', '0652', '0043', '0032'])
+    assert.ok(
+      EXERCISES.some((e) => e.id === id),
+      `${id} is still in the catalogue`
+    );
+  for (const ex of EXERCISES) {
+    assert.match(ex.file, /^\d{4}-\w+\.gif$/, `${ex.id} file`);
+    assert.ok(de[`ex.${ex.id}`] && en[`ex.${ex.id}`], `${ex.id} has names in both languages`);
+    assert.ok(stepsEn[ex.id]?.length >= 1 && stepsEn[ex.id].length <= 6, `${ex.id} has 1–6 English steps`);
+    assert.equal(stepsDe[ex.id]?.length, stepsEn[ex.id].length, `${ex.id} has matching German steps`);
+    assert.ok(de[`equipment.${ex.equipment}`] && en[`equipment.${ex.equipment}`], `${ex.equipment} label`);
+    assert.ok(de[`muscle.${ex.target}`] && en[`muscle.${ex.target}`], `${ex.target} label`);
+    for (const m of ex.secondary || []) assert.ok(de[`muscle.${m}`] && en[`muscle.${m}`], `${m} label`);
+  }
+  for (const ex of EXERCISE_LIBRARY) {
+    assert.ok(GROUPS.includes(ex.group), `${ex.id} group ${ex.group}`);
+    assert.match(ex.gif, /^https:\/\//, `${ex.id} gif`);
+  }
+});

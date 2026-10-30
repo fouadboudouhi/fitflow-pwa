@@ -3215,3 +3215,16 @@ label.row {
   background: var(--surface);
   font-size: 14px;
 }
+
+/* Exercise sheet: instructions */
+.exercise-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.exercise-steps li {
+  padding-left: 4px;
+}

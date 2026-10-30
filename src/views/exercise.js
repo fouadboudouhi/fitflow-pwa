@@ -1,5 +1,6 @@
-// Exercise detail sheet: animation, muscle group, equipment and target muscle, the plan note, and the last sessions.
-import { t } from '../i18n.js';
+// Exercise detail sheet: animation, muscles and equipment, the plan note, step-by-step instructions (loaded on
+// demand) and the last sessions.
+import { currentLanguage, t } from '../i18n.js';
 import { equipmentLabel, exerciseName, groupLabel, libraryOf, muscleLabel } from '../library.js';
 import { describeBest, shortSet, trackTypeLabel, trackTypeOf } from '../sets.js';
 import { sheet } from '../ui.js';
@@ -16,6 +17,15 @@ const historyRows = (rows) =>
         .join('')}</div>`
     : `<p class="muted">${t('workout.noHistory')}</p>`;
 
+// Instructions live in one module per language and are only fetched when a sheet needs them.
+const stepModules = {};
+async function loadSteps(id) {
+  const lang = currentLanguage();
+  stepModules[lang] ||= import(`../../assets/data/steps.${lang}.js`).then((m) => m.default);
+  const steps = await stepModules[lang].catch(() => ({}));
+  return steps[id] || [];
+}
+
 // `item` is a plan exercise, a session entry or a catalogue record.
 export function openExerciseSheet(item) {
   if (!item) return;
@@ -28,8 +38,15 @@ export function openExerciseSheet(item) {
     ...new Set(lib ? [groupLabel(lib.group), equipmentLabel(lib.equipment), muscleLabel(lib.target)] : []),
     trackType === 'weight_reps' ? '' : trackTypeLabel(trackType),
   ].filter(Boolean);
+  const also = (lib?.secondary || []).map(muscleLabel).filter(Boolean);
   const box = document.createElement('div');
   box.className = 'exercise-sheet';
-  box.innerHTML = `${gif ? `<img class="exercise-gif" src="${esc(gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">` : ''}${meta.length ? `<p class="exercise-meta">${meta.map(esc).join(' · ')}</p>` : ''}${item.note ? `<p class="coach-note">${esc(item.note)}</p>` : ''}<h3>${t('exercise.lastSessions')}</h3>${historyRows(exerciseHistory(exerciseKey(item), 5))}`;
+  box.innerHTML = `${gif ? `<img class="exercise-gif" src="${esc(gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">` : ''}${meta.length ? `<p class="exercise-meta">${meta.map(esc).join(' · ')}</p>` : ''}${also.length ? `<p class="exercise-meta">${esc(t('exercise.also', { muscles: also.join(', ') }))}</p>` : ''}${item.note ? `<p class="coach-note">${esc(item.note)}</p>` : ''}<div class="exercise-steps-slot"></div><h3>${t('exercise.lastSessions')}</h3>${historyRows(exerciseHistory(exerciseKey(item), 5))}`;
   sheet({ title: name, content: box });
+  if (lib && !lib.builtIn)
+    loadSteps(lib.id).then((steps) => {
+      const slot = box.querySelector('.exercise-steps-slot');
+      if (!steps.length || !slot?.isConnected) return;
+      slot.innerHTML = `<h3>${t('exercise.steps')}</h3><ol class="exercise-steps">${steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>`;
+    });
 }
