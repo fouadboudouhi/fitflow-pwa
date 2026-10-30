@@ -16,6 +16,16 @@ export const titleCase = (value) =>
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .replace(/\bEz\b/g, 'EZ');
 
+// Search normalisation: lower case, accents stripped, ß -> ss and ae/oe/ue -> a/o/u, so "rucken" and "ruecken"
+// both find "Rücken". Applied to the index and the query alike.
+export const fold = (value) =>
+  String(value ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/ß/g, 'ss')
+    .replace(/ae|oe|ue/g, (m) => m[0]);
+
 // Exercises are matched across plans and sessions by their library id; custom exercises fall back to their own id.
 export const exerciseKey = (item) => item?.libraryId || item?.exerciseId || item?.id || '';
 

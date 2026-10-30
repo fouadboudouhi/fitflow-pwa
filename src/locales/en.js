@@ -146,6 +146,11 @@ const ui = {
   'picker.added': 'Already in the plan',
   'picker.add': 'Add exercise',
   'picker.custom': 'Custom exercise without animation',
+  'picker.equipment': 'Equipment',
+  'picker.allEquipment': 'All equipment',
+  'picker.noResults': 'No exercise found.',
+  'picker.details': 'Details of {name}',
+  'exercise.lastSessions': 'Last sessions',
 
   // Workout
   'workout.exit': 'Leave workout',

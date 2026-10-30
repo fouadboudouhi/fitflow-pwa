@@ -7,11 +7,10 @@ import { state } from '../state.js';
 import { getDay, getSettings, saveRestUntil, saveSettings } from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
 import { fieldValue, fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
-import { esc, exerciseKey, fmtLong, number } from '../util.js';
+import { esc, number } from '../util.js';
 import {
   activeSession,
   entryComplete,
-  exerciseHistory,
   finishSession,
   isRecord,
   mutateSession,
@@ -22,6 +21,7 @@ import {
   warmupSets,
   workSets,
 } from '../workout.js';
+import { openExerciseSheet } from './exercise.js';
 import * as home from './home.js';
 
 const field = (name, label, set, i, exerciseIndex, workNumber, attrs, value, placeholder = '') =>
@@ -246,14 +246,11 @@ export function bind() {
         sets.push(newSet({ weight: lastWork?.weight ?? '' }));
       }, true);
   });
-  document.querySelectorAll('[data-technique]').forEach((b) => {
+  // Thumbnail and title both open the exercise sheet: animation, muscles, note and the last sessions.
+  document.querySelectorAll('[data-technique], [data-exercise-history]').forEach((b) => {
     b.onclick = () => {
-      const ex = getDay(state.planId, state.dayId).exercises[number(b.dataset.technique)];
-      const name = exerciseName(ex);
-      const media = document.createElement('div');
-      media.className = 'technique-sheet';
-      media.innerHTML = `<img class="exercise-gif" src="${esc(ex.gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">${ex.note ? `<p>${esc(ex.note)}</p>` : ''}`;
-      sheet({ title: name, content: media });
+      const index = number(b.dataset.technique ?? b.dataset.exerciseHistory);
+      openExerciseSheet(getDay(state.planId, state.dayId).exercises[index]);
     };
   });
   document.querySelectorAll('[data-exercise-menu]').forEach((b) => {
@@ -342,21 +339,6 @@ export function bind() {
     saveRestUntil(0);
     armRestNotification();
     document.querySelector('#restTimer')?.classList.remove('show');
-  });
-  document.querySelectorAll('[data-exercise-history]').forEach((b) => {
-    b.onclick = () => {
-      const ex = getDay(state.planId, state.dayId).exercises[number(b.dataset.exerciseHistory)];
-      const rows = exerciseHistory(exerciseKey(ex), 6);
-      const content = rows.length
-        ? `<div class="history-rows">${rows
-            .map(
-              (r) =>
-                `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(toDisplay(s.weight))}×${esc(s.reps)}${s.pr ? `<i class="pr-chip">${t('workout.pr')}</i>` : ''}`).join(' · ')}</b><small>${esc(t('workout.e1rm', { weight: fmtWeight(r.best, 0) }))}</small></div>`
-            )
-            .join('')}</div>`
-        : `<p class="muted">${t('workout.noHistory')}</p>`;
-      sheet({ title: exerciseName(ex), content });
-    };
   });
 }
 
