@@ -4,7 +4,6 @@ import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
 import {
   addDay,
-  customExercise,
   duplicatePlan,
   linkSuperset,
   planExerciseFromLibrary,
@@ -120,12 +119,6 @@ function openLibrary(dayIndex, replaceIndex = null) {
         Object.assign(picked, { sets: old.sets, range: old.range, rest: old.rest });
         list[replaceIndex] = picked;
       } else list.push(picked);
-      savePlans(data);
-      render();
-    },
-    onCustom: () => {
-      const data = allPlans();
-      data.items.find((x) => x.id === state.editPlanId).days[dayIndex].exercises.push(customExercise());
       savePlans(data);
       render();
     },

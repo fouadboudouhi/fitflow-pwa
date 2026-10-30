@@ -5,11 +5,14 @@ import {
   allPlans,
   clearActive,
   getBody,
+  getCustomExercises,
   getHistory,
   getPrefs,
   getSettings,
   photos,
+  promoteCustomExercises,
   saveBody,
+  saveCustomExercises,
   saveHistory,
   savePlans,
   savePrefs,
@@ -17,12 +20,12 @@ import {
   write,
 } from './storage.js';
 import { LANGUAGES, t } from './i18n.js';
-import { exerciseName, normalizeLegacyExercise } from './library.js';
+import { GROUPS, exerciseName, normalizeLegacyExercise } from './library.js';
 import { SET_TYPES, TRACK_TYPES } from './sets.js';
 import { dayKey, parseDate, setVolume, uid, volumeOf } from './util.js';
 
 // Format number of the export file; independent of the storage schema version.
-export const BACKUP_VERSION = 4;
+export const BACKUP_VERSION = 5;
 
 export function download(name, text, type) {
   const a = document.createElement('a');
@@ -47,6 +50,7 @@ export async function exportBackup() {
     body,
     settings: getSettings(),
     exercisePrefs: getPrefs(),
+    customExercises: getCustomExercises(),
   };
   download(`volumora-backup-${stamp()}.json`, JSON.stringify(backup, null, 2), 'application/json');
 }
@@ -251,10 +255,22 @@ export function validateBackup(data) {
       .filter(Boolean)
       .slice(0, 12),
   };
+  const customExercises = (Array.isArray(data.customExercises) ? data.customExercises : [])
+    .filter((c) => c && typeof c === 'object' && asStr(c.name, 80))
+    .slice(0, 500)
+    .map((c) => ({
+      id: asStr(c.id) || uid(),
+      name: asStr(c.name, 80),
+      category: GROUPS.includes(c.category) ? c.category : 'other',
+      equipment: asStr(c.equipment, 40) || 'other',
+      trackType: TRACK_TYPES.includes(c.trackType) ? c.trackType : 'weight_reps',
+      note: asStr(c.note, 300),
+      createdAt: asDate(c.createdAt) || new Date().toISOString(),
+    }));
   const activePlanId = plans.some((p) => p.id === data.plans.activePlanId)
     ? data.plans.activePlanId
     : plans[0].id;
-  return { plans: { activePlanId, items: plans }, history, body, settings, exercisePrefs };
+  return { plans: { activePlanId, items: plans }, history, body, settings, exercisePrefs, customExercises };
 }
 
 // Replaces all local data with the validated backup. Returns the number of photos that could not be stored.
@@ -274,6 +290,9 @@ export async function importBackup(backup) {
   saveBody(body);
   saveSettings(backup.settings);
   savePrefs(backup.exercisePrefs);
+  saveCustomExercises(backup.customExercises || []);
+  // Older backups keep custom exercises inside plans; move them into the store like the migration does.
+  promoteCustomExercises();
   clearActive();
   write(LS.schema, SCHEMA_VERSION);
   return failed;

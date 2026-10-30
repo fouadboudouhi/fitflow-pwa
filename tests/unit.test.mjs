@@ -487,3 +487,30 @@ test('every template resolves to catalogue exercises and the first-run picker fi
   );
   assert.equal(pickTemplate({ days: 6, equipment: 'gym' }).id, 'ppl6');
 });
+
+test('backup validation keeps custom exercises within limits', () => {
+  const backup = validateBackup({
+    plans: { activePlanId: 'p1', items: [{ id: 'p1', name: 'P', days: [] }] },
+    history: [],
+    customExercises: [
+      {
+        id: 'c1',
+        name: 'Farmer Walk',
+        category: 'legs',
+        equipment: 'dumbbell',
+        trackType: 'distance_time',
+        note: 'x',
+      },
+      { id: 'c2', name: '', category: 'legs' },
+      { id: 'c3', name: 'Odd', category: 'nope', equipment: '', trackType: 'nope' },
+    ],
+  });
+  assert.equal(backup.customExercises.length, 2, 'a nameless entry is dropped');
+  assert.deepEqual(
+    backup.customExercises.map((c) => [c.category, c.equipment, c.trackType]),
+    [
+      ['legs', 'dumbbell', 'distance_time'],
+      ['other', 'other', 'weight_reps'],
+    ]
+  );
+});

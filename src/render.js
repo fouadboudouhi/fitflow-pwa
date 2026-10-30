@@ -6,6 +6,7 @@ import * as analytics from './views/analytics.js';
 import * as assistant from './views/assistant.js';
 import * as body from './views/body.js';
 import * as calendar from './views/calendar.js';
+import * as customExercises from './views/customExercises.js';
 import * as editor from './views/editor.js';
 import * as home from './views/home.js';
 import * as more from './views/more.js';
@@ -35,6 +36,7 @@ const VIEWS = {
   summary,
   records,
   templates,
+  customExercises,
 };
 const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary'];
 const NAV_FOR = {
@@ -45,6 +47,7 @@ const NAV_FOR = {
   body: 'more',
   backup: 'more',
   settings: 'more',
+  customExercises: 'more',
 };
 const $app = document.querySelector('#app');
 

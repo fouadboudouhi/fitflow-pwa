@@ -125,13 +125,41 @@ export const EXERCISE_LIBRARY = EXERCISES.map((ex) => ({
   note: '',
 }));
 const BY_ID = new Map(EXERCISE_LIBRARY.map((ex) => [ex.id, ex]));
+export const EQUIPMENT_KEYS = [...new Set(EXERCISE_LIBRARY.map((x) => x.equipment).filter(Boolean)), 'other'];
 export const libraryExercise = (id) => BY_ID.get(id);
 export const libraryBySourceName = (name) => EXERCISE_LIBRARY.find((x) => x.sourceName === name);
 
-// The catalogue record behind a plan exercise, session entry or picker item; null for custom exercises.
+// Custom exercises live in storage; storage.js registers the reader so this module stays free of persistence.
+let customSource = () => [];
+export const setCustomSource = (fn) => {
+  customSource = fn;
+};
+// A stored custom exercise as a catalogue-like record: same fields the picker, sheet and tracking rely on.
+export const customRecord = (item) => ({
+  ...item,
+  sourceName: item.name,
+  group: GROUPS.includes(item.category) ? item.category : 'other',
+  equipment: item.equipment || 'other',
+  target: '',
+  secondary: [],
+  gif: '',
+  trackType: item.trackType || 'weight_reps',
+  sets: 3,
+  range: '8–12',
+  custom: true,
+});
+export const customExercises = () => customSource().map(customRecord);
+export const customExercise = (id) => {
+  const item = customSource().find((x) => x.id === id);
+  return item ? customRecord(item) : null;
+};
+// Catalogue plus custom exercises, for the picker.
+export const allExercises = () => [...EXERCISE_LIBRARY, ...customExercises()];
+
+// The record behind a plan exercise, session entry or picker item: built-in, catalogue or custom; null otherwise.
 export const libraryOf = (item) => {
   const key = exerciseKey(item);
-  return BUILT_IN[key] || BY_ID.get(key) || null;
+  return BUILT_IN[key] || BY_ID.get(key) || customExercise(key) || null;
 };
 
 // Display name in the active language. Custom exercises keep whatever the user typed.
