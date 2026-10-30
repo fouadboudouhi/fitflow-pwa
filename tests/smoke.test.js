@@ -1022,3 +1022,16 @@ test('analytics: sets per week with a four-week toggle, weekly charts and the re
   await page.waitForSelector('[data-session-record] .chip-green');
   assert.match(await page.textContent('[data-session-record] .chip-green'), /Bestwert/);
 });
+
+test('the 1RM calculator estimates from a set and lists percentages', async () => {
+  await page.click('[data-start="push"]');
+  await page.waitForSelector('.workout-exercise');
+  await page.locator('.workout-exercise').first().locator('[data-exercise-menu="0"]').click();
+  await page.getByRole('button', { name: '1RM-Rechner' }).click();
+  await page.waitForSelector('#oneRmResult');
+  await page.fill('#oneRmWeight', '100');
+  await page.fill('#oneRmReps', '5');
+  assert.match(await page.textContent('#oneRmResult'), /117 kg/);
+  assert.equal(await page.locator('.onerm-table > div').count(), 9);
+  assert.match(await page.textContent('.onerm-table > div:nth-child(5)'), /80 %/);
+});

@@ -171,9 +171,30 @@ export const sessionStarted = (session) => doneSets(session) > 0;
 
 // Progressive overload for weight × reps exercises: every working set hit the top of the range (with at least
 // one rep in reserve when RIR was logged) -> add the increment; otherwise repeat the weight and add reps.
-export function suggestion(ex) {
+// The last `limit` history entries of an exercise, newest first.
+export function recentEntries(ex, limit = 3, history = getHistory()) {
+  const key = exerciseKey(ex);
+  const rows = [];
+  for (const session of history) {
+    const entry = session.entries?.find((e) => exerciseKey(e) === key);
+    if (entry) rows.push(entry);
+    if (rows.length >= limit) break;
+  }
+  return rows;
+}
+const bestScoreOf = (entry) => Math.max(0, ...entry.sets.map((s) => setScore(s, entryTrackType(entry))));
+
+// Three sessions in a row without a better estimated 1RM: time for a lighter week.
+export function stalled(ex, history = getHistory()) {
+  const recent = recentEntries(ex, 3, history).map(bestScoreOf);
+  if (recent.length < 3 || recent.some((v) => !v)) return false;
+  const [newest, middle, oldest] = recent;
+  return newest <= oldest && middle <= oldest;
+}
+
+export function suggestion(ex, history = getHistory()) {
   if (trackTypeOf(ex) !== 'weight_reps') return { kind: 'start', weight: null };
-  const previous = previousEntry(ex);
+  const previous = recentEntries(ex, 1, history)[0];
   if (!previous) return { kind: 'start', weight: null };
   const work = previous.sets.filter((s) => isWorkSet(s) && s.done);
   const max = rangeMax(ex.range);
@@ -181,14 +202,20 @@ export function suggestion(ex) {
   const hasRir = work.some((s) => s.rir !== '' && s.rir !== undefined);
   const averageRir = work.reduce((a, s) => a + number(s.rir), 0) / (work.length || 1);
   const ready = work.length && work.every((s) => number(s.reps) >= max) && (!hasRir || averageRir >= 1);
-  const base = number(getSettings().increment) || 2.5;
+  // The plan exercise may carry its own increment; otherwise the setting, doubled for the heavy lower-body lifts.
+  const base = number(ex.increment) || number(getSettings().increment) || 2.5;
   const lib = libraryOf(ex);
   const heavy = lib
     ? /squat|deadlift|leg press/.test(lib.sourceName)
     : /squat|deadlift|leg press|kniebeuge|kreuzheben|beinpresse/i.test(ex.name || '');
-  const inc = heavy ? Math.max(5, base) : base;
-  return ready ? { kind: 'progress', weight: best + inc } : { kind: 'confirm', weight: best };
+  const inc = number(ex.increment) || (heavy ? Math.max(5, base) : base);
+  if (ready) return { kind: 'progress', weight: best + inc };
+  if (stalled(ex, history)) return { kind: 'stall', weight: roundToStep(best * 0.9) };
+  return { kind: 'confirm', weight: best };
 }
+
+// Epley: estimated one-rep max, and the reps a given share of it allows.
+export const repsAtPercent = (percent) => Math.max(1, Math.round(30 * (100 / percent - 1)));
 
 export function warmupSets(target) {
   return [

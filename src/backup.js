@@ -150,6 +150,7 @@ const asExercise = (ex) =>
     sets: asNum(ex?.sets, 3, 1, 12),
     range: asStr(ex?.range, 20) || '8–12',
     rest: asNum(ex?.rest, 0, 0, 600) || undefined,
+    ...(asNum(ex?.increment, 0, 0.25, 50) ? { increment: asNum(ex.increment, 0, 0.25, 50) } : {}),
     gif: asUrl(ex?.gif),
     note: asStr(ex?.note, 300),
     ...(TRACK_TYPES.includes(ex?.trackType) ? { trackType: ex.trackType } : {}),
