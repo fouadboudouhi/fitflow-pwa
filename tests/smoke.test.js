@@ -765,7 +765,8 @@ test('bodyweight and timed exercises: reps-only sets count, set types can be cha
   assert.equal(await pushup.locator('.set-head span').nth(1).textContent(), '+kg');
   await pushup.locator('input[data-set-field="reps"][data-index="0"]').fill('12');
   await pushup.locator('[data-set-done="0"]').click();
-  await page.waitForSelector('.toast.show');
+  // The plank's record toast may still be showing; wait for the push-up's.
+  await page.waitForFunction(() => document.querySelector('.toast')?.textContent.includes('12 Wdh.'));
   assert.match(await page.textContent('.toast'), /Neuer Bestwert: 12 Wdh\./);
   await pushup.locator('[data-set-type="1"]').click();
   await page.getByRole('button', { name: 'Dropsatz' }).click();
