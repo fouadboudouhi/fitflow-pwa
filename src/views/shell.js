@@ -21,7 +21,19 @@ export const nav = (active) =>
 
 export const mediaCredit = () =>
   `<footer class="media-credit">${t('credit.media')} <a href="https://github.com/YaKohen/exercises-dataset" target="_blank" rel="noopener">Exercises Dataset</a> · <a href="https://exercisedb.dev" target="_blank" rel="noopener">ExerciseDB</a></footer>`;
-export const empty = (title, text) => `<div class="empty"><strong>${title}</strong><p>${text}</p></div>`;
+export const empty = (title, text, action) =>
+  `<div class="empty"><strong>${title}</strong><p>${text}</p>${action ? `<button type="button" class="secondary empty-action" ${action.attrs}>${action.label}</button>` : ''}</div>`;
+// The back control names the screen it returns to, the way the platform does; the current screen keeps its title.
+const PARENT_LABEL = {
+  home: 'nav.home',
+  plans: 'nav.plans',
+  analytics: 'nav.history',
+  more: 'nav.more',
+  templates: 'templates.title',
+  calendar: 'calendar.title',
+};
+export const parentRow = (target) =>
+  `<div class="backrow"><button class="back" data-nav="${target}" aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${t(PARENT_LABEL[target] || 'common.back')}</span></div>`;
 export const backRow = (label, target) =>
   `<div class="backrow"><button class="back" data-nav="${target}" aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${label}</span></div>`;
 

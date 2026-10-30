@@ -38,7 +38,7 @@ function timelineSection(history) {
   return `<section class="list-section"><h2>${t('analytics.records')}</h2><div class="list">${rows
     .map(
       (r) =>
-        `<button type="button" class="row" data-session-record="${esc(r.sessionId)}"><span class="row-main"><b>${esc(r.items.map(exerciseName).join(' · '))}</b><small>${fmtLong(r.day)} · ${esc(r.dayName || '')}</small></span><span class="chip chip-green">${plural(r.count, 'records')}</span></button>`
+        `<button type="button" class="row" data-session-record="${esc(r.sessionId)}"><span class="row-main"><b>${esc(r.items.map(exerciseName).join(' · '))}</b><small>${fmtLong(r.day)} · ${esc(r.dayName || '')}</small></span><span class="chip chip-green">${plural(r.count, 'records')}</span>${icon('chevron-right')}</button>`
     )
     .join('')}</div></section>`;
 }
@@ -68,7 +68,7 @@ export function view() {
     .join('');
   const head = `<section class="page-head"><h1>${t('history.title')}</h1><div class="page-actions"><button class="text-btn" data-nav="records">${t('history.records')}</button><button class="text-btn" data-nav="calendar">${t('history.calendar')}</button></div></section>`;
   if (!history.length) {
-    return `<main class="shell">${head}${rangeControl}${empty(t('history.emptyTitle'), t('history.emptyText'))}</main>`;
+    return `<main class="shell">${head}${rangeControl}${empty(t('history.emptyTitle'), t('history.emptyText'), { label: t('history.emptyAction'), attrs: 'data-nav="home"' })}</main>`;
   }
   return `<main class="shell">${head}
     ${rangeControl}
@@ -102,6 +102,10 @@ export function bind() {
     };
   });
   document.querySelectorAll('[data-session], [data-session-record]').forEach((b) => {
-    b.onclick = () => navigate('session', { sessionId: b.dataset.session || b.dataset.sessionRecord });
+    b.onclick = () =>
+      navigate('session', {
+        sessionFrom: 'analytics',
+        sessionId: b.dataset.session || b.dataset.sessionRecord,
+      });
   });
 }

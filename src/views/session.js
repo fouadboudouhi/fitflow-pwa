@@ -11,7 +11,7 @@ import { clone, esc, fmtLong, isWorkSet, number } from '../util.js';
 import { deleteSession, entryTrackType, restoreSession, saveEditedSession } from '../workout.js';
 import * as analytics from './analytics.js';
 import { fieldDisplay, setColumns } from './setRow.js';
-import { backRow } from './shell.js';
+import { parentRow } from './shell.js';
 
 const input = (name, label, attrs, set, ei, si) =>
   `<input type="${name === 'time' ? 'text' : 'number'}" ${attrs} aria-label="${esc(label)}" data-edit="${name}" data-e="${ei}" data-s="${si}" value="${esc(fieldDisplay(name, set))}">`;
@@ -40,7 +40,7 @@ export function view() {
     session.markers?.pain ? t('marker.pain') : '',
   ].filter(Boolean);
   const records = session.entries.reduce((n, e) => n + e.sets.filter((s) => s.pr).length, 0);
-  return `<main class="shell narrow">${backRow(t('session.title'), 'analytics')}
+  return `<main class="shell narrow">${parentRow(state.sessionFrom === 'calendar' ? 'calendar' : 'analytics')}
     <section class="page-head compact"><div><h1>${esc(session.dayName || t('session.title'))}</h1><p>${fmtLong(session.day || session.finishedAt)} · ${esc(session.planName || '')}</p></div></section>
     <div class="stat-row"><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div></div>
     ${markers.length || records ? `<div class="chip-row">${markers.map((m) => `<span class="chip">${m}</span>`).join('')}${records ? `<span class="chip chip-green">${plural(records, 'records')}</span>` : ''}</div>` : ''}
@@ -86,7 +86,7 @@ export function bind() {
   document.querySelector('#deleteSession')?.addEventListener('click', () => {
     const result = deleteSession(state.sessionId);
     if (!result) return;
-    navigate('analytics');
+    navigate(state.sessionFrom === 'calendar' ? 'calendar' : 'analytics');
     undoToast(t('session.deleted'), () => {
       restoreSession(result.removed, result.index);
       render();

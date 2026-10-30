@@ -4215,3 +4215,145 @@ body:has(.workout-shell .rest-timer.show) .toast {
 main:has(+ .bottom-nav) .editor-footer {
   bottom: calc(86px + env(safe-area-inset-bottom));
 }
+
+/* Bottom inset: some installed iOS versions report a far larger inset than the home indicator needs; the bars
+   keep their background to the screen edge but their content stays within reach */
+:root {
+  --inset-bottom: clamp(0px, env(safe-area-inset-bottom, 0px), 40px);
+}
+.bottom-nav {
+  padding-bottom: max(10px, var(--inset-bottom));
+}
+.shell {
+  padding-bottom: calc(96px + var(--inset-bottom));
+}
+.workout-shell {
+  padding-bottom: calc(110px + var(--inset-bottom));
+}
+.sheet {
+  padding-bottom: calc(22px + var(--inset-bottom));
+}
+.toast {
+  bottom: calc(80px + var(--inset-bottom));
+}
+body:has(.workout-shell) .toast {
+  bottom: calc(20px + var(--inset-bottom));
+}
+body:has(.workout-shell .rest-timer.show) .toast {
+  bottom: calc(96px + var(--inset-bottom));
+}
+.rest-timer {
+  bottom: calc(16px + var(--inset-bottom));
+}
+main:has(+ .bottom-nav) .editor-footer {
+  bottom: calc(86px + var(--inset-bottom));
+}
+
+/* Icons: one weight everywhere, filled star for favourites, the check sits inside its control */
+.icon {
+  stroke-width: 1.75;
+}
+.nav-btn .icon {
+  stroke-width: 1.7;
+}
+.set-check .icon,
+.exercise-number .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.4;
+  margin: auto;
+}
+.set-check {
+  display: grid;
+  place-items: center;
+}
+.library-actions .star .icon {
+  width: 18px;
+  height: 18px;
+}
+.library-actions .star.active .icon {
+  fill: currentColor;
+}
+.library-actions button .icon {
+  margin: auto;
+}
+.library-actions button[data-pick-exercise] .icon {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+.custom-exercise-icon .icon {
+  width: 24px;
+  height: 24px;
+  margin: auto;
+}
+.row-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Paths: plan rows with an activate control, empty states with a way forward, page actions, the Tagesform toggle */
+.row-wrap {
+  display: flex;
+  align-items: center;
+}
+.row-wrap .row {
+  flex: 1;
+  border-bottom: 0;
+}
+.row-wrap + .row-wrap {
+  border-top: 1px solid var(--line);
+}
+.row-wrap .compact-btn {
+  margin-right: 12px;
+  flex: none;
+}
+.empty-action {
+  margin-top: 16px;
+}
+.page-actions {
+  display: flex;
+  gap: 16px;
+}
+.discard-btn {
+  justify-self: center;
+  margin: 2px auto 0;
+  color: var(--muted);
+}
+.session-status > summary:before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  flex: none;
+  background: currentColor;
+  color: var(--muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  transition: transform 0.3s var(--ease-out);
+}
+.session-status[open] > summary:before {
+  content: '';
+  transform: rotate(180deg);
+}
+.calendar-day b .icon {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  vertical-align: -1px;
+  stroke-width: 2.5;
+}
+
+/* A new screen always starts at the top; smooth scrolling would let a tap far down the previous list carry over */
+html {
+  scroll-behavior: auto;
+}
+
+/* The slide-in of a new screen must never widen the page: a mobile browser would zoom out to fit it */
+html {
+  overflow-x: hidden;
+}
+#app {
+  overflow-x: clip;
+}

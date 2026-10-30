@@ -5,7 +5,7 @@ import { state } from '../state.js';
 import { activePlan, getHistory } from '../storage.js';
 import { navigate } from '../render.js';
 import { dayKey, esc, fmtMonth, number, weekdayIndex } from '../util.js';
-import { backRow, empty } from './shell.js';
+import { empty, parentRow } from './shell.js';
 
 export function view() {
   const history = getHistory();
@@ -35,7 +35,7 @@ export function view() {
       ? plan.days.find((day) => schedule.assignments?.[day.id] === weekdayIndex(d))
       : null;
     if (done.length)
-      return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-session="${esc(done[0].id)}" aria-label="${esc(t('calendar.open', { day: d.getDate() }))}"><span>${d.getDate()}</span><b>✓ ${esc(done[0].dayName || t('session.title'))}</b></button>`;
+      return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-session="${esc(done[0].id)}" aria-label="${esc(t('calendar.open', { day: d.getDate() }))}"><span>${d.getDate()}</span><b>${icon('check')} ${esc(done[0].dayName || t('session.title'))}</b></button>`;
     return `<div class="calendar-day ${key === todayKey ? 'today' : ''}"><span>${d.getDate()}</span>${plannedDay ? `<small>${esc(plannedDay.name)}</small>` : ''}</div>`;
   });
   const upcoming =
@@ -45,12 +45,12 @@ export function view() {
           `<div><span>${fixed ? weekdayShort(schedule.assignments?.[d.id]) : i + 1}</span><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'exercises')}</small></div>`
       )
       .join('') || '';
-  return `<main class="shell calendar-shell">${backRow(t('calendar.title'), 'analytics')}<section class="calendar-head"><h1>${fmtMonth(first)}</h1><div class="calendar-nav"><button class="icon-btn" data-calendar-shift="-1" aria-label="${t('calendar.prev')}">${icon('chevron-left')}</button>${offsetMonths ? `<button class="icon-btn" data-calendar-shift="0">${t('calendar.today')}</button>` : ''}<button class="icon-btn" data-calendar-shift="1" aria-label="${t('calendar.next')}">${icon('chevron-right')}</button></div><div class="calendar-key">${fixed ? `<span><i class="planned-dot"></i>${t('calendar.planned')}</span>` : ''}<span><i class="done-dot"></i>${t('calendar.done')}</span></div></section><div class="calendar-weekdays">${[0, 1, 2, 3, 4, 5, 6].map((x) => `<span>${weekdayShort(x)}</span>`).join('')}</div><section class="calendar-grid">${cells.join('')}</section><section class="calendar-plan"><div class="section-title"><h2>${t('calendar.rhythm')}</h2><small>${esc(scheduleLabel(plan))}</small></div>${upcoming || empty(t('calendar.noPlanTitle'), t('calendar.noPlanText'))}</section></main>`;
+  return `<main class="shell calendar-shell">${parentRow('analytics')}<section class="calendar-head"><h1>${fmtMonth(first)}</h1><div class="calendar-nav"><button class="icon-btn" data-calendar-shift="-1" aria-label="${t('calendar.prev')}">${icon('chevron-left')}</button>${offsetMonths ? `<button class="icon-btn" data-calendar-shift="0">${t('calendar.today')}</button>` : ''}<button class="icon-btn" data-calendar-shift="1" aria-label="${t('calendar.next')}">${icon('chevron-right')}</button></div><div class="calendar-key">${fixed ? `<span><i class="planned-dot"></i>${t('calendar.planned')}</span>` : ''}<span><i class="done-dot"></i>${t('calendar.done')}</span></div></section><div class="calendar-weekdays">${[0, 1, 2, 3, 4, 5, 6].map((x) => `<span>${weekdayShort(x)}</span>`).join('')}</div><section class="calendar-grid">${cells.join('')}</section><section class="calendar-plan"><div class="section-title"><h2>${t('calendar.rhythm')}</h2><small>${esc(scheduleLabel(plan))}</small></div>${upcoming || empty(t('calendar.noPlanTitle'), t('calendar.noPlanText'), { label: t('calendar.emptyAction'), attrs: 'data-nav="templates"' })}</section></main>`;
 }
 
 export function bind() {
   document.querySelectorAll('[data-session]').forEach((b) => {
-    b.onclick = () => navigate('session', { sessionId: b.dataset.session });
+    b.onclick = () => navigate('session', { sessionFrom: 'calendar', sessionId: b.dataset.session });
   });
   document.querySelectorAll('[data-calendar-shift]').forEach((b) => {
     b.onclick = () => {

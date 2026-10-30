@@ -1,6 +1,7 @@
 // One set row and its header, per exercise type. The hooks (data-set-field, data-set-done, data-delete-set,
 // data-set-type) are part of the test contract.
 import { t } from '../i18n.js';
+import { icon } from '../icons.js';
 import { fmtDuration, setType, setTypeMark } from '../sets.js';
 import { fieldValue, toDisplay, unit } from '../units.js';
 import { esc } from '../util.js';
@@ -56,5 +57,5 @@ export function setRow({ set, index, exerciseIndex, trackType, workNumber, last,
     )
     .join(
       ''
-    )}${showRir ? field('rir', t('workout.rir'), 'inputmode="numeric" min="0" max="10"', set, index, exerciseIndex, workNumber, null) : ''}<button class="set-check" data-set-done="${index}" data-exercise="${exerciseIndex}" aria-label="${t('workout.setDone')}" aria-pressed="${set.done}">${set.done ? '✓' : ''}</button></div></div>`;
+    )}${showRir ? field('rir', t('workout.rir'), 'inputmode="numeric" min="0" max="10"', set, index, exerciseIndex, workNumber, null) : ''}<button class="set-check" data-set-done="${index}" data-exercise="${exerciseIndex}" aria-label="${t('workout.setDone')}" aria-pressed="${set.done}">${set.done ? icon('check') : ''}</button></div></div>`;
 }

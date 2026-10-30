@@ -1,10 +1,11 @@
 import { t } from '../i18n.js';
+import { icon } from '../icons.js';
 import { render } from '../render.js';
 import { getBody, photos, saveBody } from '../storage.js';
 import { toast, undoToast } from '../ui.js';
 import { fieldValue, fmtWeight, fromDisplay, unit } from '../units.js';
 import { dayKey, esc, fmtDate, number, uid } from '../util.js';
-import { backRow } from './shell.js';
+import { parentRow } from './shell.js';
 
 function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -45,10 +46,10 @@ const numberField = (name, label) =>
 
 export function view() {
   const entries = getBody();
-  return `<main class="shell">${backRow(t('body.backLabel'), 'more')}<section class="page-head compact"><h1>${t('body.title')}</h1></section>
+  return `<main class="shell">${parentRow('more')}<section class="page-head compact"><h1>${t('body.title')}</h1></section>
     <form class="body-form" id="bodyForm"><label><span>${t('body.date')}</span><input type="date" name="date" value="${dayKey()}" required></label><label><span>${t('body.weight', { unit: unit() })}</span><input type="number" step="0.1" name="weight"></label><details class="more-fields"><summary>${t('body.moreFields')}</summary><div class="more-fields-grid">${numberField('waist', t('body.waist'))}${numberField('chest', t('body.chest'))}${numberField('arm', t('body.arm'))}${numberField('thigh', t('body.thighLong'))}<label class="photo-field"><span>${t('body.photo')}</span><input type="file" name="photo" accept="image/*"></label></div></details><button class="primary" type="submit">${t('common.save')}</button></form>
     ${entries.some((x) => x.weight) ? `<section class="chart-card"><h2>${t('body.chart')}</h2><canvas id="bodyChart" height="210" role="img" aria-label="${t('body.chart')}"></canvas></section>` : ''}
-    <section class="body-grid">${entries.map((e) => `<article class="body-entry">${photoMarkup(e)}<div><span class="entry-date">${fmtDate(e.day || e.date)}</span><h3>${e.weight ? fmtWeight(e.weight) : t('body.entry')}</h3><p>${measures(e)}</p></div><button class="icon-btn danger" data-delete-body="${e.id}" aria-label="${t('body.deleteEntry')}">×</button></article>`).join('')}</section></main>`;
+    <section class="body-grid">${entries.map((e) => `<article class="body-entry">${photoMarkup(e)}<div><span class="entry-date">${fmtDate(e.day || e.date)}</span><h3>${e.weight ? fmtWeight(e.weight) : t('body.entry')}</h3><p>${measures(e)}</p></div><button class="icon-btn danger" data-delete-body="${e.id}" aria-label="${t('body.deleteEntry')}">${icon('close')}</button></article>`).join('')}</section></main>`;
 }
 
 function loadPhotos() {

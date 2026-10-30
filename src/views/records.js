@@ -6,7 +6,7 @@ import { describeSet } from '../sets.js';
 import { fmtWeight } from '../units.js';
 import { esc, fmtDate } from '../util.js';
 import { openExerciseSheet } from './exercise.js';
-import { backRow, empty } from './shell.js';
+import { empty, parentRow } from './shell.js';
 
 // "1RM ≈ 72 kg", "Max. Gewicht 60 kg", "Max. Wdh. 12" …
 export const recordLine = (record, kind) => {
@@ -46,7 +46,7 @@ export function view() {
       return `<section class="list-section"><h2>${esc(groupLabel(group))}</h2><div class="list">${rows}</div></section>`;
     })
     .join('');
-  return `<main class="shell">${backRow(t('records.title'), 'analytics')}<section class="page-head compact"><h1>${t('records.title')}</h1></section>${sections || empty(t('records.empty'), t('records.emptyText'))}</main>`;
+  return `<main class="shell">${parentRow('analytics')}<section class="page-head compact"><h1>${t('records.title')}</h1></section>${sections || empty(t('records.empty'), t('records.emptyText'), { label: t('records.emptyAction'), attrs: 'data-nav="home"' })}</main>`;
 }
 
 export function bind() {

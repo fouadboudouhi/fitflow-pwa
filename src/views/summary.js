@@ -42,7 +42,7 @@ export function view() {
         : `<p class="muted">${t('summary.noRecords')}</p>`
     }</section>
     ${groups.length ? `<section class="chart-section"><h2>${t('summary.muscles')}</h2><div class="bar-list">${groups.map((g) => `<div class="bar-row"><span>${esc(groupLabel(g.group))}</span><div class="bar-track"><i style="width:${Math.max(4, (g.sets / max) * 100)}%"></i></div><b>${plural(g.sets, 'sets')}</b></div>`).join('')}</div></section>` : ''}
-    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button>${session.detached && session.exercises?.length && !savedAsDay.has(session.id) ? `<button class="secondary" id="summarySaveDay">${t('summary.saveDay')}</button>` : ''}</div></main>`;
+    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button type="button" class="text-btn" id="summaryView">${t('summary.view')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button>${session.detached && session.exercises?.length && !savedAsDay.has(session.id) ? `<button class="secondary" id="summarySaveDay">${t('summary.saveDay')}</button>` : ''}</div></main>`;
 }
 
 // Sessions already turned into a plan day during this visit, so the button does not offer it twice.
@@ -52,6 +52,11 @@ export function bind() {
   document
     .querySelector('#summaryDone')
     ?.addEventListener('click', () => navigate('home', {}, { replace: true }));
+  document
+    .querySelector('#summaryView')
+    ?.addEventListener('click', () =>
+      navigate('session', { sessionId: getHistory()[0]?.id, sessionFrom: 'analytics' }, { replace: true })
+    );
   document.querySelector('#summaryShare')?.addEventListener('click', () => {
     const session = getHistory().find((h) => h.id === state.sessionId);
     if (session) shareText(summaryText(session, newRecords(session)));

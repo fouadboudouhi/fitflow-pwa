@@ -87,7 +87,7 @@ export function render() {
   const previous = state.lastRenderedView;
   const viewChanged = previous !== state.view;
   state.lastRenderedView = state.view;
-  if (viewChanged) window.scrollTo(0, 0);
+  if (viewChanged) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   const module = VIEWS[state.view] || more;
   // A view may redirect (e.g. workout without exercises); render whatever the state says afterwards.
   let content = module.view();
