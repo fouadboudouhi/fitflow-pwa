@@ -1,4 +1,5 @@
 // Pure helpers without DOM or storage access.
+import { intlLocale } from './i18n.js';
 
 export const uid = () =>
   crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -13,13 +14,11 @@ export const rangeMax = (range) => Math.max(...(String(range).match(/\d+/g)?.map
 export const titleCase = (value) =>
   String(value)
     .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace('Ez ', 'SZ-');
-export const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+    .replace(/\bEz\b/g, 'EZ');
 
 // Exercises are matched across plans and sessions by their library id; custom exercises fall back to their own id.
 export const exerciseKey = (item) => item?.libraryId || item?.exerciseId || item?.id || '';
 
-export const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 export const weekdayIndex = (date) => (date.getDay() + 6) % 7;
 
 const DAY_KEY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -39,7 +38,7 @@ export const dayKey = (value = new Date()) => {
 };
 const format = (options) => (value) => {
   const d = parseDate(value);
-  return d ? new Intl.DateTimeFormat('de-DE', options).format(d) : '–';
+  return d ? new Intl.DateTimeFormat(intlLocale(), options).format(d) : '–';
 };
 export const fmtDate = format({ day: '2-digit', month: '2-digit', year: '2-digit' });
 export const fmtLong = format({ weekday: 'short', day: '2-digit', month: 'short' });

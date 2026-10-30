@@ -5,6 +5,14 @@ import { dayKey, exerciseKey, fmtDate, parseDate, rangeMax, volumeOf } from '../
 import { createSuggestedPlan, nextSession, scheduleLabel } from '../src/plans.js';
 import { validateBackup } from '../src/backup.js';
 import { platesPerSide } from '../src/plates.js';
+import { plural, setLanguage, t } from '../src/i18n.js';
+import { BUILT_IN, exerciseName } from '../src/library.js';
+import { DEFAULT_SETTINGS } from '../src/storage.js';
+import de from '../src/locales/de.js';
+import en from '../src/locales/en.js';
+
+// Node reports the device language as en-US; the assertions below are written against the German texts.
+setLanguage('de');
 import { weekStats } from '../src/plans.js';
 
 test('day keys are local and round-trip without shifting', () => {
@@ -123,17 +131,7 @@ test('backup validation coerces hostile input', () => {
   assert.equal(backup.history[0].day, dayKey('2026-02-03T10:00:00Z'));
   assert.equal(backup.body[0].weight, '');
   assert.equal(backup.body[0].photo, '');
-  assert.deepEqual(backup.settings, {
-    theme: 'auto',
-    rest: 600,
-    increment: 2.5,
-    showRir: false,
-    restTimer: false,
-    restNotify: false,
-    unit: 'kg',
-    weeklyGoal: 0,
-    barWeight: 20,
-  });
+  assert.deepEqual(backup.settings, { ...DEFAULT_SETTINGS, rest: 600 });
   assert.throws(() => validateBackup({ plans: {} }));
 });
 
@@ -203,4 +201,89 @@ test('backup validation keeps personal-record flags on sets', () => {
   const [first, second] = backup.history[0].entries[0].sets;
   assert.equal(first.pr, true);
   assert.equal('pr' in second, false);
+});
+
+test('translations: fallback chain, interpolation and plural forms', () => {
+  setLanguage('de');
+  assert.equal(t('nav.home'), 'Heute');
+  assert.equal(t('wizard.step', { step: 2 }), 'Schritt 2 von 3');
+  assert.equal(t('does.not.exist', null, 'Fallback'), 'Fallback');
+  assert.equal(t('does.not.exist'), 'does.not.exist');
+  assert.equal(plural(1, 'sets'), '1 Satz');
+  assert.equal(plural(3, 'sets'), '3 Sätze');
+  setLanguage('en');
+  assert.equal(t('nav.home'), 'Today');
+  assert.equal(plural(1, 'sets'), '1 set');
+  assert.equal(plural(3, 'sets'), '3 sets');
+  assert.equal(setLanguage('xx'), 'en', 'unknown languages fall back to English');
+  setLanguage('de');
+});
+
+test('both dictionaries have the same keys and no empty texts', () => {
+  const dk = Object.keys(de);
+  const ek = Object.keys(en);
+  assert.deepEqual(
+    dk.filter((k) => !(k in en)),
+    [],
+    'missing in en'
+  );
+  assert.deepEqual(
+    ek.filter((k) => !(k in de)),
+    [],
+    'missing in de'
+  );
+  for (const k of dk) assert.ok(typeof de[k] === 'string' && de[k].length, `${k} is empty in de`);
+  for (const k of ek) assert.ok(typeof en[k] === 'string' && en[k].length, `${k} is empty in en`);
+});
+
+test('exercise names resolve per language for library, built-in and custom exercises', () => {
+  setLanguage('de');
+  assert.equal(exerciseName({ id: 'x', libraryId: '0025', name: 'alt' }), 'Bankdrücken mit Langhantel');
+  assert.equal(exerciseName({ exerciseId: 'chest-press', name: 'Brustpresse' }), 'Brustpresse');
+  assert.equal(exerciseName({ id: 'custom-1', name: 'Meine Übung', custom: true }), 'Meine Übung');
+  setLanguage('en');
+  assert.equal(exerciseName({ libraryId: '0025' }), 'Barbell Bench Press');
+  assert.equal(exerciseName({ exerciseId: 'chest-press' }), 'Chest Press');
+  assert.equal(exerciseName({ id: 'custom-1', name: 'Meine Übung' }), 'Meine Übung');
+  setLanguage('de');
+  assert.equal(Object.keys(BUILT_IN).length, 16);
+});
+
+test('backup validation maps legacy German labels to keys and strips catalogue copies', () => {
+  const backup = validateBackup({
+    plans: {
+      activePlanId: 'p1',
+      items: [
+        {
+          id: 'p1',
+          name: 'P',
+          days: [
+            {
+              id: 'd1',
+              name: 'D',
+              exercises: [
+                {
+                  id: 'a',
+                  libraryId: '0025',
+                  name: 'Bankdrücken',
+                  category: 'Brust',
+                  equipment: 'Langhantel',
+                  target: 'pectorals',
+                  sourceName: 'barbell bench press',
+                },
+                { id: 'b', name: 'Eigene', custom: true, category: 'Eigene Übung', equipment: 'Kurzhanteln' },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    history: [],
+  });
+  const [a, b] = backup.plans.items[0].days[0].exercises;
+  assert.equal(a.category, undefined);
+  assert.equal(a.equipment, undefined);
+  assert.equal(a.sourceName, undefined);
+  assert.equal(b.category, 'other');
+  assert.equal(b.equipment, 'dumbbell');
 });

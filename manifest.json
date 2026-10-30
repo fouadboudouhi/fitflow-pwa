@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Volumora – Training & Fortschritt",
+  "name": "Volumora",
   "short_name": "Volumora",
-  "description": "Flexible Trainingspläne, geführte Workouts, Volumen- und Fortschrittsanalyse.",
+  "description": "Trainingspläne, geführte Workouts und Fortschrittsanalyse · Training plans, guided workouts and progress analysis.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -30,9 +30,9 @@
   ],
   "shortcuts": [
     {
-      "name": "Training starten",
+      "name": "Training starten · Start workout",
       "short_name": "Training",
-      "description": "Die nächste Einheit des aktiven Plans öffnen",
+      "description": "Die nächste Einheit öffnen · Open the next session",
       "url": "./?action=start",
       "icons": [
         {

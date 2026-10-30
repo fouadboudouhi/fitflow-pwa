@@ -1,6 +1,8 @@
-// Exercise catalogue: the 100-entry dataset with German names, plus the built-in Push/Pull/Legs plan.
+// Exercise catalogue: dataset records with stable keys, the built-in default plan, and name/label resolution.
+// Muscle groups, equipment and target muscles are stored as dataset keys; labels come from the dictionary.
 import { EXERCISES } from '../assets/data/exercises.js';
-import { titleCase } from './util.js';
+import { t } from './i18n.js';
+import { exerciseKey, titleCase } from './util.js';
 
 const DEMOS = {
   chest: 'https://static.exercisedb.dev/media/DOoWcnA.gif',
@@ -21,211 +23,186 @@ const DEMOS = {
   raise: 'https://static.exercisedb.dev/media/9IxJdtC.gif',
 };
 
-export const exercise = (id, name, sets, range, gif, note) => ({
+export const DEFAULT_PLAN_ID = 'ppl-default';
+export const GROUPS = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'cardio'];
+const GROUP_OF_BODY_PART = {
+  chest: 'chest',
+  back: 'back',
+  shoulders: 'shoulders',
+  neck: 'shoulders',
+  'upper arms': 'arms',
+  'lower arms': 'arms',
+  'upper legs': 'legs',
+  'lower legs': 'legs',
+  waist: 'core',
+  cardio: 'cardio',
+};
+export const groupOfBodyPart = (part) => GROUP_OF_BODY_PART[part] || (GROUPS.includes(part) ? part : 'other');
+export const groupLabel = (key) => t(`group.${key}`, null, key);
+export const equipmentLabel = (key) => (key ? t(`equipment.${key}`, null, titleCase(key)) : '');
+export const muscleLabel = (key) => (key ? t(`muscle.${key}`, null, titleCase(key)) : '');
+
+// Labels that versions before schema 5 stored on plan exercises, mapped to the keys used since.
+export const LEGACY_GROUPS = {
+  Brust: 'chest',
+  Rücken: 'back',
+  Schulter: 'shoulders',
+  Arme: 'arms',
+  Beine: 'legs',
+  Core: 'core',
+  Ausdauer: 'cardio',
+  Sonstige: 'other',
+  'Eigene Übung': 'other',
+};
+export const LEGACY_EQUIPMENT = {
+  Langhantel: 'barbell',
+  Kurzhanteln: 'dumbbell',
+  Kabelzug: 'cable',
+  Körpergewicht: 'body weight',
+  Maschine: 'leverage machine',
+  Beinpresse: 'sled machine',
+  'SZ-Stange': 'ez barbell',
+  Band: 'band',
+  Zusatzgewicht: 'weighted',
+  'Ab-Roller': 'wheel roller',
+};
+
+// The 16 exercises of the built-in plan keep their slug ids forever: history entries point at them.
+const builtIn = (id, category, equipment, target, gif) => [
   id,
-  name,
-  sets,
-  range,
-  gif,
-  note,
-  favorite: false,
-});
-
-export const DEFAULT_PLAN = {
-  id: 'ppl-default',
-  name: 'Push · Pull · Legs',
-  description: 'Ausgewogener 3-Tage-Plan',
-  createdAt: new Date().toISOString(),
-  days: [
-    {
-      id: 'push',
-      name: 'Push',
-      subtitle: 'Brust · Trizeps · Schulter',
-      exercises: [
-        exercise(
-          'chest-press',
-          'Brustpresse',
-          3,
-          '10–15',
-          DEMOS.chest,
-          'Neutraler Griff · Ellbogen ca. 30–45°.'
-        ),
-        exercise(
-          'incline-chest-press',
-          'Schrägbank-Brustpresse',
-          3,
-          '10–15',
-          DEMOS.incline,
-          'Leichte Schräge · schmerzfreier Bewegungsweg.'
-        ),
-        exercise(
-          'triceps-pushdown',
-          'Trizeps Pushdown',
-          3,
-          '10–15',
-          DEMOS.pushdown,
-          'Seilgriff · Ellbogen ruhig am Körper.'
-        ),
-        exercise(
-          'cable-external-rotation',
-          'Außenrotation am Kabel',
-          2,
-          '15–20',
-          DEMOS.rotation,
-          'Sehr leicht und kontrolliert.'
-        ),
-        exercise(
-          'scaption-raise',
-          'Scaption Raise',
-          2,
-          '12–15',
-          DEMOS.scaption,
-          'Arme leicht schräg nach vorne · bis Schulterhöhe.'
-        ),
-      ],
-    },
-    {
-      id: 'pull',
-      name: 'Pull',
-      subtitle: 'Rücken · Bizeps',
-      exercises: [
-        exercise(
-          'lat-pulldown-neutral',
-          'Latzug neutral',
-          3,
-          '8–12',
-          DEMOS.lat,
-          'Zur oberen Brust · nicht hinter den Kopf.'
-        ),
-        exercise('seated-cable-row', 'Kabelrudern neutral', 3, '8–12', DEMOS.row, 'Oberkörper ruhig halten.'),
-        exercise(
-          'high-row-machine',
-          'High Row Maschine',
-          3,
-          '10–12',
-          DEMOS.highrow,
-          'Schultern nicht hochziehen.'
-        ),
-        exercise('ez-bar-curl', 'SZ-Curls', 3, '8–12', DEMOS.curl, 'Ellbogen ruhig · kein Schwung.'),
-        exercise(
-          'hammer-curl',
-          'Hammer Curls',
-          2,
-          '10–15',
-          DEMOS.hammer,
-          'Handflächen zueinander · kontrolliert.'
-        ),
-      ],
-    },
-    {
-      id: 'legs',
-      name: 'Legs',
-      subtitle: 'Beine · Waden · Bauch',
-      exercises: [
-        exercise('squat', 'Kniebeugen', 3, '8–12', DEMOS.squat, 'Nur schmerzfreie Tiefe · Knie stabil.'),
-        exercise(
-          'romanian-deadlift',
-          'Romanian Deadlift',
-          3,
-          '8–12',
-          DEMOS.rdl,
-          'Hüfte nach hinten · Rücken neutral.'
-        ),
-        exercise(
-          'leg-curl',
-          'Beinbeuger Maschine',
-          3,
-          '10–15',
-          DEMOS.legcurl,
-          'Sitzend oder liegend · kontrolliert.'
-        ),
-        exercise(
-          'leg-extension',
-          'Beinstrecker Maschine',
-          3,
-          '12–15',
-          DEMOS.extension,
-          'Nicht explosiv durchstrecken.'
-        ),
-        exercise('calf-raise', 'Wadenheben', 3, '12–20', DEMOS.calf, 'Oben kurz halten · langsam absenken.'),
-        exercise('leg-raise', 'Beinheben', 3, '10–15', DEMOS.raise, 'Rumpf und Rücken kontrolliert halten.'),
-      ],
-    },
-  ],
-};
-
-export const CATEGORY_BY_ID = {
-  'chest-press': 'Brust',
-  'incline-chest-press': 'Brust',
-  'triceps-pushdown': 'Arme',
-  'cable-external-rotation': 'Schulter',
-  'scaption-raise': 'Schulter',
-  'lat-pulldown-neutral': 'Rücken',
-  'seated-cable-row': 'Rücken',
-  'high-row-machine': 'Rücken',
-  'ez-bar-curl': 'Arme',
-  'hammer-curl': 'Arme',
-  squat: 'Beine',
-  'romanian-deadlift': 'Beine',
-  'leg-curl': 'Beine',
-  'leg-extension': 'Beine',
-  'calf-raise': 'Beine',
-  'leg-raise': 'Core',
-};
-export const CATEGORIES = ['Alle', 'Brust', 'Rücken', 'Schulter', 'Arme', 'Beine', 'Core', 'Ausdauer'];
-const CATEGORY_LABELS = {
-  chest: 'Brust',
-  back: 'Rücken',
-  shoulders: 'Schulter',
-  'upper arms': 'Arme',
-  'upper legs': 'Beine',
-  'lower legs': 'Beine',
-  waist: 'Core',
-  cardio: 'Ausdauer',
-};
-const EQUIPMENT_LABELS = {
-  barbell: 'Langhantel',
-  dumbbell: 'Kurzhanteln',
-  cable: 'Kabelzug',
-  'body weight': 'Körpergewicht',
-  'leverage machine': 'Maschine',
-  'sled machine': 'Beinpresse',
-  'ez barbell': 'SZ-Stange',
-  band: 'Band',
-  weighted: 'Zusatzgewicht',
-  'wheel roller': 'Ab-Roller',
-};
-const GERMAN_EXERCISE_NAMES =
-  `Bankdrücken mit Langhantel|Schrägbankdrücken mit Langhantel|Negativbankdrücken mit Langhantel|Bankdrücken mit Kurzhanteln|Schrägbankdrücken mit Kurzhanteln|Negativbankdrücken mit Kurzhanteln|Kurzhantel-Flys|Schrägbank-Flys|Kabel-Flys stehend|Kabel-Flys auf Brusthöhe|Brust-Dips|Liegestütze|Erhöhte Liegestütze|Negative Liegestütze|Brustpresse|Klimmzüge|Klimmzüge im Untergriff|Latzug|Latzug im Untergriff|Überzüge am Kabel|Kabelrudern sitzend|Kabelrudern breit|Langhantelrudern vorgebeugt|Pendlay Rows|Kurzhantelrudern vorgebeugt|Einarmiges Kurzhantelrudern|Rudermaschine sitzend|T-Bar Rudern an der Maschine|Face Pulls am Kabel|Shrugs mit Langhantel|Shrugs mit Kurzhanteln|Schulterdrücken mit Langhantel sitzend|Military Press breit|Schulterdrücken mit Kurzhanteln|Arnold Press|Seitheben mit Kurzhanteln|Seitheben am Kabel|Frontheben mit Kurzhanteln|Frontheben am Kabel|Reverse Flys vorgebeugt|Reverse Flys mit Kurzhanteln|Aufrechtes Rudern mit Langhantel|Aufrechtes Rudern am Kabel|Bizepscurls mit Langhantel|Bizepscurls mit SZ-Stange|Bizepscurls mit Kurzhanteln|Hammercurls|Schrägbank-Curls|Konzentrationscurls|Preacher Curls mit Kurzhantel|Bizepscurls am Kabel|Hammercurls am Kabel|Enges Bankdrücken|Bank-Dips|Diamant-Liegestütze|Trizepsdrücken mit V-Griff|Trizepsdrücken mit geradem Griff|Trizepsdrücken mit Seil|Skull Crusher mit Langhantel|Trizepsstrecken liegend mit Kurzhanteln|Trizeps-Kickbacks|Kniebeugen mit Langhantel|Frontkniebeugen|Rumänisches Kreuzheben mit Langhantel|Kreuzheben mit Langhantel|Sumo-Kreuzheben|Ausfallschritte mit Langhantel|Rückwärts-Ausfallschritte mit Langhantel|Goblet Squats|Ausfallschritte mit Kurzhanteln|Rückwärts-Ausfallschritte mit Kurzhanteln|Rumänisches Kreuzheben mit Kurzhanteln|Kreuzheben mit Kurzhanteln|Einbeiniges Kreuzheben mit Kurzhantel|Einbeinige Beinpresse|Beinpresse 45°|Beinstrecker|Beinbeuger liegend|Beinbeuger sitzend|Hip Thrust mit Langhantel|Glute Bridge mit Langhantel|Glute Bridge am Boden|Sprungkniebeugen|Gehende Ausfallschritte|Bulgarian Split Squats|Step-ups mit Kurzhanteln|Wadenheben mit Langhantel|Wadenheben sitzend|Wadenheben stehend|Plank mit Zusatzgewicht|Seitstütz erhöht|Crunches am Boden|Negativ-Crunches|Bicycle Crunches mit Band|Russian Twists|Beinheben hängend|Beinheben am Captain's Chair|Kabel-Crunches kniend|Ab-Wheel Rollout|Mountain Climbers`.split(
-    '|'
-  );
-
-const source = EXERCISES?.length
-  ? EXERCISES
-  : DEFAULT_PLAN.days.flatMap((day) =>
-      day.exercises.map((ex) => ({ ...ex, category: CATEGORY_BY_ID[ex.id] || 'Sonstige' }))
-    );
-
-export const EXERCISE_LIBRARY = source.map((ex, index) => {
-  const category = CATEGORY_LABELS[ex.category] || ex.category;
-  const equipment = EQUIPMENT_LABELS[ex.equipment] || ex.equipment || '';
-  return {
-    ...ex,
-    name: EXERCISES?.length ? GERMAN_EXERCISE_NAMES[index] || titleCase(ex.name) : titleCase(ex.name),
-    sourceName: ex.name,
+  {
+    id,
+    sourceName: id.replaceAll('-', ' '),
     category,
     equipment,
-    sets: ex.sets || 3,
-    range: ex.range || (category === 'Core' || ex.target === 'calves' ? '12–15' : '8–12'),
-    note: ex.note || equipment,
-    favorite: false,
-  };
-});
-export const libraryExercise = (id) => EXERCISE_LIBRARY.find((x) => x.id === id);
+    target,
+    gif,
+    group: groupOfBodyPart(category),
+    builtIn: true,
+  },
+];
+export const BUILT_IN = Object.fromEntries([
+  builtIn('chest-press', 'chest', 'leverage machine', 'pectorals', DEMOS.chest),
+  builtIn('incline-chest-press', 'chest', 'leverage machine', 'pectorals', DEMOS.incline),
+  builtIn('triceps-pushdown', 'upper arms', 'cable', 'triceps', DEMOS.pushdown),
+  builtIn('cable-external-rotation', 'shoulders', 'cable', 'delts', DEMOS.rotation),
+  builtIn('scaption-raise', 'shoulders', 'dumbbell', 'delts', DEMOS.scaption),
+  builtIn('lat-pulldown-neutral', 'back', 'cable', 'lats', DEMOS.lat),
+  builtIn('seated-cable-row', 'back', 'cable', 'upper back', DEMOS.row),
+  builtIn('high-row-machine', 'back', 'leverage machine', 'upper back', DEMOS.highrow),
+  builtIn('ez-bar-curl', 'upper arms', 'ez barbell', 'biceps', DEMOS.curl),
+  builtIn('hammer-curl', 'upper arms', 'dumbbell', 'biceps', DEMOS.hammer),
+  builtIn('squat', 'upper legs', 'barbell', 'quads', DEMOS.squat),
+  builtIn('romanian-deadlift', 'upper legs', 'barbell', 'hamstrings', DEMOS.rdl),
+  builtIn('leg-curl', 'upper legs', 'leverage machine', 'hamstrings', DEMOS.legcurl),
+  builtIn('leg-extension', 'upper legs', 'leverage machine', 'quads', DEMOS.extension),
+  builtIn('calf-raise', 'lower legs', 'leverage machine', 'calves', DEMOS.calf),
+  builtIn('leg-raise', 'waist', 'body weight', 'abs', DEMOS.raise),
+]);
+
+export const EXERCISE_LIBRARY = EXERCISES.map((ex) => ({
+  ...ex,
+  sourceName: ex.name,
+  name: titleCase(ex.name),
+  group: groupOfBodyPart(ex.category),
+  sets: 3,
+  range: ex.category === 'waist' || ex.target === 'calves' ? '12–15' : '8–12',
+  note: '',
+}));
+const BY_ID = new Map(EXERCISE_LIBRARY.map((ex) => [ex.id, ex]));
+export const libraryExercise = (id) => BY_ID.get(id);
 export const libraryBySourceName = (name) => EXERCISE_LIBRARY.find((x) => x.sourceName === name);
-// Muscle group of a plan exercise or a history entry.
-export const categoryOf = (item) => {
-  const lib = item?.libraryId && libraryExercise(item.libraryId);
-  if (lib) return lib.category;
-  return item?.category || CATEGORY_BY_ID[item?.exerciseId || item?.id] || 'Sonstige';
+
+// The catalogue record behind a plan exercise, session entry or picker item; null for custom exercises.
+export const libraryOf = (item) => {
+  const key = exerciseKey(item);
+  return BUILT_IN[key] || BY_ID.get(key) || null;
 };
+
+// Display name in the active language. Custom exercises keep whatever the user typed.
+export const exerciseName = (item) => {
+  const lib = libraryOf(item);
+  if (!lib) return item?.name || t('exercise.fallback');
+  return t(`ex.${lib.id}`, null, lib.name || titleCase(lib.sourceName));
+};
+// Muscle group key of a plan exercise, a session entry or a catalogue record.
+export const groupOf = (item) => {
+  const lib = libraryOf(item);
+  if (lib) return lib.group;
+  const raw = item?.category;
+  return LEGACY_GROUPS[raw] || (GROUPS.includes(raw) ? raw : 'other');
+};
+
+// Exercises saved by older versions carry German labels and copies of catalogue fields. Labels become keys;
+// the copies go away when the catalogue record can be resolved.
+export function normalizeLegacyExercise(ex) {
+  if (!ex || typeof ex !== 'object') return ex;
+  if (ex.libraryId && (BY_ID.has(ex.libraryId) || BUILT_IN[ex.libraryId])) {
+    delete ex.category;
+    delete ex.equipment;
+    delete ex.target;
+    delete ex.sourceName;
+    return ex;
+  }
+  if (ex.category) ex.category = LEGACY_GROUPS[ex.category] || ex.category;
+  if (ex.equipment) ex.equipment = LEGACY_EQUIPMENT[ex.equipment] || ex.equipment;
+  return ex;
+}
+
+const planExercise = (id, sets, range) => ({
+  id,
+  name: t(`ex.${id}`),
+  sets,
+  range,
+  gif: BUILT_IN[id].gif,
+  note: t(`exNote.${id}`),
+});
+
+// The plan every new installation starts with, built in the active language.
+export function defaultPlan() {
+  return {
+    id: DEFAULT_PLAN_ID,
+    name: t('plan.ppl.name'),
+    description: t('plan.ppl.description'),
+    createdAt: new Date().toISOString(),
+    days: [
+      {
+        id: 'push',
+        name: 'Push',
+        subtitle: t('plan.ppl.pushSubtitle'),
+        exercises: [
+          planExercise('chest-press', 3, '10–15'),
+          planExercise('incline-chest-press', 3, '10–15'),
+          planExercise('triceps-pushdown', 3, '10–15'),
+          planExercise('cable-external-rotation', 2, '15–20'),
+          planExercise('scaption-raise', 2, '12–15'),
+        ],
+      },
+      {
+        id: 'pull',
+        name: 'Pull',
+        subtitle: t('plan.ppl.pullSubtitle'),
+        exercises: [
+          planExercise('lat-pulldown-neutral', 3, '8–12'),
+          planExercise('seated-cable-row', 3, '8–12'),
+          planExercise('high-row-machine', 3, '10–12'),
+          planExercise('ez-bar-curl', 3, '8–12'),
+          planExercise('hammer-curl', 2, '10–15'),
+        ],
+      },
+      {
+        id: 'legs',
+        name: 'Legs',
+        subtitle: t('plan.ppl.legsSubtitle'),
+        exercises: [
+          planExercise('squat', 3, '8–12'),
+          planExercise('romanian-deadlift', 3, '8–12'),
+          planExercise('leg-curl', 3, '10–15'),
+          planExercise('leg-extension', 3, '12–15'),
+          planExercise('calf-raise', 3, '12–20'),
+          planExercise('leg-raise', 3, '10–15'),
+        ],
+      },
+    ],
+  };
+}

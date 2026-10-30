@@ -1,14 +1,15 @@
+import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
 import { navigate } from '../render.js';
 import { activePlan, getActive, getHistory, getSettings } from '../storage.js';
 import { confirmDialog } from '../ui.js';
-import { dayKey, doneSets, esc, fmtLong, plural, weekdayIndex } from '../util.js';
+import { doneSets, esc, fmtLong } from '../util.js';
 import { sessionStarted } from '../workout.js';
 import { empty } from './shell.js';
 
 const dayRow = (plan, d) =>
-  `<button type="button" class="row" data-start="${d.id}" data-plan="${plan.id}"><span class="row-main"><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'Übung', 'Übungen')}</small></span>${icon('chevron-right')}</button>`;
+  `<button type="button" class="row" data-start="${d.id}" data-plan="${plan.id}"><span class="row-main"><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'exercises')}</small></span>${icon('chevron-right')}</button>`;
 
 export function view() {
   const today = new Date();
@@ -25,28 +26,28 @@ export function view() {
   const resume = !!(activeDay?.exercises.length && sessionStarted(active));
   if (resume) {
     next = activeDay;
-    nextLabel = 'Begonnenes Training';
+    nextLabel = t('home.resumeLabel');
   }
   const nextCard = next
-    ? `<section class="next-card ${resume ? 'resume-card' : ''} ${next.exercises.length ? '' : 'empty-plan-card'}"><span class="next-label">${esc(next.exercises.length ? nextLabel : 'Plan vervollständigen')}</span><h2>${esc(next.name)}</h2><p>${
+    ? `<section class="next-card ${resume ? 'resume-card' : ''} ${next.exercises.length ? '' : 'empty-plan-card'}"><span class="next-label">${esc(next.exercises.length ? nextLabel : t('home.completePlan'))}</span><h2>${esc(next.name)}</h2><p>${
         resume
-          ? `${plural(doneSets(active), 'Satz', 'Sätze')} erledigt`
+          ? plural(doneSets(active), 'home.setsDone')
           : next.exercises.length
-            ? `${plural(next.exercises.length, 'Übung', 'Übungen')} · ${plural(setCount(next), 'Satz', 'Sätze')}`
-            : 'Wähle Übungen für diesen Tag aus.'
+            ? `${plural(next.exercises.length, 'exercises')} · ${plural(setCount(next), 'sets')}`
+            : t('home.pickExercises')
       }</p><button class="primary start-main" ${next.exercises.length ? `data-start="${next.id}" data-plan="${plan.id}"` : 'id="editActivePlan"'}>${
-        resume ? 'Fortsetzen' : next.exercises.length ? 'Training starten' : 'Übungen auswählen'
+        resume ? t('home.resume') : next.exercises.length ? t('home.start') : t('home.chooseExercises')
       }</button></section>`
-    : empty('Noch kein Training', 'Erstelle einen Plan, um loszulegen.');
+    : empty(t('home.emptyTitle'), t('home.emptyText'));
   const others = readyDays.filter((d) => d.id !== next?.id);
   const weekStrip = readyDays.length
-    ? `<section class="week" aria-label="Wochenziel"><div class="week-progress" role="progressbar" aria-label="Wochenziel" aria-valuenow="${stats.thisWeek}" aria-valuemax="${goal}"><i style="width:${Math.min(100, (stats.thisWeek / Math.max(1, goal)) * 100)}%"></i></div><div class="week-line"><span><b>${stats.thisWeek} von ${goal}</b> diese Woche</span>${stats.streak ? `<em>${plural(stats.streak, 'Woche', 'Wochen')} in Folge</em>` : ''}</div></section>`
+    ? `<section class="week" aria-label="${t('home.weeklyGoal')}"><div class="week-progress" role="progressbar" aria-label="${t('home.weeklyGoal')}" aria-valuenow="${stats.thisWeek}" aria-valuemax="${goal}"><i style="width:${Math.min(100, (stats.thisWeek / Math.max(1, goal)) * 100)}%"></i></div><div class="week-line"><span><b>${t('home.weekCount', { done: stats.thisWeek, goal })}</b> ${t('home.weekSuffix')}</span>${stats.streak ? `<em>${plural(stats.streak, 'home.streak')}</em>` : ''}</div></section>`
     : '';
   return `<main class="shell home-shell">
-    <section class="home-intro"><h1>Heute</h1><p>${fmtLong(today)}${plan ? ` · ${esc(plan.name)}` : ''}</p></section>
+    <section class="home-intro"><h1>${t('home.title')}</h1><p>${fmtLong(today)}${plan ? ` · ${esc(plan.name)}` : ''}</p></section>
     ${nextCard}
     ${weekStrip}
-    ${others.length ? `<section class="list-section"><h2>Weitere Einheiten</h2><div class="list">${others.map((d) => dayRow(plan, d)).join('')}</div></section>` : ''}
+    ${others.length ? `<section class="list-section"><h2>${t('home.otherSessions')}</h2><div class="list">${others.map((d) => dayRow(plan, d)).join('')}</div></section>` : ''}
   </main>`;
 }
 
@@ -62,9 +63,9 @@ export function bind() {
       const other = saved && (saved.planId !== b.dataset.plan || saved.dayId !== b.dataset.start);
       if (other && sessionStarted(saved)) {
         const ok = await confirmDialog({
-          title: 'Begonnenes Training verwerfen?',
-          text: `„${saved.dayName}“ ist noch offen. Die eingetragenen Sätze gehen verloren.`,
-          confirmLabel: 'Verwerfen und starten',
+          title: t('home.discardTitle'),
+          text: t('home.discardText', { name: saved.dayName }),
+          confirmLabel: t('home.discardConfirm'),
           danger: true,
         });
         if (!ok) return;

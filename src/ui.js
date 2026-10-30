@@ -1,4 +1,5 @@
 // In-app replacements for alert() and confirm(): a toast with optional undo, and a bottom-sheet confirmation.
+import { t } from './i18n.js';
 import { icon } from './icons.js';
 
 let current = null; // { el, timer, commit }
@@ -38,7 +39,7 @@ export function toast(message, { action, commit, duration = 5000 } = {}) {
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'toast-close';
-  close.setAttribute('aria-label', 'Schließen');
+  close.setAttribute('aria-label', t('common.close'));
   close.innerHTML = icon('close');
   close.onclick = () => dismissToast();
   el.append(close);
@@ -49,13 +50,13 @@ export function toast(message, { action, commit, duration = 5000 } = {}) {
 
 // Deletion with a way back: `undo` restores, `commit` finalises after the toast expired.
 export const undoToast = (message, undo, commit) =>
-  toast(message, { action: { label: 'Rückgängig', onClick: undo }, commit, duration: 6000 });
+  toast(message, { action: { label: t('common.undo'), onClick: undo }, commit, duration: 6000 });
 
 export function confirmDialog({
   title,
   text = '',
-  confirmLabel = 'OK',
-  cancelLabel = 'Abbrechen',
+  confirmLabel = t('common.ok'),
+  cancelLabel = t('common.cancel'),
   danger = false,
 }) {
   return new Promise((resolve) => {
@@ -106,10 +107,10 @@ export function confirmDialog({
 }
 
 export const infoDialog = (title, text) =>
-  confirmDialog({ title, text, confirmLabel: 'Verstanden', cancelLabel: null });
+  confirmDialog({ title, text, confirmLabel: t('common.understood'), cancelLabel: null });
 
 // Non-blocking bottom sheet with arbitrary content (an element, or trusted markup from the app's own templates).
-export function sheet({ title, content, closeLabel = 'Schließen' }) {
+export function sheet({ title, content, closeLabel = t('common.close') }) {
   const backdrop = document.createElement('div');
   backdrop.className = 'sheet-backdrop';
   backdrop.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="infoSheetTitle"><div class="sheet-head"><h2 id="infoSheetTitle"></h2><button type="button" class="icon-btn" data-close aria-label="${closeLabel}">${icon('close')}</button></div><div class="sheet-body"></div></div>`;

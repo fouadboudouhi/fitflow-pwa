@@ -1,11 +1,12 @@
 // Canvas line charts with crosshair tooltips, plus the aggregations the analytics screen shows.
-import { categoryOf } from './library.js';
+import { fmtNumber } from './i18n.js';
+import { groupOf } from './library.js';
 import { getBody, getHistory } from './storage.js';
 import { toDisplay, unit } from './units.js';
 import { dayKey, e1rm, exerciseKey, fmtDate, number, rangeCutoff, volumeOf } from './util.js';
 
 const token = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-const fmt = (value, suffix) => `${Math.round(value).toLocaleString('de-DE')}${suffix}`;
+const fmt = (value, suffix) => `${fmtNumber(Math.round(value))}${suffix}`;
 
 // Single-series line chart. Hover, touch and arrow keys move a crosshair; the tooltip shows value and date.
 export function lineChart(canvas, points, { color = token('--green'), suffix = '', fill = true } = {}) {
@@ -163,11 +164,11 @@ export function volumeByMuscle(history) {
         0
       );
       if (!volume) return;
-      const category = categoryOf(e);
-      totals.set(category, (totals.get(category) || 0) + volume);
+      const group = groupOf(e);
+      totals.set(group, (totals.get(group) || 0) + volume);
     })
   );
-  return [...totals].map(([category, volume]) => ({ category, volume })).sort((a, b) => b.volume - a.volume);
+  return [...totals].map(([group, volume]) => ({ group, volume })).sort((a, b) => b.volume - a.volume);
 }
 
 const weightPoints = (range) =>

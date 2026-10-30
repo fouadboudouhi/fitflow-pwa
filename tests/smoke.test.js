@@ -9,6 +9,7 @@ const { createServer } = require('./serve.js');
 const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 let server, browser, baseURL, context, page, errors;
+const SCHEMA = 5;
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64'
@@ -25,7 +26,7 @@ after(async () => {
   server?.close();
 });
 beforeEach(async () => {
-  context = await browser.newContext({ acceptDownloads: true });
+  context = await browser.newContext({ acceptDownloads: true, locale: 'de-DE' });
   page = await context.newPage();
   errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -197,17 +198,8 @@ test('a hostile backup is sanitised on import', async () => {
   const body = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-body-v2')));
   assert.equal(body[0].hasPhoto, false, 'remote photo URL dropped');
   const settings = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-settings-v2')));
-  assert.deepEqual(settings, {
-    theme: 'auto',
-    rest: 90,
-    increment: 2.5,
-    showRir: false,
-    restTimer: false,
-    restNotify: false,
-    unit: 'kg',
-    weeklyGoal: 0,
-    barWeight: 20,
-  });
+  const { DEFAULT_SETTINGS } = await import('../src/storage.js');
+  assert.deepEqual(settings, DEFAULT_SETTINGS);
   const history = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
   assert.equal(history.length, 1, 'session without a valid date dropped');
 });
@@ -295,7 +287,7 @@ test('legacy data is migrated: day keys, library ids and photos in IndexedDB', a
     history: JSON.parse(localStorage.getItem('volumora-history-v2')),
     body: JSON.parse(localStorage.getItem('volumora-body-v2')),
   }));
-  assert.equal(schema, 4);
+  assert.equal(schema, SCHEMA);
   assert.equal(history[0].day, '2026-03-10');
   assert.equal(history[0].entries[0].libraryId, '0025', 'history entry now points at the library exercise');
   assert.equal(body[0].day, '2026-03-09');
@@ -408,7 +400,7 @@ test('no serious accessibility violations', async () => {
 
 // Seeds two finished sessions so analytics, records and history have something to show.
 async function seedHistory() {
-  await page.evaluate(() => {
+  await page.evaluate((SCHEMA) => {
     const plans = JSON.parse(localStorage.getItem('volumora-plans-v2'));
     const day = plans.items[0].days[0];
     const ex = day.exercises[0];
@@ -447,8 +439,8 @@ async function seedHistory() {
       'volumora-history-v2',
       JSON.stringify([session('s-recent', key(recent), 50), session('s-old', key(old), 40)])
     );
-    localStorage.setItem('volumora-schema-version', '4');
-  });
+    localStorage.setItem('volumora-schema-version', String(SCHEMA));
+  }, SCHEMA);
   await page.reload();
   await page.waitForSelector('.next-card');
 }
@@ -589,4 +581,24 @@ test('touch targets in the workout are at least 44px on a phone', async () => {
     assert.ok(box && box.height >= 44, `${selector} is ${box?.height}px tall`);
     if (checkWidth) assert.ok(box.width >= 44, `${selector} is ${box.width}px wide`);
   }
+});
+
+test('the interface follows the device language and the language setting', async () => {
+  await context.close();
+  context = await browser.newContext({ locale: 'en-US' });
+  page = await context.newPage();
+  await page.goto(baseURL + '/');
+  await page.waitForSelector('.next-card');
+  assert.equal(await page.textContent('.home-intro h1'), 'Today');
+  assert.equal(await page.getAttribute('html', 'lang'), 'en');
+  assert.match(await page.textContent('.bottom-nav'), /History/);
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="settings"]');
+  await page.selectOption('select[name="language"]', 'de');
+  await page.waitForFunction(() => document.documentElement.lang === 'de');
+  await page.click('[data-nav="home"]');
+  assert.equal(await page.textContent('.home-intro h1'), 'Heute');
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  assert.equal(await page.textContent('.home-intro h1'), 'Heute', 'the setting survives a reload');
 });
