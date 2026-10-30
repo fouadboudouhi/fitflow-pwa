@@ -54,6 +54,15 @@ const NAV_FOR = {
 };
 const $app = document.querySelector('#app');
 
+// How a view arrives: deeper screens slide in from the right, going back slides in from the left, full-screen
+// flows (workout, editor, assistant) rise like a modal, a tab switch fades.
+const transitionClass = (from, to) => {
+  if (BARE.includes(to) && !BARE.includes(from)) return 'view-modal';
+  if (NAV_FOR[to] === from) return 'view-push';
+  if (NAV_FOR[from] === to) return 'view-pop';
+  return 'view-fade';
+};
+
 export function navigate(view, patch = {}, { replace = false } = {}) {
   Object.assign(state, patch);
   state.view = view;
@@ -75,7 +84,8 @@ export function redrawCharts() {
 
 export function render() {
   clearInterval(state.restTimer);
-  const viewChanged = state.lastRenderedView !== state.view;
+  const previous = state.lastRenderedView;
+  const viewChanged = previous !== state.view;
   state.lastRenderedView = state.view;
   if (viewChanged) window.scrollTo(0, 0);
   const module = VIEWS[state.view] || more;
@@ -95,7 +105,8 @@ export function render() {
       ? `[data-set-field="${active.dataset.setField}"][data-exercise="${active.dataset.exercise}"][data-index="${active.dataset.index}"]`
       : null;
   $app.innerHTML = topbar() + content + (bare ? '' : nav(NAV_FOR[state.view] || state.view));
-  if (viewChanged) $app.querySelector('main')?.classList.add('view-enter');
+  if (viewChanged)
+    $app.querySelector('main')?.classList.add('view-enter', transitionClass(previous, state.view));
   openDetails.forEach((id) => document.getElementById(id)?.setAttribute('open', ''));
   if (focusKey) document.querySelector(focusKey)?.focus({ preventScroll: true });
   bindShell();

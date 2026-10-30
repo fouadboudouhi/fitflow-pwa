@@ -1,4 +1,5 @@
 import { t, weekdayShort } from '../i18n.js';
+import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
 import { createSuggestedPlan, planSchedule, scheduleLabel } from '../plans.js';
 import { navigate, render } from '../render.js';
@@ -9,7 +10,7 @@ import { esc, number } from '../util.js';
 const progress = (step) =>
   `<div class="assistant-progress"><i class="active"></i><i class="${step >= 2 ? 'active' : ''}"></i><i class="${step >= 3 ? 'active' : ''}"></i><span>${t('wizard.step', { step })}</span></div>`;
 const head = (backAttr) =>
-  `<div class="backrow"><button class="back" ${backAttr} aria-label="${t('common.back')}">←</button><span>${t('wizard.title')}</span></div>`;
+  `<div class="backrow"><button class="back" ${backAttr} aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${t('wizard.title')}</span></div>`;
 const GOALS = [
   ['muscle', 'goal.muscle', 'goal.muscleHint'],
   ['strength', 'goal.strength', 'goal.strengthHint'],

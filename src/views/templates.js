@@ -19,7 +19,7 @@ const equipmentLabel = (key) => t(`equipmentChoice.${key}`);
 
 function preview(template) {
   const plan = (state.templatePreview ||= planFromTemplate(template.id));
-  return `<main class="shell narrow"><div class="backrow"><button class="back" id="templatesBack" aria-label="${t('common.back')}">←</button><span>${t('templates.title')}</span></div><section class="assistant-hero preview-head"><h1>${esc(plan.name)}</h1><p>${esc(templateDescription(template))}</p></section><div class="plan-preview">${plan.days
+  return `<main class="shell narrow"><div class="backrow"><button class="back" id="templatesBack" aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${t('templates.title')}</span></div><section class="assistant-hero preview-head"><h1>${esc(plan.name)}</h1><p>${esc(templateDescription(template))}</p></section><div class="plan-preview">${plan.days
     .map(
       (d, i) =>
         `<article><span>${i + 1}</span><div><h2>${esc(d.name)}</h2><p>${d.exercises.map((x) => esc(exerciseName(x))).join(' · ')}</p></div><b>${d.exercises.length}</b></article>`

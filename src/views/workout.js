@@ -96,7 +96,7 @@ export function view() {
   const list = exercises
     .map((ex, index) => exerciseSection(ex, index, session.entries[index], exercises, letters, showRir))
     .join('');
-  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="${t('workout.exit')}">←</button><div><h1>${esc(session.dayName)}</h1><b>${t('workout.progress', { done: completed, total })}</b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">${t('workout.finish')}</button></div></div>
+  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="${t('workout.exit')}">${icon('chevron-left')}</button><div><h1>${esc(session.dayName)}</h1><b>${t('workout.progress', { done: completed, total })}</b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">${t('workout.finish')}</button></div></div>
     <div class="progress-line" role="progressbar" aria-label="${t('workout.progressAria', { done: completed, total })}" aria-valuenow="${completed}" aria-valuemax="${Math.max(1, total)}"><i style="width:${total ? (completed / total) * 100 : 0}%"></i></div>
     <div class="workout-exercise-list">${list || `<div class="empty"><strong>${t('workout.emptyTitle')}</strong><p>${t('workout.emptyText')}</p></div>`}</div>
     <button type="button" class="choose-exercise" id="addSessionExercise">${icon('plus')}<b>${t('workout.addExercise')}</b></button>

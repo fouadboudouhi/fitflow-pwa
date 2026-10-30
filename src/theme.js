@@ -7,7 +7,7 @@ export function applyTheme() {
   document.documentElement.dataset.theme = theme;
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', theme === 'dark' ? '#0b0e0c' : '#f6f7f4');
+    ?.setAttribute('content', theme === 'dark' ? '#000000' : '#f2f2f7');
 }
 export function toggleTheme() {
   const settings = getSettings();
