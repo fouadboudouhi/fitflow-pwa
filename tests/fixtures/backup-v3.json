@@ -1,0 +1,101 @@
+{
+  "version": 3,
+  "exportedAt": "2026-10-20T10:00:00.000Z",
+  "plans": {
+    "activePlanId": "ppl-default",
+    "items": [
+      {
+        "id": "ppl-default",
+        "name": "Push · Pull · Legs",
+        "description": "Ausgewogener 3-Tage-Plan",
+        "createdAt": "2026-09-01T10:00:00.000Z",
+        "days": [
+          {
+            "id": "push",
+            "name": "Push",
+            "subtitle": "Brust · Trizeps · Schulter",
+            "exercises": [
+              {
+                "id": "x1",
+                "libraryId": "0025",
+                "name": "Bankdrücken mit Langhantel",
+                "sourceName": "barbell bench press",
+                "category": "Brust",
+                "equipment": "Langhantel",
+                "target": "pectorals",
+                "sets": 3,
+                "range": "8–12",
+                "gif": "https://raw.githubusercontent.com/YaKohen/exercises-dataset/main/videos/0025-EIeI8Vf.gif",
+                "note": "Langhantel",
+                "favorite": false
+              },
+              {
+                "id": "chest-press",
+                "name": "Brustpresse",
+                "sets": 3,
+                "range": "10–15",
+                "gif": "https://static.exercisedb.dev/media/DOoWcnA.gif",
+                "note": "Neutraler Griff · Ellbogen ca. 30–45°.",
+                "favorite": false
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "history": [
+    {
+      "id": "h1",
+      "planId": "ppl-default",
+      "planName": "Push · Pull · Legs",
+      "dayId": "push",
+      "dayName": "Push",
+      "startedAt": "2026-10-19T09:00:00.000Z",
+      "finishedAt": "2026-10-19T10:00:00.000Z",
+      "day": "2026-10-19",
+      "duration": 3600,
+      "totalSets": 3,
+      "volume": 960,
+      "markers": { "deload": false, "ill": false, "pain": false },
+      "entries": [
+        {
+          "exerciseId": "x1",
+          "libraryId": "0025",
+          "name": "Bankdrücken mit Langhantel",
+          "note": "",
+          "sets": [
+            { "weight": "40", "reps": "8", "rir": "", "done": true, "warmup": true },
+            { "weight": "60", "reps": "8", "rir": "2", "rpe": 8, "done": true, "warmup": false, "pr": true },
+            { "weight": "60", "reps": "8", "rir": "1", "rpe": 9, "done": true, "warmup": false }
+          ]
+        }
+      ]
+    }
+  ],
+  "body": [
+    {
+      "id": "b1",
+      "date": "2026-10-18T12:00:00.000Z",
+      "day": "2026-10-18",
+      "weight": 80.5,
+      "waist": "",
+      "chest": "",
+      "arm": "",
+      "thigh": "",
+      "photo": ""
+    }
+  ],
+  "settings": {
+    "theme": "auto",
+    "rest": 90,
+    "increment": 2.5,
+    "showRir": false,
+    "restTimer": true,
+    "restNotify": false,
+    "unit": "kg",
+    "weeklyGoal": 0,
+    "barWeight": 20
+  },
+  "exercisePrefs": { "favorites": ["0025"], "recent": ["0025"] }
+}

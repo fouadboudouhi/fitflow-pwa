@@ -1,9 +1,10 @@
 // Canvas line charts with crosshair tooltips, plus the aggregations the analytics screen shows.
-import { fmtNumber } from './i18n.js';
+import { fmtNumber, t } from './i18n.js';
 import { groupOf } from './library.js';
+import { setScore, trackTypeOf } from './sets.js';
 import { getBody, getHistory } from './storage.js';
 import { toDisplay, unit } from './units.js';
-import { dayKey, e1rm, exerciseKey, fmtDate, number, rangeCutoff, volumeOf } from './util.js';
+import { dayKey, exerciseKey, fmtDate, rangeCutoff, setVolume, volumeOf } from './util.js';
 
 const token = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const fmt = (value, suffix) => `${fmtNumber(Math.round(value))}${suffix}`;
@@ -159,10 +160,7 @@ export function volumeByMuscle(history) {
   const totals = new Map();
   history.forEach((h) =>
     h.entries?.forEach((e) => {
-      const volume = e.sets.reduce(
-        (s, set) => s + (set.warmup || !set.done ? 0 : number(set.weight) * number(set.reps)),
-        0
-      );
+      const volume = e.sets.reduce((s, set) => s + setVolume(set, e.trackType), 0);
       if (!volume) return;
       const group = groupOf(e);
       totals.set(group, (totals.get(group) || 0) + volume);
@@ -188,19 +186,30 @@ export function drawAnalytics(selectedKey, range) {
     })),
     { suffix: ` ${unit()}` }
   );
+  // Best score per session: estimated 1RM for weighted exercises, otherwise reps, seconds or kilometres.
+  let suffix = ` ${unit()}`;
   const strength = history
     .map((h) => {
       const e = h.entries?.find((x) => exerciseKey(x) === selectedKey);
-      const best = Math.max(
-        0,
-        ...(e?.sets || []).filter((s) => s.done && !s.warmup).map((s) => e1rm(s.weight, s.reps))
-      );
-      return best ? { label: fmtDate(h.day || h.finishedAt), value: Math.round(toDisplay(best)) } : null;
+      if (!e) return null;
+      const type = e.trackType || trackTypeOf(e);
+      const best = Math.max(0, ...e.sets.map((s) => setScore(s, type)));
+      if (!best) return null;
+      suffix =
+        type === 'weight_reps'
+          ? ` ${unit()}`
+          : type === 'reps'
+            ? ` ${t('workout.reps')}`
+            : type === 'time'
+              ? ' s'
+              : ' km';
+      const value = type === 'weight_reps' ? Math.round(toDisplay(best)) : Math.round(best * 100) / 100;
+      return { label: fmtDate(h.day || h.finishedAt), value };
     })
     .filter(Boolean);
   lineChart(document.querySelector('#strengthChart'), strength.slice(-16), {
     color: token('--orange'),
-    suffix: ` ${unit()}`,
+    suffix,
   });
   lineChart(document.querySelector('#weightChart'), weightPoints(range), {
     color: token('--blue'),

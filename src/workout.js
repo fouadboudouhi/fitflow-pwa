@@ -1,4 +1,5 @@
 // Session logic: creating, resuming and finishing a workout, progression suggestions, warm-up sets.
+import { newSetFor, setScore, trackTypeOf } from './sets.js';
 import {
   clearActive,
   findPlan,
@@ -10,16 +11,17 @@ import {
 } from './storage.js';
 import { libraryOf } from './library.js';
 import { roundToStep } from './units.js';
-import { dayKey, doneSets, e1rm, exerciseKey, number, rangeMax, uid, volumeOf } from './util.js';
+import { dayKey, doneSets, exerciseKey, isWorkSet, number, rangeMax, uid, volumeOf } from './util.js';
 
-const emptySet = (overrides = {}) => ({
-  weight: '',
-  reps: '',
-  rir: '',
-  done: false,
-  warmup: false,
-  ...overrides,
-});
+// What a new set inherits from the matching set of the last session: weight, time and distance, never reps.
+const carry = (set) =>
+  set
+    ? {
+        weight: set.weight ?? '',
+        ...(set.time !== undefined ? { time: set.time } : {}),
+        ...(set.distance !== undefined ? { distance: set.distance } : {}),
+      }
+    : {};
 
 // Newest history entry for the same library exercise, in any plan.
 export function previousEntry(ex) {
@@ -30,8 +32,9 @@ export function previousEntry(ex) {
   }
   return null;
 }
-export const workSets = (entry) => entry.sets.filter((s) => !s.warmup);
+export const workSets = (entry) => entry.sets.filter(isWorkSet);
 export const entryComplete = (entry) => workSets(entry).length > 0 && workSets(entry).every((s) => s.done);
+export const entryTrackType = (entry) => entry.trackType || trackTypeOf(entry);
 
 export function freshSession(planId, dayId) {
   const plan = findPlan(planId);
@@ -46,14 +49,16 @@ export function freshSession(planId, dayId) {
     startedAt: new Date().toISOString(),
     markers: { deload: false, ill: false, pain: false },
     entries: day.exercises.map((ex) => {
+      const trackType = trackTypeOf(ex);
       const previous = previousEntry(ex);
       const previousWork = previous ? workSets(previous) : [];
       return {
         exerciseId: ex.id,
         libraryId: ex.libraryId || undefined,
         name: ex.name,
+        trackType,
         note: '',
-        sets: Array.from({ length: ex.sets }, (_, i) => emptySet({ weight: previousWork[i]?.weight ?? '' })),
+        sets: Array.from({ length: ex.sets }, (_, i) => newSetFor(trackType, carry(previousWork[i]))),
       };
     }),
   };
@@ -69,6 +74,7 @@ export function syncSessionWithDay(session, day) {
     if (existing) {
       existing.name = ex.name;
       existing.libraryId = ex.libraryId || undefined;
+      existing.trackType ||= template.entries[i].trackType;
       return existing;
     }
     return template.entries[i];
@@ -96,10 +102,13 @@ export function mutateSession(planId, dayId, fn) {
 }
 export const sessionStarted = (session) => doneSets(session) > 0;
 
+// Progressive overload for weight × reps exercises: every working set hit the top of the range (with at least
+// one rep in reserve when RIR was logged) -> add the increment; otherwise repeat the weight and add reps.
 export function suggestion(ex) {
+  if (trackTypeOf(ex) !== 'weight_reps') return { kind: 'start', weight: null };
   const previous = previousEntry(ex);
   if (!previous) return { kind: 'start', weight: null };
-  const work = previous.sets.filter((s) => !s.warmup && s.done);
+  const work = previous.sets.filter((s) => isWorkSet(s) && s.done);
   const max = rangeMax(ex.range);
   const best = Math.max(...work.map((s) => number(s.weight)), 0);
   const hasRir = work.some((s) => s.rir !== '' && s.rir !== undefined);
@@ -120,10 +129,16 @@ export function warmupSets(target) {
     [0.6, 5],
     [0.8, 3],
   ].map(([factor, reps]) =>
-    emptySet({ weight: String(Math.round(roundToStep(target * factor) * 1000) / 1000), reps, warmup: true })
+    newSetFor('weight_reps', {
+      weight: String(Math.round(roundToStep(target * factor) * 1000) / 1000),
+      reps,
+      warmup: true,
+      type: 'warmup',
+    })
   );
 }
-export const newSet = (overrides) => emptySet(overrides);
+export const newSet = (trackType, overrides) => newSetFor(trackType, overrides);
+export { carry as carryFromSet };
 
 export function finishSession(session) {
   session.finishedAt = new Date().toISOString();
@@ -154,31 +169,26 @@ export function bestBefore(key, { excludeSessionId } = {}) {
     if (session.id === excludeSessionId) continue;
     for (const entry of session.entries || []) {
       if (exerciseKey(entry) !== key) continue;
+      const type = entryTrackType(entry);
       for (const s of entry.sets) {
-        if (s.warmup || !s.done) continue;
-        const w = number(s.weight);
-        const r = number(s.reps);
-        if (!w || !r) continue;
-        weight = Math.max(weight, w);
-        best = Math.max(best, e1rm(w, r));
+        const score = setScore(s, type);
+        if (!score) continue;
+        weight = Math.max(weight, number(s.weight));
+        best = Math.max(best, score);
       }
     }
   }
-  return { weight, e1rm: best };
+  return { weight, score: best, e1rm: best };
 }
 
-// A set is a personal record when its estimated 1RM beats every other completed set of the exercise,
-// in the history and in the current session.
+// A set is a personal record when its score (estimated 1RM, reps, time or distance) beats every other
+// completed set of the exercise, in the history and in the current session.
 export function isRecord(ex, set, entry) {
-  const w = number(set.weight);
-  const r = number(set.reps);
-  if (!w || !r || set.warmup) return false;
-  const value = e1rm(w, r);
-  const previous = bestBefore(exerciseKey(ex)).e1rm;
-  const inSession = Math.max(
-    0,
-    ...entry.sets.filter((s) => s !== set && s.done && !s.warmup).map((s) => e1rm(s.weight, s.reps))
-  );
+  const type = entry.trackType || trackTypeOf(ex);
+  const value = setScore(set, type);
+  if (!value) return false;
+  const previous = bestBefore(exerciseKey(ex)).score;
+  const inSession = Math.max(0, ...entry.sets.filter((s) => s !== set).map((s) => setScore(s, type)));
   return value > previous && value > inSession;
 }
 
@@ -188,13 +198,21 @@ export function exerciseHistory(key, limit = 5) {
   for (const session of getHistory()) {
     const entry = session.entries?.find((e) => exerciseKey(e) === key);
     if (!entry) continue;
-    const sets = entry.sets.filter((s) => !s.warmup && s.done && number(s.weight));
+    const type = entryTrackType(entry);
+    const sets = entry.sets.filter((s) => setScore(s, type) > 0);
     if (!sets.length) continue;
     rows.push({
       day: session.day || dayKey(session.finishedAt),
       dayName: session.dayName,
-      sets: sets.map((s) => ({ weight: number(s.weight), reps: number(s.reps), pr: !!s.pr })),
-      best: Math.max(...sets.map((s) => e1rm(s.weight, s.reps))),
+      trackType: type,
+      sets: sets.map((s) => ({
+        weight: number(s.weight),
+        reps: number(s.reps),
+        time: s.time ?? '',
+        distance: s.distance ?? '',
+        pr: !!s.pr,
+      })),
+      best: Math.max(...sets.map((s) => setScore(s, type))),
     });
     if (rows.length >= limit) break;
   }

@@ -100,11 +100,21 @@ export const BUILT_IN = Object.fromEntries([
   builtIn('leg-raise', 'waist', 'body weight', 'abs', DEMOS.raise),
 ]);
 
+// Exercises whose tracking differs from what category and equipment suggest: holds are timed, and a few
+// cardio moves count reps rather than distance.
+const trackOverride = (name) =>
+  /plank|hold|wall sit|l-sit|dead hang/.test(name)
+    ? 'time'
+    : /mountain climber|burpee|jumping jack|jump rope|high knee|skater/.test(name)
+      ? 'reps'
+      : undefined;
+
 export const EXERCISE_LIBRARY = EXERCISES.map((ex) => ({
   ...ex,
   sourceName: ex.name,
   name: titleCase(ex.name),
   group: groupOfBodyPart(ex.category),
+  trackType: trackOverride(ex.name),
   sets: 3,
   range: ex.category === 'waist' || ex.target === 'calves' ? '12–15' : '8–12',
   note: '',

@@ -127,6 +127,7 @@ test('backup validation coerces hostile input', () => {
     rpe: '',
     done: true,
     warmup: false,
+    type: 'normal',
   });
   assert.equal(backup.history[0].day, dayKey('2026-02-03T10:00:00Z'));
   assert.equal(backup.body[0].weight, '');
@@ -286,4 +287,63 @@ test('backup validation maps legacy German labels to keys and strips catalogue c
   assert.equal(a.sourceName, undefined);
   assert.equal(b.category, 'other');
   assert.equal(b.equipment, 'dumbbell');
+});
+
+test('set and exercise types: tracking, volume, completeness, scores and durations', async () => {
+  const { newSetFor, setComplete, setScore, setSetType, trackTypeOf, parseDuration, fmtDuration, shortSet } =
+    await import('../src/sets.js');
+  const { isWorkSet, setVolume, volumeOf: volume } = await import('../src/util.js');
+  setLanguage('de');
+  assert.equal(trackTypeOf({ libraryId: '0025' }), 'weight_reps');
+  assert.equal(trackTypeOf({ libraryId: '0662' }), 'reps', 'push-ups count reps');
+  assert.equal(trackTypeOf({ libraryId: '0630' }), 'reps', 'mountain climbers count reps, not distance');
+  assert.equal(trackTypeOf({ libraryId: '3544' }), 'time', 'planks are timed');
+  assert.equal(trackTypeOf({ exerciseId: 'leg-raise' }), 'reps', 'built-in bodyweight exercise');
+  assert.equal(
+    trackTypeOf({ id: 'c1', name: 'Rudern', custom: true, trackType: 'distance_time' }),
+    'distance_time'
+  );
+  const w = newSetFor('weight_reps', { weight: '60', reps: '8', done: true });
+  assert.equal(setVolume(w, 'weight_reps'), 480);
+  assert.ok(setScore(w, 'weight_reps') > 60);
+  const bw = newSetFor('reps', { reps: '12', done: true });
+  assert.equal(setComplete(bw, 'reps'), true);
+  assert.equal(setVolume(bw, 'reps'), 0);
+  assert.equal(setScore(bw, 'reps'), 12);
+  assert.equal(setComplete(newSetFor('weight_reps', { reps: '12', done: true }), 'weight_reps'), false);
+  const drop = setSetType(newSetFor('weight_reps', { weight: '40', reps: '10', done: true }), 'drop');
+  assert.equal(isWorkSet(drop), true);
+  assert.equal(drop.warmup, false);
+  const warm = setSetType({ weight: '20', reps: '5', done: true }, 'warmup');
+  assert.equal(warm.warmup, true);
+  assert.equal(setVolume(warm, 'weight_reps'), 0);
+  assert.equal(parseDuration('1:30'), '90');
+  assert.equal(parseDuration('90'), '90');
+  assert.equal(parseDuration('1:02:03'), '3723');
+  assert.equal(parseDuration(''), '');
+  assert.equal(fmtDuration(90), '1:30');
+  assert.equal(fmtDuration(3723), '1:02:03');
+  assert.equal(shortSet({ weight: '50', reps: '8' }, 'weight_reps'), '50×8');
+  assert.equal(shortSet({ reps: '12', weight: '' }, 'reps'), '12');
+  assert.equal(shortSet({ time: '90' }, 'time'), '1:30');
+  assert.equal(volume({ entries: [{ trackType: 'reps', sets: [bw] }, { sets: [w] }] }), 480);
+});
+
+test('a version-3 backup from the live site still restores', async () => {
+  const { readFileSync } = await import('node:fs');
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/backup-v3.json', import.meta.url), 'utf8'));
+  const backup = validateBackup(fixture);
+  assert.equal(backup.plans.items.length, 1);
+  const [library, builtIn] = backup.plans.items[0].days[0].exercises;
+  assert.equal(library.category, undefined, 'German labels are gone');
+  assert.equal(library.libraryId, '0025');
+  assert.equal(builtIn.name, 'Brustpresse');
+  const [warm, work] = backup.history[0].entries[0].sets;
+  assert.equal(warm.type, 'warmup');
+  assert.equal(work.type, 'normal');
+  assert.equal(work.pr, true);
+  assert.equal(backup.history[0].volume, 960);
+  assert.equal(backup.settings.language, 'auto');
+  assert.equal(backup.settings.restTimer, true);
+  assert.equal(backup.body[0].weight, 80.5);
 });

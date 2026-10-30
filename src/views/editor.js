@@ -11,6 +11,7 @@ import {
   scheduleSlots,
 } from '../plans.js';
 import { navigate, render } from '../render.js';
+import { TRACK_TYPES, trackTypeLabel } from '../sets.js';
 import { state } from '../state.js';
 import { allPlans, persistPlan, savePlans } from '../storage.js';
 import { actionSheet, toast, undoToast } from '../ui.js';
@@ -28,8 +29,8 @@ const exerciseRow = (ex, di, ei) =>
       ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="${t('editor.customName')}">`
       : `<h3>${esc(exerciseName(ex))}</h3>`
   }<div class="quick-fields"><label><span>${t('editor.sets')}</span><input data-prop="sets" type="number" min="1" max="12" value="${esc(ex.sets)}"></label><label><span>${t('editor.reps')}</span><input data-prop="range" value="${esc(ex.range)}"></label></div>${
-    detailsOpen(di, ei) || ex.rest || (ex.note && ex.custom)
-      ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label></div>`
+    detailsOpen(di, ei) || ex.rest || ex.trackType || (ex.note && ex.custom)
+      ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label><label><span>${t('editor.trackType')}</span><select data-prop="trackType"><option value="">${t('editor.trackDefault')}</option>${TRACK_TYPES.map((type) => `<option value="${type}" ${ex.trackType === type ? 'selected' : ''}>${esc(trackTypeLabel(type))}</option>`).join('')}</select></label></div>`
       : ''
   }</div><button type="button" class="icon-btn quiet" data-exercise-menu="${di}:${ei}" aria-label="${esc(t('exercise.more', { name: exerciseName(ex) }))}">${icon('more')}</button></article>`;
 
@@ -84,7 +85,10 @@ function collectPlan() {
       const ex = d.exercises[ei];
       row.querySelectorAll('[data-prop]').forEach((input) => {
         const prop = input.dataset.prop;
-        ex[prop] = prop === 'sets' || prop === 'rest' ? number(input.value) : input.value.trim();
+        if (prop === 'trackType') {
+          if (input.value) ex.trackType = input.value;
+          else delete ex.trackType;
+        } else ex[prop] = prop === 'sets' || prop === 'rest' ? number(input.value) : input.value.trim();
       });
     });
   });

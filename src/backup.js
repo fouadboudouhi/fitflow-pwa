@@ -18,10 +18,11 @@ import {
 } from './storage.js';
 import { LANGUAGES, t } from './i18n.js';
 import { exerciseName, normalizeLegacyExercise } from './library.js';
-import { dayKey, number, parseDate, uid, volumeOf } from './util.js';
+import { SET_TYPES, TRACK_TYPES } from './sets.js';
+import { dayKey, parseDate, setVolume, uid, volumeOf } from './util.js';
 
 // Format number of the export file; independent of the storage schema version.
-export const BACKUP_VERSION = 3;
+export const BACKUP_VERSION = 4;
 
 export function download(name, text, type) {
   const a = document.createElement('a');
@@ -51,11 +52,26 @@ export async function exportBackup() {
 }
 
 export function exportCsv() {
-  const rows = [
-    ['date', 'plan', 'workout', 'exercise', 'set', 'type', 'weight', 'reps', 'rir', 'rpe', 'volume'].map(
-      (k) => t(`csv.${k}`)
-    ),
+  const columns = [
+    'date',
+    'plan',
+    'workout',
+    'exercise',
+    'set',
+    'type',
+    'weight',
+    'reps',
+    'rir',
+    'rpe',
+    'volume',
+    'time',
+    'distance',
   ];
+  const rows = [columns.map((k) => t(`csv.${k}`))];
+  const typeLabel = (set) => {
+    const type = SET_TYPES.includes(set.type) ? set.type : set.warmup ? 'warmup' : 'normal';
+    return t(type === 'normal' ? 'csv.work' : `csv.${type}`);
+  };
   getHistory().forEach((h) =>
     h.entries.forEach((e) =>
       e.sets.forEach((s, i) =>
@@ -65,12 +81,14 @@ export function exportCsv() {
           h.dayName,
           exerciseName(e),
           i + 1,
-          s.warmup ? t('csv.warmup') : t('csv.work'),
+          typeLabel(s),
           s.weight,
           s.reps,
           s.rir,
           s.rpe,
-          number(s.weight) * number(s.reps),
+          setVolume({ ...s, done: true }, e.trackType),
+          s.time ?? '',
+          s.distance ?? '',
         ])
       )
     )
@@ -99,15 +117,23 @@ const asDate = (v) => parseDate(v)?.toISOString() || null;
 const asUrl = (v) => (typeof v === 'string' && /^https:\/\//.test(v) ? v.slice(0, 500) : '');
 const asPhoto = (v) =>
   typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : '';
-const asSet = (s) => ({
-  weight: asField(s?.weight),
-  reps: asField(s?.reps),
-  rir: asField(s?.rir),
-  rpe: asField(s?.rpe),
-  done: !!s?.done,
-  warmup: !!s?.warmup,
-  ...(s?.pr ? { pr: true } : {}),
-});
+const asSet = (s) => {
+  const type = SET_TYPES.includes(s?.type) ? s.type : s?.warmup ? 'warmup' : 'normal';
+  const time = asField(s?.time);
+  const distance = asField(s?.distance);
+  return {
+    weight: asField(s?.weight),
+    reps: asField(s?.reps),
+    rir: asField(s?.rir),
+    rpe: asField(s?.rpe),
+    done: !!s?.done,
+    warmup: type === 'warmup',
+    type,
+    ...(time ? { time } : {}),
+    ...(distance ? { distance } : {}),
+    ...(s?.pr ? { pr: true } : {}),
+  };
+};
 const asExercise = (ex) =>
   normalizeLegacyExercise({
     id: asStr(ex?.id) || uid(),
@@ -122,6 +148,7 @@ const asExercise = (ex) =>
     rest: asNum(ex?.rest, 0, 0, 600) || undefined,
     gif: asUrl(ex?.gif),
     note: asStr(ex?.note, 300),
+    ...(TRACK_TYPES.includes(ex?.trackType) ? { trackType: ex.trackType } : {}),
     custom: ex?.custom ? true : undefined,
   });
 
@@ -175,6 +202,7 @@ export function validateBackup(data) {
           libraryId: asStr(e?.libraryId) || undefined,
           name: asStr(e?.name, 80) || t('exercise.fallback'),
           note: asStr(e?.note, 500),
+          ...(TRACK_TYPES.includes(e?.trackType) ? { trackType: e.trackType } : {}),
           sets: (Array.isArray(e?.sets) ? e.sets : []).map(asSet),
         })),
       };

@@ -2,17 +2,30 @@
 import { plural, t } from '../i18n.js';
 import { exerciseName } from '../library.js';
 import { navigate, render } from '../render.js';
+import { parseDuration, setType, setTypeMark } from '../sets.js';
 import { state } from '../state.js';
 import { getHistory } from '../storage.js';
 import { toast, undoToast } from '../ui.js';
-import { fieldValue, fmtVolume, fromDisplay, unit } from '../units.js';
-import { clone, esc, fmtLong, number } from '../util.js';
-import { deleteSession, restoreSession, saveEditedSession } from '../workout.js';
+import { fmtVolume, fromDisplay } from '../units.js';
+import { clone, esc, fmtLong, isWorkSet, number } from '../util.js';
+import { deleteSession, entryTrackType, restoreSession, saveEditedSession } from '../workout.js';
 import * as analytics from './analytics.js';
+import { fieldDisplay, setColumns } from './setRow.js';
 import { backRow } from './shell.js';
 
-const setRow = (set, si, ei, showRir) =>
-  `<div class="edit-set ${set.done ? 'done' : ''} ${set.warmup ? 'warmup' : ''}"><span class="set-label"><b>${set.warmup ? 'W' : si + 1}</b>${set.pr ? `<i class="pr-chip">${t('workout.pr')}</i>` : ''}</span><input type="number" inputmode="decimal" step="0.5" min="0" aria-label="${t('session.weight')}" data-edit="weight" data-e="${ei}" data-s="${si}" value="${esc(fieldValue(set.weight))}"><input type="number" inputmode="numeric" min="0" aria-label="${t('session.reps')}" data-edit="reps" data-e="${ei}" data-s="${si}" value="${esc(set.reps)}">${showRir ? `<input type="number" inputmode="numeric" min="0" max="10" aria-label="${t('workout.rir')}" data-edit="rir" data-e="${ei}" data-s="${si}" value="${esc(set.rir)}">` : ''}<label class="edit-done"><input type="checkbox" data-edit="done" data-e="${ei}" data-s="${si}" ${set.done ? 'checked' : ''}><span>${t('session.done')}</span></label></div>`;
+const input = (name, label, attrs, set, ei, si) =>
+  `<input type="${name === 'time' ? 'text' : 'number'}" ${attrs} aria-label="${esc(label)}" data-edit="${name}" data-e="${ei}" data-s="${si}" value="${esc(fieldDisplay(name, set))}">`;
+
+const setRow = (set, si, ei, showRir, trackType, workNumber) => {
+  const type = setType(set);
+  return `<div class="edit-set ${set.done ? 'done' : ''} ${type !== 'normal' ? type : ''}"><span class="set-label"><b>${setTypeMark(set) || workNumber}</b>${set.pr ? `<i class="pr-chip">${t('workout.pr')}</i>` : ''}</span>${setColumns(
+    trackType
+  )
+    .map(([name, label, attrs]) => input(name, label, attrs, set, ei, si))
+    .join(
+      ''
+    )}${showRir ? input('rir', t('workout.rir'), 'inputmode="numeric" min="0" max="10"', set, ei, si) : ''}<label class="edit-done"><input type="checkbox" data-edit="done" data-e="${ei}" data-s="${si}" ${set.done ? 'checked' : ''}><span>${t('session.done')}</span></label></div>`;
+};
 
 export function view() {
   const session = getHistory().find((h) => h.id === state.sessionId);
@@ -32,10 +45,18 @@ export function view() {
     <div class="stat-row"><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div></div>
     ${markers.length || records ? `<div class="chip-row">${markers.map((m) => `<span class="chip">${m}</span>`).join('')}${records ? `<span class="chip chip-green">${plural(records, 'records')}</span>` : ''}</div>` : ''}
     <form id="sessionForm" class="session-edit">${session.entries
-      .map(
-        (e, ei) =>
-          `<section class="edit-exercise"><h2>${esc(exerciseName(e))}</h2><div class="edit-head"><span>${t('workout.set')}</span><span>${unit()}</span><span>${t('workout.reps')}</span>${showRir ? `<span>${t('workout.rir')}</span>` : ''}<span></span></div>${e.sets.map((s, si) => setRow(s, si, ei, showRir)).join('')}${e.note ? `<p class="coach-note">${esc(e.note)}</p>` : ''}</section>`
-      )
+      .map((e, ei) => {
+        const trackType = entryTrackType(e);
+        return `<section class="edit-exercise"><h2>${esc(exerciseName(e))}</h2><div class="edit-head"><span>${t('workout.set')}</span>${setColumns(
+          trackType
+        )
+          .map(([, label]) => `<span>${esc(label)}</span>`)
+          .join('')}${showRir ? `<span>${t('workout.rir')}</span>` : ''}<span></span></div>${e.sets
+          .map((s, si) =>
+            setRow(s, si, ei, showRir, trackType, e.sets.slice(0, si).filter(isWorkSet).length + 1)
+          )
+          .join('')}${e.note ? `<p class="coach-note">${esc(e.note)}</p>` : ''}</section>`;
+      })
       .join('')}
     <div class="editor-footer"><button type="button" class="secondary danger" id="deleteSession">${t('common.delete')}</button><button class="primary" type="submit">${t('common.save')}</button></div></form></main>`;
 }
@@ -45,15 +66,18 @@ export function bind() {
     e.preventDefault();
     const session = clone(getHistory().find((h) => h.id === state.sessionId));
     if (!session) return;
-    document.querySelectorAll('[data-edit]').forEach((input) => {
-      const set = session.entries[number(input.dataset.e)]?.sets[number(input.dataset.s)];
+    document.querySelectorAll('[data-edit]').forEach((field) => {
+      const set = session.entries[number(field.dataset.e)]?.sets[number(field.dataset.s)];
       if (!set) return;
-      set[input.dataset.edit] =
-        input.type === 'checkbox'
-          ? input.checked
-          : input.dataset.edit === 'weight'
-            ? fromDisplay(input.value)
-            : input.value;
+      const name = field.dataset.edit;
+      set[name] =
+        field.type === 'checkbox'
+          ? field.checked
+          : name === 'weight'
+            ? fromDisplay(field.value)
+            : name === 'time'
+              ? parseDuration(field.value)
+              : field.value;
     });
     saveEditedSession(session);
     render();

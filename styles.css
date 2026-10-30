@@ -3182,3 +3182,36 @@ label.row {
     height: 44px;
   }
 }
+
+/* Set types and exercise types */
+.set-card .set-label {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.set-card .set-label span {
+  font-size: 10px;
+}
+.set-card input[type='text'],
+.edit-set input[type='text'] {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  font-weight: 800;
+  height: 44px;
+  padding: 6px 3px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--cloud);
+  font-size: 16px;
+}
+.edit-set input[type='text'] {
+  height: 40px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 14px;
+}
