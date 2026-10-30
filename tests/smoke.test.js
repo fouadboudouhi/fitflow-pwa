@@ -1006,3 +1006,19 @@ test('editor: drag to reorder, duplicate a day, move an exercise to another day'
   assert.equal(plans.items[0].days[3].exercises.length, 4);
   assert.equal(plans.items[0].days[1].exercises.length, 6);
 });
+
+test('analytics: sets per week with a four-week toggle, weekly charts and the record timeline', async () => {
+  await seedHistory();
+  await page.click('[data-nav="analytics"]');
+  await page.waitForSelector('.weekly-sets');
+  assert.match(await page.textContent('.weekly-sets'), /Brust/);
+  assert.match(await page.textContent('.weekly-sets .bar-row b'), /^2$/);
+  await page.click('[data-week-mode="avg"]');
+  await page.waitForSelector('[data-week-mode="avg"].active');
+  assert.match(await page.textContent('.weekly-sets .bar-row b'), /0,5/);
+  assert.ok(await page.locator('#weeklyVolumeChart').evaluate((c) => c.width > 0));
+  assert.ok(await page.locator('#frequencyChart').evaluate((c) => c.width > 0));
+  await page.click('[data-range="all"]');
+  await page.waitForSelector('[data-session-record] .chip-green');
+  assert.match(await page.textContent('[data-session-record] .chip-green'), /Bestwert/);
+});

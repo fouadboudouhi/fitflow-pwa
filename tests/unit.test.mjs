@@ -548,3 +548,53 @@ test('editor helpers: duplicate a day, move an exercise to another day, reorder'
   reorderExercises(plan.days[0], [0]);
   assert.equal(plan.days[0].exercises.length, 2, 'a wrong-sized order is ignored');
 });
+
+test('weekly stats: sets per group, weekly volume, frequency, record timeline, body vs strength', async () => {
+  const { weeklySets, weeklyVolume, frequency, recordTimeline, strengthVsBodyweight, startOfWeek } =
+    await import('../src/stats.js');
+  const today = new Date(2026, 9, 29, 12); // Thursday
+  const key = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const monday = startOfWeek(today);
+  const thisWeek = key(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 1));
+  const lastWeek = key(new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 6));
+  const session = (id, day, weight, pr = false) => ({
+    id,
+    day,
+    finishedAt: `${day}T10:00:00.000Z`,
+    dayName: 'Push',
+    volume: weight * 8 * 2,
+    entries: [
+      {
+        exerciseId: 'x',
+        libraryId: '0025',
+        name: 'Bank',
+        trackType: 'weight_reps',
+        sets: [
+          { weight: String(weight), reps: '8', done: true, type: 'normal', pr },
+          { weight: String(weight), reps: '8', done: true, type: 'normal' },
+        ],
+      },
+    ],
+  });
+  const history = [session('a', thisWeek, 60, true), session('b', lastWeek, 50), session('c', lastWeek, 50)];
+  assert.deepEqual(weeklySets(history, { weeks: 1, today }), [{ group: 'chest', sets: 2 }]);
+  assert.deepEqual(weeklySets(history, { weeks: 4, today }), [{ group: 'chest', sets: 1.5 }]);
+  const volume = weeklyVolume(history, 3, today);
+  assert.equal(volume.length, 3);
+  assert.deepEqual(
+    volume.map((p) => p.value),
+    [0, 1600, 960]
+  );
+  assert.deepEqual(
+    frequency(history, 3, today).map((p) => p.value),
+    [0, 2, 1]
+  );
+  const timeline = recordTimeline(history);
+  assert.equal(timeline.length, 1);
+  assert.equal(timeline[0].count, 1);
+  const combo = strengthVsBodyweight(history, [{ day: thisWeek, weight: 80 }], '0025');
+  assert.equal(combo.points.length, 3);
+  assert.equal(combo.weight[2].value, 80, 'the measurement two days earlier counts');
+  assert.equal(combo.weight[0].value, 80, 'a measurement within ten days counts for earlier sessions too');
+});

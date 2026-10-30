@@ -11,6 +11,7 @@ export const state = {
   assistantPreview: null,
   analyticsExercise: null,
   analyticsRange: '3m',
+  analyticsWeekMode: 'week',
   sessionId: null,
   openNotes: null,
   editorDetails: null,
