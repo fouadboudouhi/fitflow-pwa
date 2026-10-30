@@ -1,6 +1,15 @@
 // Plan editor with the exercise library dialog. Secondary actions live in "⋯" menus.
+import { plural, t, weekdayShort } from '../i18n.js';
 import { icon } from '../icons.js';
-import { CATEGORIES, CATEGORY_BY_ID, EXERCISE_LIBRARY, libraryExercise } from '../library.js';
+import {
+  EXERCISE_LIBRARY,
+  GROUPS,
+  equipmentLabel,
+  exerciseName,
+  groupLabel,
+  libraryExercise,
+  muscleLabel,
+} from '../library.js';
 import {
   addDay,
   customExercise,
@@ -13,22 +22,23 @@ import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { allPlans, getPrefs, persistPlan, savePlans, savePrefs } from '../storage.js';
 import { actionSheet, toast, undoToast } from '../ui.js';
-import { WEEKDAYS, esc, number, plural } from '../util.js';
+import { esc, number } from '../util.js';
 import { empty } from './shell.js';
 import * as plansView from './plans.js';
 
 const detailsOpen = (di, ei) => state.editorDetails?.has(`${di}:${ei}`);
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
 const exerciseRow = (ex, di, ei) =>
   `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : '<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${
     ex.custom
-      ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="Name der eigenen Übung">`
-      : `<h3>${esc(ex.name)}</h3>`
-  }<div class="quick-fields"><label><span>Sätze</span><input data-prop="sets" type="number" min="1" max="12" value="${esc(ex.sets)}"></label><label><span>Wdh.</span><input data-prop="range" value="${esc(ex.range)}"></label></div>${
+      ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="${t('editor.customName')}">`
+      : `<h3>${esc(exerciseName(ex))}</h3>`
+  }<div class="quick-fields"><label><span>${t('editor.sets')}</span><input data-prop="sets" type="number" min="1" max="12" value="${esc(ex.sets)}"></label><label><span>${t('editor.reps')}</span><input data-prop="range" value="${esc(ex.range)}"></label></div>${
     detailsOpen(di, ei) || ex.rest || (ex.note && ex.custom)
-      ? `<div class="detail-fields"><label><span>Pause (Sek.)</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="Standard"></label><label><span>Hinweis</span><input data-prop="note" value="${esc(ex.note || '')}"></label></div>`
+      ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label></div>`
       : ''
-  }</div><button type="button" class="icon-btn quiet" data-exercise-menu="${di}:${ei}" aria-label="Mehr zu ${esc(ex.name)}">${icon('more')}</button></article>`;
+  }</div><button type="button" class="icon-btn quiet" data-exercise-menu="${di}:${ei}" aria-label="${esc(t('exercise.more', { name: exerciseName(ex) }))}">${icon('more')}</button></article>`;
 
 function libraryDialog(plan) {
   const day = plan.days[state.libraryDayIndex];
@@ -42,12 +52,14 @@ function libraryDialog(plan) {
     .map((ex) => {
       const added = !replacing && day?.exercises.some((x) => (x.libraryId || x.id) === ex.id);
       const favorite = prefs.favorites.includes(ex.id);
+      const name = exerciseName(ex);
       const search =
-        `${ex.name} ${ex.sourceName || ''} ${ex.category} ${ex.equipment || ''} ${ex.target || ''}`.toLowerCase();
-      return `<article class="library-item" data-category="${esc(ex.category)}" data-search="${esc(search)}"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><div><h3>${esc(ex.name)}</h3><span>${esc(ex.category)} · ${esc(ex.equipment || '')}</span></div><div class="library-actions"><button class="star ${favorite ? 'active' : ''}" data-library-favorite="${ex.id}" aria-label="Favorit" aria-pressed="${favorite}">★</button><button class="${added ? 'added' : ''}" data-pick-exercise="${ex.id}" ${added ? 'disabled' : ''} aria-label="${added ? 'Bereits im Plan' : 'Übung hinzufügen'}">${added ? '✓' : '＋'}</button></div></article>`;
+        `${name} ${ex.sourceName || ''} ${groupLabel(ex.group)} ${equipmentLabel(ex.equipment)} ${muscleLabel(ex.target)} ${ex.equipment || ''} ${ex.target || ''}`.toLowerCase();
+      return `<article class="library-item" data-category="${esc(ex.group)}" data-search="${esc(search)}"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><div><h3>${esc(name)}</h3><span>${esc(groupLabel(ex.group))} · ${esc(equipmentLabel(ex.equipment))}</span></div><div class="library-actions"><button class="star ${favorite ? 'active' : ''}" data-library-favorite="${ex.id}" aria-label="${t('picker.favorite')}" aria-pressed="${favorite}">★</button><button class="${added ? 'added' : ''}" data-pick-exercise="${ex.id}" ${added ? 'disabled' : ''} aria-label="${added ? t('picker.added') : t('picker.add')}">${added ? '✓' : '＋'}</button></div></article>`;
     })
     .join('');
-  return `<div class="library-backdrop"><section class="exercise-library" role="dialog" aria-modal="true" aria-label="Übung auswählen"><div class="library-head"><div><h2>${replacing ? 'Übung ersetzen' : 'Übung auswählen'}</h2><p class="muted">${replacing ? 'Ersatz wählen' : esc(day?.name || 'Trainingstag')} · ${EXERCISE_LIBRARY.length} Übungen</p></div><button class="icon-btn" id="closeLibrary" aria-label="Schließen">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="Name, Muskel oder Gerät …" autocomplete="off" value="${esc(state.libraryQuery || '')}"></label><div class="category-chips">${CATEGORIES.map((c) => `<button class="${state.libraryCategory === c ? 'active' : ''}" data-library-category="${c}" aria-pressed="${state.libraryCategory === c}">${c}</button>`).join('')}</div><div class="library-list">${items}</div><button class="custom-exercise-button" id="addCustomExercise">Eigene Übung ohne Animation</button><button class="primary full library-done" id="closeLibraryBottom">Fertig</button></section></div>`;
+  const chips = ['all', ...GROUPS];
+  return `<div class="library-backdrop"><section class="exercise-library" role="dialog" aria-modal="true" aria-label="${t('picker.title')}"><div class="library-head"><div><h2>${replacing ? t('picker.replaceTitle') : t('picker.title')}</h2><p class="muted">${replacing ? t('picker.replaceHint') : esc(day?.name || t('day.fallback'))} · ${plural(EXERCISE_LIBRARY.length, 'exercises')}</p></div><button class="icon-btn" id="closeLibrary" aria-label="${t('common.close')}">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="${t('picker.search')}" autocomplete="off" value="${esc(state.libraryQuery || '')}"></label><div class="category-chips">${chips.map((c) => `<button class="${state.libraryCategory === c ? 'active' : ''}" data-library-category="${c}" aria-pressed="${state.libraryCategory === c}">${esc(groupLabel(c))}</button>`).join('')}</div><div class="library-list">${items}</div><button class="custom-exercise-button" id="addCustomExercise">${t('picker.custom')}</button><button class="primary full library-done" id="closeLibraryBottom">${t('common.done')}</button></section></div>`;
 }
 
 export function view() {
@@ -63,27 +75,27 @@ export function view() {
   const scheduleDays = p.days
     .map(
       (day, i) =>
-        `<label><span>${esc(day.name)}</span><select data-schedule-day="${day.id}">${WEEKDAYS.map((name, weekday) => `<option value="${weekday}" ${(schedule.assignments?.[day.id] ?? scheduleSlots(p.days.length)[i]) === weekday ? 'selected' : ''}>${name}</option>`).join('')}</select></label>`
+        `<label><span>${esc(day.name)}</span><select data-schedule-day="${day.id}">${WEEKDAYS.map((weekday) => `<option value="${weekday}" ${(schedule.assignments?.[day.id] ?? scheduleSlots(p.days.length)[i]) === weekday ? 'selected' : ''}>${weekdayShort(weekday)}</option>`).join('')}</select></label>`
     )
     .join('');
-  return `<main class="shell simple-editor"><div class="backrow"><button class="back" data-nav="plans" aria-label="Zurück">←</button><h1>Plan bearbeiten</h1><button type="button" class="icon-btn quiet backrow-action" id="planMenu" aria-label="Mehr zu diesem Plan">${icon('more')}</button></div>
-    <section class="simple-plan-head"><label><span>Name des Plans</span><input id="planName" value="${esc(p.name)}" maxlength="60"></label><input id="planDescription" type="hidden" value="${esc(p.description || '')}"></section>
-    <section class="schedule-editor"><div class="schedule-mode"><label><input type="radio" name="planScheduleMode" value="flexible" ${schedule.mode !== 'fixed' ? 'checked' : ''}> Flexible Reihenfolge</label><label><input type="radio" name="planScheduleMode" value="fixed" ${schedule.mode === 'fixed' ? 'checked' : ''}> Feste Wochentage</label></div><div class="schedule-days" id="scheduleDays" ${schedule.mode === 'fixed' ? '' : 'hidden'}>${scheduleDays}</div></section>
-    <div class="editor-day-tabs">${p.days.map((day, i) => `<button class="${i === di ? 'active' : ''}" data-editor-day="${i}" aria-pressed="${i === di}"><span>${i + 1}</span>${esc(day.name)}</button>`).join('')}<button type="button" class="add-day" id="addDay" aria-label="Neuer Trainingstag">${icon('plus')}</button></div>
+  return `<main class="shell simple-editor"><div class="backrow"><button class="back" data-nav="plans" aria-label="${t('common.back')}">←</button><h1>${t('editor.title')}</h1><button type="button" class="icon-btn quiet backrow-action" id="planMenu" aria-label="${t('editor.planMenu')}">${icon('more')}</button></div>
+    <section class="simple-plan-head"><label><span>${t('editor.planName')}</span><input id="planName" value="${esc(p.name)}" maxlength="60"></label><input id="planDescription" type="hidden" value="${esc(p.description || '')}"></section>
+    <section class="schedule-editor"><div class="schedule-mode"><label><input type="radio" name="planScheduleMode" value="flexible" ${schedule.mode !== 'fixed' ? 'checked' : ''}> ${t('schedule.flexible')}</label><label><input type="radio" name="planScheduleMode" value="fixed" ${schedule.mode === 'fixed' ? 'checked' : ''}> ${t('schedule.fixedDays')}</label></div><div class="schedule-days" id="scheduleDays" ${schedule.mode === 'fixed' ? '' : 'hidden'}>${scheduleDays}</div></section>
+    <div class="editor-day-tabs">${p.days.map((day, i) => `<button class="${i === di ? 'active' : ''}" data-editor-day="${i}" aria-pressed="${i === di}"><span>${i + 1}</span>${esc(day.name)}</button>`).join('')}<button type="button" class="add-day" id="addDay" aria-label="${t('editor.newDay')}">${icon('plus')}</button></div>
     ${
       d
-        ? `<div class="editor-days"><section class="editor-day" data-day-index="${di}"><div class="simple-day-head"><input class="day-name" value="${esc(d.name)}" aria-label="Name des Trainingstags"><button class="icon-btn quiet" data-remove-day="${di}" aria-label="Trainingstag löschen">${icon('close')}</button></div>
-      <div class="editor-exercises">${d.exercises.length ? d.exercises.map((ex, ei) => exerciseRow(ex, di, ei)).join('') : empty('Noch keine Übungen', 'Wähle Übungen aus der Bibliothek aus.')}</div><button class="choose-exercise" data-add-exercise="${di}">${icon('plus')}<b>Übung hinzufügen</b></button></section></div>`
+        ? `<div class="editor-days"><section class="editor-day" data-day-index="${di}"><div class="simple-day-head"><input class="day-name" value="${esc(d.name)}" aria-label="${t('editor.dayName')}"><button class="icon-btn quiet" data-remove-day="${di}" aria-label="${t('editor.removeDay')}">${icon('close')}</button></div>
+      <div class="editor-exercises">${d.exercises.length ? d.exercises.map((ex, ei) => exerciseRow(ex, di, ei)).join('') : empty(t('editor.noExercisesTitle'), t('editor.noExercisesText'))}</div><button class="choose-exercise" data-add-exercise="${di}">${icon('plus')}<b>${t('editor.addExercise')}</b></button></section></div>`
         : ''
     }
-    <div class="editor-footer"><span>${plural(p.days.length, 'Trainingstag', 'Trainingstage')}</span><button class="primary" id="savePlan">Fertig</button></div></main>${state.libraryDayIndex !== null ? libraryDialog(p) : ''}`;
+    <div class="editor-footer"><span>${plural(p.days.length, 'trainingDays')}</span><button class="primary" id="savePlan">${t('common.done')}</button></div></main>${state.libraryDayIndex !== null ? libraryDialog(p) : ''}`;
 }
 
 // Reads the editor form back into the plan and persists it.
 function collectPlan() {
   const data = allPlans();
   const p = data.items.find((x) => x.id === state.editPlanId);
-  p.name = document.querySelector('#planName').value.trim() || 'Mein Trainingsplan';
+  p.name = document.querySelector('#planName').value.trim() || t('plan.defaultName');
   p.description = document.querySelector('#planDescription').value.trim();
   const assignments = {};
   document.querySelectorAll('[data-schedule-day]').forEach((x) => {
@@ -96,7 +108,7 @@ function collectPlan() {
   document.querySelectorAll('.editor-day').forEach((el) => {
     const di = number(el.dataset.dayIndex);
     const d = p.days[di];
-    d.name = el.querySelector('.day-name').value.trim() || `Tag ${di + 1}`;
+    d.name = el.querySelector('.day-name').value.trim() || t('day.nth', { n: di + 1 });
     el.querySelectorAll('.plan-exercise-row').forEach((row, ei) => {
       const ex = d.exercises[ei];
       row.querySelectorAll('[data-prop]').forEach((input) => {
@@ -114,7 +126,7 @@ const openLibrary = (dayIndex, replaceIndex) => {
   Object.assign(state, {
     libraryDayIndex: dayIndex,
     replaceExerciseIndex: replaceIndex,
-    libraryCategory: 'Alle',
+    libraryCategory: 'all',
     libraryQuery: '',
   });
   render();
@@ -137,7 +149,7 @@ function bindLibrary() {
     const q = (state.libraryQuery || '').toLowerCase().trim();
     document.querySelectorAll('.library-item').forEach((card) => {
       card.hidden =
-        (state.libraryCategory !== 'Alle' && card.dataset.category !== state.libraryCategory) ||
+        (state.libraryCategory !== 'all' && card.dataset.category !== state.libraryCategory) ||
         !card.dataset.search.includes(q);
     });
   };
@@ -224,17 +236,17 @@ function bindPlanMenu() {
     const active = data.activePlanId === p.id;
     actionSheet(p.name, [
       !active && {
-        label: 'Als aktiven Plan verwenden',
+        label: t('editor.useActive'),
         onClick: () => {
           const d = allPlans();
           d.activePlanId = p.id;
           savePlans(d);
           render();
-          toast('Plan ist jetzt aktiv');
+          toast(t('editor.nowActive'));
         },
       },
       {
-        label: 'Duplizieren',
+        label: t('editor.duplicate'),
         onClick: () => {
           const d = allPlans();
           const copy = duplicatePlan(collectPlan());
@@ -244,7 +256,7 @@ function bindPlanMenu() {
         },
       },
       data.items.length > 1 && {
-        label: 'Plan löschen',
+        label: t('editor.deletePlan'),
         danger: true,
         onClick: () => {
           const d = allPlans();
@@ -254,7 +266,7 @@ function bindPlanMenu() {
           if (wasActive) d.activePlanId = d.items[0].id;
           savePlans(d);
           navigate('plans');
-          undoToast(`„${removed.name}“ gelöscht`, () => {
+          undoToast(t('editor.deleted', { name: removed.name }), () => {
             const current = allPlans();
             current.items.splice(Math.min(index, current.items.length), 0, removed);
             if (wasActive) current.activePlanId = removed.id;
@@ -280,25 +292,25 @@ function bindExerciseMenus() {
         persistPlan(p);
         render();
       };
-      actionSheet(ex.name, [
-        { label: 'Ersetzen', hint: 'Andere Übung aus der Bibliothek', onClick: () => openLibrary(di, ei) },
-        ei > 0 && { label: 'Nach oben', onClick: () => move(ei - 1) },
-        ei < list.length - 1 && { label: 'Nach unten', onClick: () => move(ei + 1) },
+      actionSheet(exerciseName(ex), [
+        { label: t('editor.replace'), hint: t('editor.replaceHint'), onClick: () => openLibrary(di, ei) },
+        ei > 0 && { label: t('editor.moveUp'), onClick: () => move(ei - 1) },
+        ei < list.length - 1 && { label: t('editor.moveDown'), onClick: () => move(ei + 1) },
         {
-          label: 'Pause und Hinweis',
+          label: t('editor.restAndNote'),
           onClick: () => {
             (state.editorDetails ||= new Set()).add(`${di}:${ei}`);
             render();
           },
         },
         {
-          label: 'Entfernen',
+          label: t('editor.remove'),
           danger: true,
           onClick: () => {
             const [removed] = list.splice(ei, 1);
             persistPlan(p);
             render();
-            undoToast(`„${removed.name}“ entfernt`, () => {
+            undoToast(t('editor.removed', { name: exerciseName(removed) }), () => {
               const current = allPlans().items.find((x) => x.id === p.id);
               const day = current?.days[di];
               if (!day) return;
@@ -345,7 +357,7 @@ export function bind() {
       state.editorDayIndex = Math.max(0, Math.min(state.editorDayIndex, p.days.length - 1));
       persistPlan(p);
       render();
-      undoToast(`„${removed.name}“ entfernt`, () => {
+      undoToast(t('editor.removed', { name: removed.name }), () => {
         const current = allPlans().items.find((x) => x.id === p.id);
         if (!current) return;
         current.days.splice(Math.min(di, current.days.length), 0, removed);

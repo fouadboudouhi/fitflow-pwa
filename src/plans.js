@@ -1,7 +1,7 @@
 // Plan logic without DOM: schedules, the assistant's suggested plans, plan helpers.
-import { EXERCISE_LIBRARY, exercise, libraryBySourceName } from './library.js';
-
-import { WEEKDAYS, clone, dayKey, uid, weekdayIndex } from './util.js';
+import { t, weekdayShort } from './i18n.js';
+import { EXERCISE_LIBRARY, exerciseName, libraryBySourceName } from './library.js';
+import { clone, dayKey, uid, weekdayIndex } from './util.js';
 
 export const scheduleSlots = (count) =>
   ({ 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4], 6: [0, 1, 2, 3, 4, 5] })[count] ||
@@ -9,27 +9,41 @@ export const scheduleSlots = (count) =>
 export const planSchedule = (plan) => plan?.schedule || { mode: 'flexible', assignments: {} };
 export const scheduleLabel = (plan) => {
   const schedule = planSchedule(plan);
-  if (schedule.mode !== 'fixed') return 'Flexible Reihenfolge';
+  if (schedule.mode !== 'fixed') return t('schedule.flexible');
   return (
     plan.days
-      .map((d) => WEEKDAYS[schedule.assignments?.[d.id]])
+      .map((d) => weekdayShort(schedule.assignments?.[d.id]))
       .filter(Boolean)
-      .join(' · ') || 'Feste Tage'
+      .join(' · ') || t('schedule.fixed')
   );
 };
-export const planExerciseFromLibrary = (source) => ({ ...clone(source), id: uid(), libraryId: source.id });
+// A plan keeps only what the catalogue cannot provide; name is a readable snapshot for backups and CSV.
+export const planExerciseFromLibrary = (source) => ({
+  id: uid(),
+  libraryId: source.id,
+  name: exerciseName(source),
+  gif: source.gif,
+  sets: source.sets || 3,
+  range: source.range || '8–12',
+  note: '',
+});
 export const customExercise = () => ({
-  ...exercise(uid(), 'Eigene Übung', 3, '8–12', '', ''),
+  id: uid(),
+  name: t('exercise.customName'),
+  sets: 3,
+  range: '8–12',
+  gif: '',
+  note: '',
   custom: true,
-  category: 'Eigene Übung',
+  category: 'other',
 });
 export const setCount = (day) => day.exercises.reduce((sum, ex) => sum + Number(ex.sets || 0), 0);
 
 export function createEmptyPlan() {
-  const day = { id: uid(), name: 'Training 1', subtitle: '', exercises: [] };
+  const day = { id: uid(), name: t('day.first'), subtitle: '', exercises: [] };
   return {
     id: uid(),
-    name: 'Mein Trainingsplan',
+    name: t('plan.defaultName'),
     description: '',
     createdAt: new Date().toISOString(),
     schedule: { mode: 'flexible', assignments: { [day.id]: 0 } },
@@ -42,7 +56,7 @@ export function duplicatePlan(plan) {
   const oldAssignments = copy.schedule?.assignments || {};
   const assignments = {};
   copy.id = uid();
-  copy.name += ' – Kopie';
+  copy.name += t('plan.copySuffix');
   copy.days.forEach((day) => {
     const oldId = day.id;
     day.id = uid();
@@ -56,7 +70,7 @@ export function duplicatePlan(plan) {
 }
 
 export function addDay(plan) {
-  const day = { id: uid(), name: `Tag ${plan.days.length + 1}`, subtitle: '', exercises: [] };
+  const day = { id: uid(), name: t('day.nth', { n: plan.days.length + 1 }), subtitle: '', exercises: [] };
   plan.days.push(day);
   const slots = scheduleSlots(plan.days.length);
   plan.schedule = plan.schedule || { mode: 'flexible', assignments: {} };
@@ -138,47 +152,50 @@ const GROUPS = {
     'hanging leg raise',
   ],
 };
+// Day name keys (see the dictionary) and the exercise group each layout uses.
 const LAYOUTS = {
   2: [
-    ['Ganzkörper A', 'fullA'],
-    ['Ganzkörper B', 'fullB'],
+    ['day.fullA', 'fullA'],
+    ['day.fullB', 'fullB'],
   ],
   3: [
-    ['Push', 'push'],
-    ['Pull', 'pull'],
-    ['Beine', 'legs'],
+    ['day.push', 'push'],
+    ['day.pull', 'pull'],
+    ['day.legs', 'legs'],
   ],
   4: [
-    ['Oberkörper A', 'upperA'],
-    ['Unterkörper A', 'lowerA'],
-    ['Oberkörper B', 'upperB'],
-    ['Unterkörper B', 'lowerB'],
+    ['day.upperA', 'upperA'],
+    ['day.lowerA', 'lowerA'],
+    ['day.upperB', 'upperB'],
+    ['day.lowerB', 'lowerB'],
   ],
   5: [
-    ['Push', 'push'],
-    ['Pull', 'pull'],
-    ['Beine', 'legs'],
-    ['Oberkörper', 'upperB'],
-    ['Unterkörper', 'lowerB'],
+    ['day.push', 'push'],
+    ['day.pull', 'pull'],
+    ['day.legs', 'legs'],
+    ['day.upper', 'upperB'],
+    ['day.lower', 'lowerB'],
   ],
   6: [
-    ['Push A', 'push'],
-    ['Pull A', 'pull'],
-    ['Beine A', 'legs'],
-    ['Push B', 'push'],
-    ['Pull B', 'pull'],
-    ['Beine B', 'lowerB'],
+    ['day.pushA', 'push'],
+    ['day.pullA', 'pull'],
+    ['day.legsA', 'legs'],
+    ['day.pushB', 'push'],
+    ['day.pullB', 'pull'],
+    ['day.legsB', 'lowerB'],
   ],
 };
-const GOAL_NAMES = { strength: 'Kraft', fitness: 'Fitness', muscle: 'Muskelaufbau' };
+const goalName = (goal) =>
+  ({ strength: t('goal.strength'), fitness: t('goal.fitnessShort'), muscle: t('goal.muscle') })[goal] ||
+  t('goal.muscle');
 const isCompound = (sourceName) => /press|squat|deadlift|row|pull-up/.test(sourceName);
 
 export function createSuggestedPlan(goal, dayCount, scheduleMode = 'flexible') {
   const layout = LAYOUTS[dayCount] || LAYOUTS[3];
-  const days = layout.map(([name, key]) => ({
+  const days = layout.map(([nameKey, key]) => ({
     id: uid(),
-    name,
-    subtitle: 'Automatisch erstellt',
+    name: t(nameKey),
+    subtitle: t('wizard.autoSubtitle'),
     exercises: GROUPS[key]
       .map((sourceName) => libraryBySourceName(sourceName) || EXERCISE_LIBRARY[0])
       .map((source) => {
@@ -197,8 +214,8 @@ export function createSuggestedPlan(goal, dayCount, scheduleMode = 'flexible') {
   });
   return {
     id: uid(),
-    name: `${GOAL_NAMES[goal] || GOAL_NAMES.muscle} · ${days.length} Tage`,
-    description: 'Vom Volumora Plan-Assistenten erstellt',
+    name: t('wizard.planName', { goal: goalName(goal), days: days.length }),
+    description: t('wizard.description'),
     createdAt: new Date().toISOString(),
     schedule: { mode: scheduleMode, assignments },
     days,
@@ -207,11 +224,11 @@ export function createSuggestedPlan(goal, dayCount, scheduleMode = 'flexible') {
 
 // Which day comes next? Flexible plans rotate after the last completed day of this plan; fixed plans look at the weekday.
 export function nextSession(plan, history, today = new Date()) {
-  if (!plan?.days?.length) return { day: null, label: 'Als Nächstes' };
+  if (!plan?.days?.length) return { day: null, label: t('home.next') };
   const lastOfPlan = history.find((h) => h.planId === plan.id);
   const lastIndex = plan.days.findIndex((d) => d.id === lastOfPlan?.dayId);
   let day = plan.days[lastIndex >= 0 ? (lastIndex + 1) % plan.days.length : 0];
-  let label = 'Als Nächstes';
+  let label = t('home.next');
   const schedule = planSchedule(plan);
   if (schedule.mode === 'fixed') {
     const todayIndex = weekdayIndex(today);
@@ -222,14 +239,14 @@ export function nextSession(plan, history, today = new Date()) {
     const scheduledToday = plan.days.find((d) => schedule.assignments?.[d.id] === todayIndex);
     if (scheduledToday && !doneToday) {
       day = scheduledToday;
-      label = 'Heute geplant';
+      label = t('home.plannedToday');
     } else {
       for (let offset = 1; offset <= 7; offset++) {
         const target = (todayIndex + offset) % 7;
         const found = plan.days.find((d) => schedule.assignments?.[d.id] === target);
         if (found) {
           day = found;
-          label = `Als Nächstes · ${WEEKDAYS[target]}`;
+          label = t('home.nextOn', { day: weekdayShort(target) });
           break;
         }
       }

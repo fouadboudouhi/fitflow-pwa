@@ -1,8 +1,10 @@
+import { fmtNumber, t } from '../i18n.js';
 import { icon } from '../icons.js';
+import { exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { allPlans, getDay, getSettings, savePlans, saveRestUntil, saveSettings } from '../storage.js';
+import { getDay, getSettings, saveRestUntil, saveSettings } from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
 import { fieldValue, fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
 import { esc, exerciseKey, fmtLong, number } from '../util.js';
@@ -23,7 +25,7 @@ import {
 import * as home from './home.js';
 
 const field = (name, label, set, i, exerciseIndex, workNumber, attrs, value, placeholder = '') =>
-  `<label><span>${label}</span><input aria-label="${label} Satz ${workNumber}" type="number" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${i}" value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
+  `<label><span>${label}</span><input aria-label="${esc(t('workout.fieldAria', { field: label, n: workNumber }))}" type="number" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${i}" value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
 
 function setRow(set, i, last, workIndex, showRir, exerciseIndex) {
   const workNumber = set.warmup ? 'W' : workIndex;
@@ -31,11 +33,11 @@ function setRow(set, i, last, workIndex, showRir, exerciseIndex) {
   // Values from the last session appear as placeholders, so an empty field already tells what was done before.
   const lastWeight = last?.weight ? String(toDisplay(last.weight)) : '';
   const lastReps = last?.reps ? String(last.reps) : '';
-  return `<div class="set-row"><button class="set-delete" data-delete-set="${i}" data-exercise="${exerciseIndex}" aria-label="Satz löschen">Löschen</button><div class="set-card ${set.done ? 'complete' : ''} ${set.warmup ? 'warmup' : ''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span class="${set.pr ? 'pr' : ''}">${set.warmup ? 'Warm-up' : set.pr ? 'PR' : ''}</span></div>${field('weight', u, set, i, exerciseIndex, workNumber, 'inputmode="decimal" step="0.5" min="0"', fieldValue(set.weight), lastWeight)}${field('reps', 'Wdh.', set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0"', set.reps, lastReps)}${
+  return `<div class="set-row"><button class="set-delete" data-delete-set="${i}" data-exercise="${exerciseIndex}" aria-label="${t('workout.deleteSet')}">${t('common.delete')}</button><div class="set-card ${set.done ? 'complete' : ''} ${set.warmup ? 'warmup' : ''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span class="${set.pr ? 'pr' : ''}">${set.warmup ? t('workout.warmup') : set.pr ? t('workout.pr') : ''}</span></div>${field('weight', u, set, i, exerciseIndex, workNumber, 'inputmode="decimal" step="0.5" min="0"', fieldValue(set.weight), lastWeight)}${field('reps', t('workout.reps'), set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0"', set.reps, lastReps)}${
     showRir
       ? field(
           'rir',
-          'RIR',
+          t('workout.rir'),
           set,
           i,
           exerciseIndex,
@@ -44,33 +46,34 @@ function setRow(set, i, last, workIndex, showRir, exerciseIndex) {
           set.rir
         )
       : ''
-  }<button class="set-check" data-set-done="${i}" data-exercise="${exerciseIndex}" aria-label="Satz fertig" aria-pressed="${set.done}">${set.done ? '✓' : ''}</button></div></div>`;
+  }<button class="set-check" data-set-done="${i}" data-exercise="${exerciseIndex}" aria-label="${t('workout.setDone')}" aria-pressed="${set.done}">${set.done ? '✓' : ''}</button></div></div>`;
 }
 
 const suggestionText = (s) =>
   s.kind === 'progress'
-    ? `Vorschlag: ${fmtWeight(s.weight)}`
-    : `Zuletzt ${fmtWeight(s.weight)}, Wiederholungen steigern`;
+    ? t('workout.suggest', { weight: fmtWeight(s.weight) })
+    : t('workout.suggestConfirm', { weight: fmtWeight(s.weight) });
 
 function exerciseSection(ex, index, entry, total, showRir) {
   const complete = entryComplete(entry);
   const suggest = suggestion(ex);
   const prevWork = previousEntry(ex);
   const prevSets = prevWork ? workSets(prevWork) : [];
+  const name = exerciseName(ex);
   const rows = entry.sets
     .map((set, i) =>
       setRow(set, i, prevSets[i], entry.sets.slice(0, i).filter((s) => !s.warmup).length + 1, showRir, index)
     )
     .join('');
   const thumb = ex.gif
-    ? `<button type="button" class="exercise-thumb" data-technique="${index}" aria-label="Technik ansehen"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"></button>`
+    ? `<button type="button" class="exercise-thumb" data-technique="${index}" aria-label="${t('workout.technique')}"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"></button>`
     : '';
   return `<section class="workout-exercise ${complete ? 'complete' : ''}" id="exercise-${index}">
-      <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="Verlauf von ${esc(ex.name)} anzeigen">${esc(ex.name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}</p></div>${thumb}</div>
-      ${suggest.weight ? `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${icon('trend')}<span>${esc(suggestionText(suggest))}</span><small>Übernehmen</small></button>` : ''}
-      <div class="set-table ${showRir ? '' : 'no-rir'}"><div class="set-head"><span>Satz</span><span>${unit()}</span><span>Wdh.</span>${showRir ? '<span>RIR</span>' : ''}<span></span></div><div class="set-list">${rows}</div></div>
-      <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">+ Satz</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="Mehr zu ${esc(ex.name)}">${icon('more')}</button></div>
-      ${entry.note || state.openNotes?.has(index) ? `<label class="exercise-note"><span>Notiz</span><textarea data-exercise-note="${index}" placeholder="Technik, Geräteeinstellung, Gefühl …">${esc(entry.note || '')}</textarea></label>` : ''}
+      <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}</p></div>${thumb}</div>
+      ${suggest.weight ? `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${icon('trend')}<span>${esc(suggestionText(suggest))}</span><small>${t('workout.apply')}</small></button>` : ''}
+      <div class="set-table ${showRir ? '' : 'no-rir'}"><div class="set-head"><span>${t('workout.set')}</span><span>${unit()}</span><span>${t('workout.reps')}</span>${showRir ? `<span>${t('workout.rir')}</span>` : ''}<span></span></div><div class="set-list">${rows}</div></div>
+      <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">${t('workout.addSet')}</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="${esc(t('exercise.more', { name }))}">${icon('more')}</button></div>
+      ${entry.note || state.openNotes?.has(index) ? `<label class="exercise-note"><span>${t('workout.note')}</span><textarea data-exercise-note="${index}" placeholder="${t('workout.notePlaceholder')}">${esc(entry.note || '')}</textarea></label>` : ''}
     </section>`;
 }
 
@@ -83,14 +86,15 @@ export function view() {
   const session = activeSession(state.planId, state.dayId);
   const showRir = !!getSettings().showRir;
   const completed = session.entries.filter(entryComplete).length;
+  const total = day.exercises.length;
   const list = day.exercises
-    .map((ex, index) => exerciseSection(ex, index, session.entries[index], day.exercises.length, showRir))
+    .map((ex, index) => exerciseSection(ex, index, session.entries[index], total, showRir))
     .join('');
-  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="Training verlassen">←</button><div><h1>${esc(day.name)}</h1><b>${completed} / ${day.exercises.length} Übungen</b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">Beenden</button></div></div>
-    <div class="progress-line" role="progressbar" aria-label="Fortschritt: ${completed} von ${day.exercises.length} Übungen" aria-valuenow="${completed}" aria-valuemax="${day.exercises.length}"><i style="width:${(completed / day.exercises.length) * 100}%"></i></div>
+  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="${t('workout.exit')}">←</button><div><h1>${esc(day.name)}</h1><b>${t('workout.progress', { done: completed, total })}</b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">${t('workout.finish')}</button></div></div>
+    <div class="progress-line" role="progressbar" aria-label="${t('workout.progressAria', { done: completed, total })}" aria-valuenow="${completed}" aria-valuemax="${total}"><i style="width:${(completed / total) * 100}%"></i></div>
     <div class="workout-exercise-list">${list}</div>
-    <details class="session-status" id="session-status" ${Object.values(session.markers).some(Boolean) ? 'open' : ''}><summary>Tagesform</summary><div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload ? 'checked' : ''}> Deload</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill ? 'checked' : ''}> Krank</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain ? 'checked' : ''}> Schmerzen</label></div></details>
-    <div class="rest-timer ${state.restUntil > Date.now() ? 'show' : ''}" id="restTimer" role="timer" aria-live="off"><div><span>Pause</span><b id="restCount">0:00</b></div><button data-rest-add>+30</button><button data-rest-skip>Überspringen</button></div>
+    <details class="session-status" id="session-status" ${Object.values(session.markers).some(Boolean) ? 'open' : ''}><summary>${t('workout.status')}</summary><div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload ? 'checked' : ''}> ${t('marker.deload')}</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill ? 'checked' : ''}> ${t('marker.ill')}</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain ? 'checked' : ''}> ${t('marker.pain')}</label></div></details>
+    <div class="rest-timer ${state.restUntil > Date.now() ? 'show' : ''}" id="restTimer" role="timer" aria-live="off"><div><span>${t('rest.title')}</span><b id="restCount">0:00</b></div><button data-rest-add>+30</button><button data-rest-skip>${t('rest.skip')}</button></div>
   </main>`;
 }
 
@@ -106,7 +110,7 @@ function openPlates(ex, entry) {
   const bar = toDisplay(getSettings().barWeight) || defaultBar();
   const box = document.createElement('div');
   box.className = 'plates';
-  box.innerHTML = `<div class="plates-inputs"><label><span>Gewicht (${u})</span><input type="number" inputmode="decimal" step="0.5" min="0" id="plateTarget" value="${esc(start)}"></label><label><span>Stange (${u})</span><select id="plateBar">${BARS[u].map((b) => `<option value="${b}" ${b === bar ? 'selected' : ''}>${b}</option>`).join('')}${BARS[u].includes(bar) ? '' : `<option value="${bar}" selected>${bar}</option>`}</select></label></div><div class="plates-result" id="plateResult"></div><p class="muted">Pro Seite, größte Scheibe zuerst. Verfügbar: ${PLATES[u].join(', ')} ${u}.</p>`;
+  box.innerHTML = `<div class="plates-inputs"><label><span>${t('plates.weight', { unit: u })}</span><input type="number" inputmode="decimal" step="0.5" min="0" id="plateTarget" value="${esc(start)}"></label><label><span>${t('plates.bar', { unit: u })}</span><select id="plateBar">${BARS[u].map((b) => `<option value="${b}" ${b === bar ? 'selected' : ''}>${b}</option>`).join('')}${BARS[u].includes(bar) ? '' : `<option value="${bar}" selected>${bar}</option>`}</select></label></div><div class="plates-result" id="plateResult"></div><p class="muted">${t('plates.info', { plates: PLATES[u].join(', '), unit: u })}</p>`;
   const result = box.querySelector('#plateResult');
   const update = () => {
     const target = number(box.querySelector('#plateTarget').value);
@@ -114,11 +118,11 @@ function openPlates(ex, entry) {
     const { plates, remainder, perSide } = platesPerSide(target, barValue);
     result.textContent = '';
     if (!target) {
-      result.textContent = 'Zielgewicht eintragen.';
+      result.textContent = t('plates.enterTarget');
       return;
     }
     if (target < barValue) {
-      result.textContent = 'Das Ziel liegt unter dem Stangengewicht.';
+      result.textContent = t('plates.belowBar');
       return;
     }
     const counts = new Map();
@@ -134,23 +138,23 @@ function openPlates(ex, entry) {
     if (!counts.size) {
       const none = document.createElement('span');
       none.className = 'muted';
-      none.textContent = 'Nur die Stange.';
+      none.textContent = t('plates.barOnly');
       row.append(none);
     }
     const summary = document.createElement('b');
-    summary.textContent = `${perSide.toLocaleString('de-DE')} ${u} pro Seite`;
+    summary.textContent = t('plates.perSide', { weight: fmtNumber(perSide), unit: u });
     result.append(summary, row);
     if (remainder) {
       const rest = document.createElement('small');
       rest.className = 'muted';
-      rest.textContent = `${remainder.toLocaleString('de-DE')} ${u} pro Seite bleiben übrig.`;
+      rest.textContent = t('plates.remainder', { weight: fmtNumber(remainder), unit: u });
       result.append(rest);
     }
   };
   box.querySelector('#plateTarget').oninput = update;
   box.querySelector('#plateBar').onchange = update;
   update();
-  sheet({ title: 'Scheibenrechner', content: box });
+  sheet({ title: t('plates.title'), content: box });
   setTimeout(() => box.querySelector('#plateTarget').focus({ preventScroll: true }), 50);
 }
 
@@ -189,7 +193,9 @@ export function bind() {
         navigator.vibrate?.(40);
       }, true);
       if (record)
-        toast(`Neuer Bestwert: ${fmtWeight(record.weight)} × ${esc(record.reps)}`, { duration: 4000 });
+        toast(t('workout.record', { weight: fmtWeight(record.weight), reps: record.reps }), {
+          duration: 4000,
+        });
     };
   });
   document.querySelectorAll('[data-delete-set]').forEach((b) => {
@@ -198,12 +204,12 @@ export function bind() {
       const setIndex = number(b.dataset.deleteSet);
       const sets = activeSession(state.planId, state.dayId).entries[exerciseIndex].sets;
       if (sets.length <= 1) {
-        toast('Mindestens ein Satz bleibt bestehen.');
+        toast(t('workout.minOneSet'));
         return;
       }
       const removed = sets[setIndex];
       mutate((s) => s.entries[exerciseIndex].sets.splice(setIndex, 1), true);
-      undoToast('Satz gelöscht', () =>
+      undoToast(t('workout.setDeleted'), () =>
         mutate((s) => s.entries[exerciseIndex].sets.splice(setIndex, 0, removed), true)
       );
     };
@@ -243,10 +249,11 @@ export function bind() {
   document.querySelectorAll('[data-technique]').forEach((b) => {
     b.onclick = () => {
       const ex = getDay(state.planId, state.dayId).exercises[number(b.dataset.technique)];
+      const name = exerciseName(ex);
       const media = document.createElement('div');
       media.className = 'technique-sheet';
-      media.innerHTML = `<img class="exercise-gif" src="${esc(ex.gif)}" alt="Ausführung ${esc(ex.name)}">${ex.note ? `<p>${esc(ex.note)}</p>` : ''}`;
-      sheet({ title: ex.name, content: media });
+      media.innerHTML = `<img class="exercise-gif" src="${esc(ex.gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">${ex.note ? `<p>${esc(ex.note)}</p>` : ''}`;
+      sheet({ title: name, content: media });
     };
   });
   document.querySelectorAll('[data-exercise-menu]').forEach((b) => {
@@ -255,13 +262,13 @@ export function bind() {
       const ex = getDay(state.planId, state.dayId).exercises[index];
       const entry = activeSession(state.planId, state.dayId).entries[index];
       const showRir = getSettings().showRir;
-      actionSheet(ex.name, [
+      actionSheet(exerciseName(ex), [
         {
-          label: 'Aufwärmsätze berechnen',
+          label: t('workout.calcWarmups'),
           onClick: () => {
             const target = number(entry.sets.find((x) => !x.warmup)?.weight) || suggestion(ex).weight;
             if (!target) {
-              toast('Trage zuerst dein Arbeitsgewicht ein.');
+              toast(t('workout.enterWorkWeight'));
               return;
             }
             mutate((s) => {
@@ -271,12 +278,12 @@ export function bind() {
           },
         },
         {
-          label: 'Aufwärmsatz hinzufügen',
+          label: t('workout.addWarmup'),
           onClick: () => mutate((s) => s.entries[index].sets.unshift(newSet({ warmup: true })), true),
         },
-        isBarbell(ex) && { label: 'Scheibenrechner', onClick: () => openPlates(ex, entry) },
+        isBarbell(ex) && { label: t('plates.title'), onClick: () => openPlates(ex, entry) },
         {
-          label: entry.note ? 'Notiz bearbeiten' : 'Notiz hinzufügen',
+          label: entry.note ? t('workout.editNote') : t('workout.addNote'),
           onClick: () => {
             (state.openNotes ||= new Set()).add(index);
             render();
@@ -284,8 +291,8 @@ export function bind() {
           },
         },
         {
-          label: showRir ? 'RIR ausblenden' : 'RIR einblenden',
-          hint: 'Wiederholungen in Reserve',
+          label: showRir ? t('workout.hideRir') : t('workout.showRir'),
+          hint: t('workout.rirHint'),
           onClick: () => {
             const s = getSettings();
             s.showRir = !s.showRir;
@@ -313,15 +320,15 @@ export function bind() {
     if (
       !sessionStarted(session) &&
       !(await confirmDialog({
-        title: 'Noch kein Satz erledigt',
-        text: 'Das Training trotzdem speichern?',
-        confirmLabel: 'Speichern',
+        title: t('workout.noSetsTitle'),
+        text: t('workout.noSetsText'),
+        confirmLabel: t('common.save'),
       }))
     )
       return;
     finishSession(session);
     navigate('analytics');
-    toast('Training gespeichert');
+    toast(t('workout.saved'));
   };
   document.querySelector('#exitWorkout').onclick = () => navigate('home');
   document.querySelector('[data-rest-add]')?.addEventListener('click', () => {
@@ -344,11 +351,11 @@ export function bind() {
         ? `<div class="history-rows">${rows
             .map(
               (r) =>
-                `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(toDisplay(s.weight))}×${esc(s.reps)}${s.pr ? '<i class="pr-chip">PR</i>' : ''}`).join(' · ')}</b><small>1RM ≈ ${fmtWeight(r.best, 0)}</small></div>`
+                `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(toDisplay(s.weight))}×${esc(s.reps)}${s.pr ? `<i class="pr-chip">${t('workout.pr')}</i>` : ''}`).join(' · ')}</b><small>${esc(t('workout.e1rm', { weight: fmtWeight(r.best, 0) }))}</small></div>`
             )
             .join('')}</div>`
-        : '<p class="muted">Noch keine abgeschlossenen Sätze für diese Übung.</p>';
-      sheet({ title: ex.name, content });
+        : `<p class="muted">${t('workout.noHistory')}</p>`;
+      sheet({ title: exerciseName(ex), content });
     };
   });
 }
@@ -386,15 +393,14 @@ function armRestNotification() {
     () => {
       if (document.visibilityState === 'visible') return;
       const options = {
-        body: 'Weiter geht’s mit dem nächsten Satz.',
+        body: t('rest.notifyBody'),
         tag: 'volumora-rest',
         icon: 'assets/icons/icon-192.png',
       };
+      const title = t('rest.notifyTitle');
       navigator.serviceWorker
         ?.getRegistration()
-        .then((reg) =>
-          reg ? reg.showNotification('Pause vorbei', options) : new Notification('Pause vorbei', options)
-        )
+        .then((reg) => (reg ? reg.showNotification(title, options) : new Notification(title, options)))
         .catch(() => {});
     },
     Math.max(0, state.restUntil - Date.now())

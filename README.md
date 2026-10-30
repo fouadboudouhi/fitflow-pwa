@@ -5,6 +5,7 @@ Offline-fähige, installierbare Fitness-PWA für frei konfigurierbare Trainingsp
 Die visuellen Regeln sind in [`DESIGN.md`](DESIGN.md) dokumentiert, im neunteiligen DESIGN.md-Format, damit auch KI-Werkzeuge konsistent daran weiterbauen.
 
 ## Funktionen
+- Deutsch und Englisch: folgt der Gerätesprache, in den Einstellungen umschaltbar; weitere Sprachen sind eine Datei in `src/locales/`
 - Beliebig viele Trainingspläne und Tage mit 100 häufigen Übungen erstellen
 - Dreistufiger Plan-Assistent für 2–6 Trainingstage mit Vorschau vor dem Speichern
 - Wahl zwischen flexibler Trainingsreihenfolge und festen Wochentagen
@@ -38,7 +39,8 @@ Kein Build-Schritt, kein Framework: `index.html` lädt `src/app.js` als ES-Modul
 | Modul | Aufgabe |
 | --- | --- |
 | `src/storage.js` | `localStorage`-Zugriff, IndexedDB für Fotos, versionierte Migrationen |
-| `src/library.js` | Übungskatalog mit deutschen Namen und der eingebaute Standardplan |
+| `src/i18n.js`, `src/locales/*.js` | Übersetzungen: `t(key, params)`, Plural, Datums- und Zahlenformat je Sprache |
+| `src/library.js` | Übungskatalog mit stabilen Schlüsseln (Muskelgruppe, Gerät, Zielmuskel) und der eingebaute Standardplan; Namen kommen aus dem Wörterbuch |
 | `src/plans.js` | Wochenrhythmus, Plan-Assistent, nächste Einheit |
 | `src/workout.js` | Sessions anlegen, fortsetzen, abschließen, Progressionsvorschläge |
 | `src/backup.js` | JSON-Export, Validierung und Import, CSV |

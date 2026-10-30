@@ -1,4 +1,5 @@
 // Weights are stored in kilograms. The unit setting only changes what the user sees and types.
+import { intlLocale } from './i18n.js';
 import { getSettings } from './storage.js';
 import { number } from './util.js';
 
@@ -20,9 +21,9 @@ export const fieldValue = (kg) => (kg === '' || kg == null ? '' : String(toDispl
 // "42,5 kg" / "94 lbs"
 export const fmtWeight = (kg, digits = 1) => {
   const v = toDisplay(kg);
-  return `${v.toLocaleString('de-DE', { maximumFractionDigits: digits })} ${unit()}`;
+  return `${v.toLocaleString(intlLocale(), { maximumFractionDigits: digits })} ${unit()}`;
 };
-export const fmtVolume = (kg) => `${Math.round(toDisplay(kg)).toLocaleString('de-DE')} ${unit()}`;
+export const fmtVolume = (kg) => `${Math.round(toDisplay(kg)).toLocaleString(intlLocale())} ${unit()}`;
 // Smallest sensible step for warm-ups and suggestions: 2.5 kg or 5 lbs, expressed in kilograms.
 export const plateStep = () => (unit() === 'lbs' ? 5 / LB : 2.5);
 export const roundToStep = (kg) => {

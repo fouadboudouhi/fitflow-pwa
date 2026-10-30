@@ -1,43 +1,45 @@
+import { t, weekdayShort } from '../i18n.js';
+import { exerciseName } from '../library.js';
 import { createSuggestedPlan, planSchedule, scheduleLabel } from '../plans.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { allPlans, savePlans } from '../storage.js';
-import { WEEKDAYS, esc, number } from '../util.js';
+import { esc, number } from '../util.js';
 
 const progress = (step) =>
-  `<div class="assistant-progress"><i class="active"></i><i class="${step >= 2 ? 'active' : ''}"></i><i class="${step >= 3 ? 'active' : ''}"></i><span>Schritt ${step} von 3</span></div>`;
+  `<div class="assistant-progress"><i class="active"></i><i class="${step >= 2 ? 'active' : ''}"></i><i class="${step >= 3 ? 'active' : ''}"></i><span>${t('wizard.step', { step })}</span></div>`;
 const head = (backAttr) =>
-  `<div class="backrow"><button class="back" ${backAttr} aria-label="Zurück">←</button><span>Plan-Assistent</span></div>`;
+  `<div class="backrow"><button class="back" ${backAttr} aria-label="${t('common.back')}">←</button><span>${t('wizard.title')}</span></div>`;
 const GOALS = [
-  ['muscle', 'Muskelaufbau', 'Ausgewogenes Volumen und 8–12 Wiederholungen'],
-  ['strength', 'Kraft', 'Schwere Grundübungen mit längeren Pausen'],
-  ['fitness', 'Allgemeine Fitness', 'Mehr Wiederholungen und kompakte Einheiten'],
+  ['muscle', 'goal.muscle', 'goal.muscleHint'],
+  ['strength', 'goal.strength', 'goal.strengthHint'],
+  ['fitness', 'goal.fitness', 'goal.fitnessHint'],
 ];
 
 export function view() {
   const step = state.assistantStep || 1;
   const draft = state.assistantDraft || { goal: 'muscle', days: 3 };
   if (step === 2) {
-    return `<main class="shell narrow">${head('id="assistantBack"')}${progress(step)}<section class="assistant-hero"><h1>Wann trainierst du?</h1><p>Feste Tage geben Orientierung. Flexibel bedeutet: einfach immer mit der nächsten Einheit weitermachen.</p></section><form id="assistantScheduleForm" class="assistant-form"><fieldset><label><input type="radio" name="scheduleMode" value="flexible" checked><span><b>Flexible Reihenfolge</b><small>Wenn deine Trainingstage wechseln</small></span></label><label><input type="radio" name="scheduleMode" value="fixed"><span><b>Feste Wochentage</b><small>${draft.days} Einheiten sinnvoll über die Woche verteilt</small></span></label></fieldset><button class="primary full" type="submit">Vorschau anzeigen</button></form></main>`;
+    return `<main class="shell narrow">${head('id="assistantBack"')}${progress(step)}<section class="assistant-hero"><h1>${t('wizard.whenTitle')}</h1><p>${t('wizard.whenText')}</p></section><form id="assistantScheduleForm" class="assistant-form"><fieldset><label><input type="radio" name="scheduleMode" value="flexible" checked><span><b>${t('schedule.flexible')}</b><small>${t('wizard.flexibleHint')}</small></span></label><label><input type="radio" name="scheduleMode" value="fixed"><span><b>${t('schedule.fixedDays')}</b><small>${t('wizard.fixedHint', { n: draft.days })}</small></span></label></fieldset><button class="primary full" type="submit">${t('wizard.preview')}</button></form></main>`;
   }
   if (step === 3 && state.assistantPreview) {
     const p = state.assistantPreview;
     const schedule = planSchedule(p);
-    return `<main class="shell narrow">${head('id="assistantBack"')}${progress(step)}<section class="assistant-hero preview-head"><h1>${esc(p.name)}</h1><p>${esc(scheduleLabel(p))}. Sofort verwenden oder vorher anpassen.</p></section><div class="plan-preview">${p.days
+    return `<main class="shell narrow">${head('id="assistantBack"')}${progress(step)}<section class="assistant-hero preview-head"><h1>${esc(p.name)}</h1><p>${esc(t('wizard.previewText', { schedule: scheduleLabel(p) }))}</p></section><div class="plan-preview">${p.days
       .map(
         (d, i) =>
-          `<article><span>${schedule.mode === 'fixed' ? WEEKDAYS[schedule.assignments[d.id]] : i + 1}</span><div><h2>${esc(d.name)}</h2><p>${d.exercises.map((x) => esc(x.name)).join(' · ')}</p></div><b>${d.exercises.length}</b></article>`
+          `<article><span>${schedule.mode === 'fixed' ? weekdayShort(schedule.assignments[d.id]) : i + 1}</span><div><h2>${esc(d.name)}</h2><p>${d.exercises.map((x) => esc(exerciseName(x))).join(' · ')}</p></div><b>${d.exercises.length}</b></article>`
       )
       .join(
         ''
-      )}</div><div class="preview-actions"><button class="primary" id="useSuggestedPlan">Plan verwenden</button><button class="secondary" id="customizeSuggestedPlan">Erst anpassen</button></div></main>`;
+      )}</div><div class="preview-actions"><button class="primary" id="useSuggestedPlan">${t('wizard.use')}</button><button class="secondary" id="customizeSuggestedPlan">${t('wizard.customize')}</button></div></main>`;
   }
-  return `<main class="shell narrow">${head('data-nav="plans"')}${progress(1)}<section class="assistant-hero"><h1>Was möchtest du erreichen?</h1><p>Volumora erstellt daraus einen einfachen, ausgewogenen Startplan.</p></section><form id="assistantForm" class="assistant-form"><fieldset>${GOALS.map(
+  return `<main class="shell narrow">${head('data-nav="plans"')}${progress(1)}<section class="assistant-hero"><h1>${t('wizard.goalTitle')}</h1><p>${t('wizard.goalText')}</p></section><form id="assistantForm" class="assistant-form"><fieldset>${GOALS.map(
     ([value, title, text]) =>
-      `<label><input type="radio" name="goal" value="${value}" ${draft.goal === value ? 'checked' : ''}><span><b>${title}</b><small>${text}</small></span></label>`
+      `<label><input type="radio" name="goal" value="${value}" ${draft.goal === value ? 'checked' : ''}><span><b>${t(title)}</b><small>${t(text)}</small></span></label>`
   ).join(
     ''
-  )}</fieldset><label class="days-choice"><span>Trainingstage pro Woche</span><select name="days">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${number(draft.days) === n ? 'selected' : ''}>${n} Trainingstage</option>`).join('')}</select></label><button class="primary full" type="submit">Weiter</button></form></main>`;
+  )}</fieldset><label class="days-choice"><span>${t('wizard.daysPerWeek')}</span><select name="days">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${number(draft.days) === n ? 'selected' : ''}>${t('trainingDays.other', { n })}</option>`).join('')}</select></label><button class="primary full" type="submit">${t('wizard.next')}</button></form></main>`;
 }
 
 export function bind() {

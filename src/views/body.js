@@ -1,3 +1,4 @@
+import { t } from '../i18n.js';
 import { render } from '../render.js';
 import { getBody, photos, saveBody } from '../storage.js';
 import { toast, undoToast } from '../ui.js';
@@ -23,31 +24,31 @@ function compressImage(file) {
 }
 
 const photoMarkup = (e) => {
-  const alt = `Fortschritt vom ${fmtDate(e.day || e.date)}`;
+  const alt = esc(t('body.photoAlt', { date: fmtDate(e.day || e.date) }));
   if (e.hasPhoto) return `<img data-photo="${esc(e.id)}" alt="${alt}">`;
   if (typeof e.photo === 'string' && e.photo.startsWith('data:image/'))
     return `<img src="${esc(e.photo)}" alt="${alt}">`;
-  return '<div class="photo-placeholder">Kein Foto</div>';
+  return `<div class="photo-placeholder">${t('body.noPhoto')}</div>`;
 };
 const measures = (e) =>
   [
-    ['Taille', e.waist],
-    ['Brust', e.chest],
-    ['Arm', e.arm],
-    ['Bein', e.thigh],
+    [t('body.waist'), e.waist],
+    [t('body.chest'), e.chest],
+    [t('body.arm'), e.arm],
+    [t('body.thigh'), e.thigh],
   ]
     .filter((x) => x[1])
     .map((x) => `${x[0]} ${esc(x[1])} cm`)
-    .join(' · ') || 'Keine Maße';
+    .join(' · ') || t('body.noMeasures');
 const numberField = (name, label) =>
-  `<label><span>${label}</span><input type="number" step="0.1" name="${name}"></label>`;
+  `<label><span>${esc(t('body.cm', { label }))}</span><input type="number" step="0.1" name="${name}"></label>`;
 
 export function view() {
   const entries = getBody();
-  return `<main class="shell">${backRow('Körper & Fotos', 'more')}<section class="page-head compact"><h1>Körper</h1></section>
-    <form class="body-form" id="bodyForm"><label><span>Datum</span><input type="date" name="date" value="${dayKey()}" required></label><label><span>Gewicht (${unit()})</span><input type="number" step="0.1" name="weight"></label><details class="more-fields"><summary>Maße und Foto</summary><div class="more-fields-grid">${numberField('waist', 'Taille (cm)')}${numberField('chest', 'Brust (cm)')}${numberField('arm', 'Arm (cm)')}${numberField('thigh', 'Oberschenkel (cm)')}<label class="photo-field"><span>Foto</span><input type="file" name="photo" accept="image/*"></label></div></details><button class="primary" type="submit">Speichern</button></form>
-    ${entries.some((x) => x.weight) ? '<section class="chart-card"><h2>Gewichtsverlauf</h2><canvas id="bodyChart" height="210" role="img" aria-label="Gewichtsverlauf"></canvas></section>' : ''}
-    <section class="body-grid">${entries.map((e) => `<article class="body-entry">${photoMarkup(e)}<div><span class="entry-date">${fmtDate(e.day || e.date)}</span><h3>${e.weight ? fmtWeight(e.weight) : 'Messung'}</h3><p>${measures(e)}</p></div><button class="icon-btn danger" data-delete-body="${e.id}" aria-label="Messung löschen">×</button></article>`).join('')}</section></main>`;
+  return `<main class="shell">${backRow(t('body.backLabel'), 'more')}<section class="page-head compact"><h1>${t('body.title')}</h1></section>
+    <form class="body-form" id="bodyForm"><label><span>${t('body.date')}</span><input type="date" name="date" value="${dayKey()}" required></label><label><span>${t('body.weight', { unit: unit() })}</span><input type="number" step="0.1" name="weight"></label><details class="more-fields"><summary>${t('body.moreFields')}</summary><div class="more-fields-grid">${numberField('waist', t('body.waist'))}${numberField('chest', t('body.chest'))}${numberField('arm', t('body.arm'))}${numberField('thigh', t('body.thighLong'))}<label class="photo-field"><span>${t('body.photo')}</span><input type="file" name="photo" accept="image/*"></label></div></details><button class="primary" type="submit">${t('common.save')}</button></form>
+    ${entries.some((x) => x.weight) ? `<section class="chart-card"><h2>${t('body.chart')}</h2><canvas id="bodyChart" height="210" role="img" aria-label="${t('body.chart')}"></canvas></section>` : ''}
+    <section class="body-grid">${entries.map((e) => `<article class="body-entry">${photoMarkup(e)}<div><span class="entry-date">${fmtDate(e.day || e.date)}</span><h3>${e.weight ? fmtWeight(e.weight) : t('body.entry')}</h3><p>${measures(e)}</p></div><button class="icon-btn danger" data-delete-body="${e.id}" aria-label="${t('body.deleteEntry')}">×</button></article>`).join('')}</section></main>`;
 }
 
 function loadPhotos() {
@@ -80,7 +81,7 @@ export function bind() {
         await photos.set(entry.id, await compressImage(file));
         entry.hasPhoto = true;
       } catch {
-        toast('Das Foto konnte nicht gespeichert werden. Die Messung wird ohne Foto gesichert.');
+        toast(t('body.photoFailed'));
       }
     }
     const all = getBody();
@@ -98,7 +99,7 @@ export function bind() {
       render();
       // The photo stays in IndexedDB until the undo window has passed.
       undoToast(
-        'Messung gelöscht',
+        t('body.deleted'),
         () => {
           const current = getBody();
           current.splice(Math.min(index, current.length), 0, removed);

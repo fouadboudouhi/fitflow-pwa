@@ -8,7 +8,7 @@ export const state = {
   editorDayIndex: 0,
   libraryDayIndex: null,
   replaceExerciseIndex: null,
-  libraryCategory: 'Alle',
+  libraryCategory: 'all',
   libraryQuery: '',
   assistantStep: 1,
   assistantDraft: null,

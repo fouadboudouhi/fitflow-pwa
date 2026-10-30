@@ -16,7 +16,12 @@ import {
   saveSettings,
   write,
 } from './storage.js';
+import { LANGUAGES, t } from './i18n.js';
+import { exerciseName, normalizeLegacyExercise } from './library.js';
 import { dayKey, number, parseDate, uid, volumeOf } from './util.js';
+
+// Format number of the export file; independent of the storage schema version.
+export const BACKUP_VERSION = 3;
 
 export function download(name, text, type) {
   const a = document.createElement('a');
@@ -34,7 +39,7 @@ export async function exportBackup() {
     photo: photoMap[e.id] || (typeof e.photo === 'string' ? e.photo : ''),
   }));
   const backup = {
-    version: 3,
+    version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     plans: allPlans(),
     history: getHistory(),
@@ -47,19 +52,9 @@ export async function exportBackup() {
 
 export function exportCsv() {
   const rows = [
-    [
-      'Datum',
-      'Plan',
-      'Training',
-      'Übung',
-      'Satz',
-      'Typ',
-      'Gewicht kg',
-      'Wiederholungen',
-      'RIR',
-      'RPE',
-      'Volumen kg',
-    ],
+    ['date', 'plan', 'workout', 'exercise', 'set', 'type', 'weight', 'reps', 'rir', 'rpe', 'volume'].map(
+      (k) => t(`csv.${k}`)
+    ),
   ];
   getHistory().forEach((h) =>
     h.entries.forEach((e) =>
@@ -68,9 +63,9 @@ export function exportCsv() {
           h.finishedAt,
           h.planName,
           h.dayName,
-          e.name,
+          exerciseName(e),
           i + 1,
-          s.warmup ? 'Warm-up' : 'Arbeit',
+          s.warmup ? t('csv.warmup') : t('csv.work'),
           s.weight,
           s.reps,
           s.rir,
@@ -113,22 +108,22 @@ const asSet = (s) => ({
   warmup: !!s?.warmup,
   ...(s?.pr ? { pr: true } : {}),
 });
-const asExercise = (ex) => ({
-  id: asStr(ex?.id) || uid(),
-  libraryId: asStr(ex?.libraryId) || undefined,
-  name: asStr(ex?.name, 80) || 'Übung',
-  sourceName: asStr(ex?.sourceName, 80) || undefined,
-  category: asStr(ex?.category, 40) || undefined,
-  equipment: asStr(ex?.equipment, 40) || undefined,
-  target: asStr(ex?.target, 40) || undefined,
-  sets: asNum(ex?.sets, 3, 1, 12),
-  range: asStr(ex?.range, 20) || '8–12',
-  rest: asNum(ex?.rest, 0, 0, 600) || undefined,
-  gif: asUrl(ex?.gif),
-  note: asStr(ex?.note, 300),
-  favorite: !!ex?.favorite,
-  custom: ex?.custom ? true : undefined,
-});
+const asExercise = (ex) =>
+  normalizeLegacyExercise({
+    id: asStr(ex?.id) || uid(),
+    libraryId: asStr(ex?.libraryId) || undefined,
+    name: asStr(ex?.name, 80) || t('exercise.fallback'),
+    sourceName: asStr(ex?.sourceName, 80) || undefined,
+    category: asStr(ex?.category, 40) || undefined,
+    equipment: asStr(ex?.equipment, 40) || undefined,
+    target: asStr(ex?.target, 40) || undefined,
+    sets: asNum(ex?.sets, 3, 1, 12),
+    range: asStr(ex?.range, 20) || '8–12',
+    rest: asNum(ex?.rest, 0, 0, 600) || undefined,
+    gif: asUrl(ex?.gif),
+    note: asStr(ex?.note, 300),
+    custom: ex?.custom ? true : undefined,
+  });
 
 export function validateBackup(data) {
   if (!data || typeof data !== 'object' || !Array.isArray(data.plans?.items) || !Array.isArray(data.history))
@@ -140,7 +135,7 @@ export function validateBackup(data) {
         .filter((d) => d && typeof d === 'object')
         .map((d) => ({
           id: asStr(d.id) || uid(),
-          name: asStr(d.name, 60) || 'Training',
+          name: asStr(d.name, 60) || t('day.fallback'),
           subtitle: asStr(d.subtitle, 80),
           exercises: (Array.isArray(d.exercises) ? d.exercises : []).map(asExercise),
         }));
@@ -151,7 +146,7 @@ export function validateBackup(data) {
       });
       return {
         id: asStr(p.id) || uid(),
-        name: asStr(p.name, 60) || 'Trainingsplan',
+        name: asStr(p.name, 60) || t('plan.fallback'),
         description: asStr(p.description, 200),
         createdAt: asDate(p.createdAt) || new Date().toISOString(),
         schedule: { mode: p.schedule?.mode === 'fixed' ? 'fixed' : 'flexible', assignments },
@@ -178,7 +173,7 @@ export function validateBackup(data) {
         entries: (Array.isArray(h.entries) ? h.entries : []).map((e) => ({
           exerciseId: asStr(e?.exerciseId),
           libraryId: asStr(e?.libraryId) || undefined,
-          name: asStr(e?.name, 80) || 'Übung',
+          name: asStr(e?.name, 80) || t('exercise.fallback'),
           note: asStr(e?.note, 500),
           sets: (Array.isArray(e?.sets) ? e.sets : []).map(asSet),
         })),
@@ -201,6 +196,7 @@ export function validateBackup(data) {
     }));
   const s = data.settings && typeof data.settings === 'object' ? data.settings : {};
   const settings = {
+    language: ['auto', ...LANGUAGES].includes(s.language) ? s.language : 'auto',
     theme: ['auto', 'light', 'dark'].includes(s.theme) ? s.theme : 'auto',
     rest: asNum(s.rest, 90, 0, 600),
     increment: asNum(s.increment, 2.5, 0.25, 50),

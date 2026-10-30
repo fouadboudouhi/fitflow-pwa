@@ -1,9 +1,10 @@
+import { plural, t, weekdayShort } from '../i18n.js';
 import { icon } from '../icons.js';
 import { planSchedule, scheduleLabel } from '../plans.js';
 import { state } from '../state.js';
 import { activePlan, getHistory } from '../storage.js';
 import { navigate } from '../render.js';
-import { WEEKDAYS, dayKey, esc, fmtMonth, number, plural, weekdayIndex } from '../util.js';
+import { dayKey, esc, fmtMonth, number, weekdayIndex } from '../util.js';
 import { backRow, empty } from './shell.js';
 
 export function view() {
@@ -34,17 +35,17 @@ export function view() {
       ? plan.days.find((day) => schedule.assignments?.[day.id] === weekdayIndex(d))
       : null;
     if (done.length)
-      return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-session="${esc(done[0].id)}" aria-label="Training vom ${d.getDate()}. öffnen"><span>${d.getDate()}</span><b>✓ ${esc(done[0].dayName || 'Training')}</b></button>`;
+      return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-session="${esc(done[0].id)}" aria-label="${esc(t('calendar.open', { day: d.getDate() }))}"><span>${d.getDate()}</span><b>✓ ${esc(done[0].dayName || t('session.title'))}</b></button>`;
     return `<div class="calendar-day ${key === todayKey ? 'today' : ''}"><span>${d.getDate()}</span>${plannedDay ? `<small>${esc(plannedDay.name)}</small>` : ''}</div>`;
   });
   const upcoming =
     plan?.days
       ?.map(
         (d, i) =>
-          `<div><span>${fixed ? WEEKDAYS[schedule.assignments?.[d.id]] : i + 1}</span><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'Übung', 'Übungen')}</small></div>`
+          `<div><span>${fixed ? weekdayShort(schedule.assignments?.[d.id]) : i + 1}</span><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'exercises')}</small></div>`
       )
       .join('') || '';
-  return `<main class="shell calendar-shell">${backRow('Trainingskalender', 'analytics')}<section class="calendar-head"><h1>${fmtMonth(first)}</h1><div class="calendar-nav"><button class="icon-btn" data-calendar-shift="-1" aria-label="Vorheriger Monat">${icon('chevron-left')}</button>${offsetMonths ? '<button class="icon-btn" data-calendar-shift="0">Heute</button>' : ''}<button class="icon-btn" data-calendar-shift="1" aria-label="Nächster Monat">${icon('chevron-right')}</button></div><div class="calendar-key">${fixed ? '<span><i class="planned-dot"></i>Geplant</span>' : ''}<span><i class="done-dot"></i>Erledigt</span></div></section><div class="calendar-weekdays">${WEEKDAYS.map((x) => `<span>${x}</span>`).join('')}</div><section class="calendar-grid">${cells.join('')}</section><section class="calendar-plan"><div class="section-title"><h2>Wochenrhythmus</h2><small>${esc(scheduleLabel(plan))}</small></div>${upcoming || empty('Noch kein Plan', 'Erstelle zuerst einen Trainingsplan.')}</section></main>`;
+  return `<main class="shell calendar-shell">${backRow(t('calendar.title'), 'analytics')}<section class="calendar-head"><h1>${fmtMonth(first)}</h1><div class="calendar-nav"><button class="icon-btn" data-calendar-shift="-1" aria-label="${t('calendar.prev')}">${icon('chevron-left')}</button>${offsetMonths ? `<button class="icon-btn" data-calendar-shift="0">${t('calendar.today')}</button>` : ''}<button class="icon-btn" data-calendar-shift="1" aria-label="${t('calendar.next')}">${icon('chevron-right')}</button></div><div class="calendar-key">${fixed ? `<span><i class="planned-dot"></i>${t('calendar.planned')}</span>` : ''}<span><i class="done-dot"></i>${t('calendar.done')}</span></div></section><div class="calendar-weekdays">${[0, 1, 2, 3, 4, 5, 6].map((x) => `<span>${weekdayShort(x)}</span>`).join('')}</div><section class="calendar-grid">${cells.join('')}</section><section class="calendar-plan"><div class="section-title"><h2>${t('calendar.rhythm')}</h2><small>${esc(scheduleLabel(plan))}</small></div>${upcoming || empty(t('calendar.noPlanTitle'), t('calendar.noPlanText'))}</section></main>`;
 }
 
 export function bind() {

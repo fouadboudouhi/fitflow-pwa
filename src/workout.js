@@ -8,6 +8,7 @@ import {
   saveActive,
   saveHistory,
 } from './storage.js';
+import { libraryOf } from './library.js';
 import { roundToStep } from './units.js';
 import { dayKey, doneSets, e1rm, exerciseKey, number, rangeMax, uid, volumeOf } from './util.js';
 
@@ -105,9 +106,10 @@ export function suggestion(ex) {
   const averageRir = work.reduce((a, s) => a + number(s.rir), 0) / (work.length || 1);
   const ready = work.length && work.every((s) => number(s.reps) >= max) && (!hasRir || averageRir >= 1);
   const base = number(getSettings().increment) || 2.5;
-  const heavy = /squat|deadlift|leg press|kniebeuge|kreuzheben|beinpresse/i.test(
-    `${ex.sourceName || ''} ${ex.name || ''}`
-  );
+  const lib = libraryOf(ex);
+  const heavy = lib
+    ? /squat|deadlift|leg press/.test(lib.sourceName)
+    : /squat|deadlift|leg press|kniebeuge|kreuzheben|beinpresse/i.test(ex.name || '');
   const inc = heavy ? Math.max(5, base) : base;
   return ready ? { kind: 'progress', weight: best + inc } : { kind: 'confirm', weight: best };
 }

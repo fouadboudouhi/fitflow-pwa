@@ -1,7 +1,8 @@
 // Persistence: localStorage for structured data, IndexedDB for photos, plus versioned migrations.
-import { DEFAULT_PLAN } from './library.js';
+import { t } from './i18n.js';
+import { DEFAULT_PLAN_ID, defaultPlan, normalizeLegacyExercise } from './library.js';
 import { toast } from './ui.js';
-import { clone, dayKey, exerciseKey, uid, volumeOf } from './util.js';
+import { dayKey, exerciseKey, uid, volumeOf } from './util.js';
 
 export const LS = {
   schema: 'volumora-schema-version',
@@ -12,8 +13,10 @@ export const LS = {
   settings: 'volumora-settings-v2',
   exercisePrefs: 'volumora-exercise-prefs-v1',
   rest: 'volumora-rest-until',
+  onboarded: 'volumora-onboarded',
 };
 export const DEFAULT_SETTINGS = {
+  language: 'auto',
   theme: 'auto',
   rest: 90,
   increment: 2.5,
@@ -38,10 +41,7 @@ export const write = (key, value) => {
     return true;
   } catch (err) {
     console.error('Speichern fehlgeschlagen', err);
-    toast(
-      'Speichern fehlgeschlagen: Der lokale Speicher ist voll. Exportiere ein Backup und lösche alte Daten.',
-      { duration: 9000 }
-    );
+    toast(t('storage.full'), { duration: 9000 });
     return false;
   }
 };
@@ -49,7 +49,9 @@ export const write = (key, value) => {
 export const getSettings = () => ({ ...DEFAULT_SETTINGS, ...read(LS.settings, {}) });
 export const saveSettings = (settings) => write(LS.settings, settings);
 
-const defaultPlans = () => ({ activePlanId: DEFAULT_PLAN.id, items: [clone(DEFAULT_PLAN)] });
+const defaultPlans = () => ({ activePlanId: DEFAULT_PLAN_ID, items: [defaultPlan()] });
+export const isOnboarded = () => !!localStorage.getItem(LS.onboarded);
+export const markOnboarded = () => localStorage.setItem(LS.onboarded, '1');
 export const allPlans = () => read(LS.plans, defaultPlans());
 export const savePlans = (plans) => write(LS.plans, plans);
 export const findPlan = (planId) => allPlans().items.find((p) => p.id === planId);
@@ -134,8 +136,8 @@ const MIGRATIONS = [
       old.map((s) => ({
         ...s,
         id: uid(),
-        planId: DEFAULT_PLAN.id,
-        planName: DEFAULT_PLAN.name,
+        planId: DEFAULT_PLAN_ID,
+        planName: t('plan.ppl.name'),
         dayId: s.day,
         dayName: s.day?.[0].toUpperCase() + s.day?.slice(1),
         volume: volumeOf(s),
@@ -176,12 +178,21 @@ const MIGRATIONS = [
     );
     saveHistory(history);
   },
+  // 5: muscle groups and equipment on plan exercises are stored as keys instead of German labels, and copies of
+  // catalogue fields are dropped, so the interface can be shown in any language.
+  () => {
+    const data = allPlans();
+    data.items.forEach((p) => p.days?.forEach((d) => d.exercises?.forEach(normalizeLegacyExercise)));
+    savePlans(data);
+  },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
 export function runMigrations() {
   if (!localStorage.getItem(LS.plans)) savePlans(defaultPlans());
   if (!localStorage.getItem(LS.settings)) saveSettings(DEFAULT_SETTINGS);
+  // Installations from before the first-run flow existed count as onboarded.
+  if (!isOnboarded()) markOnboarded();
   const current = read(LS.schema, 0);
   for (let v = current; v < MIGRATIONS.length; v++) MIGRATIONS[v]();
   if (current !== SCHEMA_VERSION) write(LS.schema, SCHEMA_VERSION);

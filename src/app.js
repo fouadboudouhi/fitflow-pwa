@@ -1,11 +1,20 @@
 // Entry point: storage migrations, theme, service worker and the first render.
+import { setLanguage } from './i18n.js';
 import { navigate, render } from './render.js';
 import { nextSession } from './plans.js';
 import { state } from './state.js';
-import { activePlan, getHistory, getRestUntil, migratePhotos, runMigrations } from './storage.js';
+import {
+  activePlan,
+  getHistory,
+  getRestUntil,
+  getSettings,
+  migratePhotos,
+  runMigrations,
+} from './storage.js';
 import { applyTheme } from './theme.js';
-import { getSettings } from './storage.js';
 
+// The language comes first: migrations may seed the default plan in it.
+setLanguage(getSettings().language);
 runMigrations();
 applyTheme();
 state.restUntil = getRestUntil();
