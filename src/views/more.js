@@ -1,6 +1,7 @@
 // "Mehr" menu, backup and settings screens. Settings save on change.
 import { exportBackup, exportCsv, importBackup, validateBackup } from '../backup.js';
-import { LANGUAGES, languageLabel, setLanguage, t } from '../i18n.js';
+import { LANGUAGES, languageLabel, plural, setLanguage, t } from '../i18n.js';
+import { importParsed, parseImport } from '../importers.js';
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
@@ -8,7 +9,7 @@ import { activePlan, getSettings, photos, saveSettings } from '../storage.js';
 import { applyTheme } from '../theme.js';
 import { confirmDialog, infoDialog, toast } from '../ui.js';
 import { fieldValue, fromDisplay, unit } from '../units.js';
-import { esc, number } from '../util.js';
+import { esc, fmtDate, number } from '../util.js';
 import { backRow, mediaCredit } from './shell.js';
 
 const menuRow = (attrs, ic, title, text) =>
@@ -18,7 +19,7 @@ const moreView = () =>
   `<main class="shell"><section class="page-head"><h1>${t('more.title')}</h1></section><div class="list">${menuRow('data-nav="body"', 'body', t('more.body'), t('more.bodyHint'))}${menuRow('data-nav="backup"', 'backup', t('more.backup'), t('more.backupHint'))}${menuRow('data-nav="customExercises"', 'plus', t('more.customExercises'), t('more.customExercisesHint'))}${menuRow('data-nav="settings"', 'settings', t('more.settings'), t('more.settingsHint'))}${menuRow('id="installRow"', 'plus', t('more.install'), state.installPrompt ? t('more.installApp') : t('more.installHint'))}${menuRow('data-nav="legal"', 'plan', t('more.legal'), t('more.legalHint'))}</div><p class="about">${t('more.about')}</p>${mediaCredit()}</main>`;
 
 const backupView = () =>
-  `<main class="shell narrow">${backRow(t('backup.title'), 'more')}<div class="list">${menuRow('id="exportJson"', 'backup', t('backup.export'), t('backup.exportHint'))}${menuRow('id="exportCsv"', 'chart', t('backup.csv'), t('backup.csvHint'))}<label class="row" for="importJson"><span class="row-icon">${icon('plus')}</span><span class="row-main"><b>${t('backup.import')}</b><small>${t('backup.importHint')}</small></span>${icon('chevron-right')}<input type="file" id="importJson" accept="application/json,.json" hidden></label></div></main>`;
+  `<main class="shell narrow">${backRow(t('backup.title'), 'more')}<div class="list">${menuRow('id="exportJson"', 'backup', t('backup.export'), t('backup.exportHint'))}${menuRow('id="exportCsv"', 'chart', t('backup.csv'), t('backup.csvHint'))}<label class="row" for="importJson"><span class="row-icon">${icon('plus')}</span><span class="row-main"><b>${t('backup.import')}</b><small>${t('backup.importHint')}</small></span>${icon('chevron-right')}<input type="file" id="importJson" accept="application/json,.json" hidden></label><label class="row" for="importCsv"><span class="row-icon">${icon('chart')}</span><span class="row-main"><b>${t('backup.csvImport')}</b><small>${t('backup.csvImportHint')}</small></span>${icon('chevron-right')}<input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></div></main>`;
 
 function settingsView() {
   const s = getSettings();
@@ -133,10 +134,50 @@ export async function importBackupFile(input, { replace = false } = {}) {
   return true;
 }
 
+// A Hevy or Strong CSV export: shown as a count with the date range before it is merged into the history.
+export async function importCsvFile(input) {
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  const parsed = parseImport(await file.text(), { unit: getSettings().unit });
+  if (!parsed.source) return toast(t('backup.csvUnknown'));
+  if (!parsed.sessions.length) return toast(t('backup.csvEmpty'));
+  const days = parsed.sessions.map((s) => s.day).sort();
+  const names = new Set(parsed.sessions.flatMap((s) => s.entries.map((e) => e.name)));
+  const text = [
+    t('backup.csvText', {
+      source: parsed.source === 'hevy' ? 'Hevy' : 'Strong',
+      from: fmtDate(days[0]),
+      to: fmtDate(days[days.length - 1]),
+      known: names.size - parsed.unknown.length,
+      unknown: parsed.unknown.length,
+    }),
+    parsed.unitAssumed ? t('backup.csvUnit', { unit: getSettings().unit }) : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const ok = await confirmDialog({
+    title: plural(parsed.sessions.length, 'backup.csvTitle'),
+    text,
+    confirmLabel: t('backup.csvConfirm'),
+  });
+  if (!ok) return;
+  const result = importParsed(parsed);
+  toast(
+    [
+      plural(result.added, 'backup.csvImported'),
+      result.skipped ? t('backup.csvSkipped', { n: result.skipped }) : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+}
+
 export function bind() {
   document.querySelector('#exportJson')?.addEventListener('click', exportBackup);
   document.querySelector('#exportCsv')?.addEventListener('click', exportCsv);
   document.querySelector('#importJson')?.addEventListener('change', (e) => importBackupFile(e.target));
+  document.querySelector('#importCsv')?.addEventListener('change', (e) => importCsvFile(e.target));
   const form = document.querySelector('#settingsForm');
   if (form) {
     form.addEventListener('submit', (e) => e.preventDefault());

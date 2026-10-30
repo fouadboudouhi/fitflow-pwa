@@ -203,6 +203,9 @@ export function validateBackup(data) {
         duration: asNum(h.duration, 0, 0),
         totalSets: asNum(h.totalSets, 0, 0),
         markers: { deload: !!h.markers?.deload, ill: !!h.markers?.ill, pain: !!h.markers?.pain },
+        ...(asStr(h.imported?.key, 160)
+          ? { imported: { source: asStr(h.imported.source, 20), key: asStr(h.imported.key, 160) } }
+          : {}),
         ...(h.detached
           ? { detached: true, exercises: (Array.isArray(h.exercises) ? h.exercises : []).map(asExercise) }
           : {}),
