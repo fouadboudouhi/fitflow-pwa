@@ -445,8 +445,8 @@ async function seedHistory() {
       'volumora-history-v2',
       JSON.stringify([session('s-recent', key(recent), 50), session('s-old', key(old), 40)])
     );
-    // One version behind, so the newest migration (record flags) runs over the seeded sessions on reload.
-    localStorage.setItem('volumora-schema-version', String(SCHEMA - 1));
+    // Before the record-flag migration (6), so the seeded sessions get their record flags on reload.
+    localStorage.setItem('volumora-schema-version', '5');
   }, SCHEMA);
   await page.reload();
   await page.waitForSelector('.next-card');
