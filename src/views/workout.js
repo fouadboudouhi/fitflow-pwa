@@ -2,7 +2,7 @@ import { fmtNumber, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
-import { customExercise, planExerciseFromLibrary, supersetLetters, supersetPosition } from '../plans.js';
+import { planExerciseFromLibrary, supersetLetters, supersetPosition } from '../plans.js';
 import { navigate, render } from '../render.js';
 import { SET_TYPES, describeSet, parseDuration, setSetType } from '../sets.js';
 import { state } from '../state.js';
@@ -168,7 +168,6 @@ function addExercises() {
     subtitle: current().dayName,
     isAdded: (id) => sessionExercises(current()).some((x) => (x.libraryId || x.id) === id),
     onPick: (source) => mutate((s) => addSessionExercise(s, planExerciseFromLibrary(source)), true),
-    onCustom: () => mutate((s) => addSessionExercise(s, customExercise()), true),
   });
 }
 function replaceExercise(index) {
@@ -178,7 +177,6 @@ function replaceExercise(index) {
     closeOnPick: true,
     onPick: (source) =>
       mutate((s) => replaceSessionExercise(s, index, planExerciseFromLibrary(source)), true),
-    onCustom: () => mutate((s) => replaceSessionExercise(s, index, customExercise()), true),
   });
 }
 

@@ -3282,3 +3282,22 @@ label.row {
 .templates-intro {
   margin: -8px 0 16px;
 }
+
+/* Custom exercises */
+.library-info .custom-exercise-icon {
+  width: 64px;
+  height: 64px;
+}
+.custom-new {
+  margin-top: 18px;
+}
+.custom-form {
+  display: grid;
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .library-info .custom-exercise-icon {
+    width: 56px;
+    height: 56px;
+  }
+}

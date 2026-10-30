@@ -9,8 +9,8 @@ const { createServer } = require('./serve.js');
 const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 let server, browser, baseURL, context, page, errors;
-const SCHEMA = 6;
-const BACKUP_VERSION = 4;
+const SCHEMA = 7;
+const BACKUP_VERSION = 5;
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64'
@@ -913,4 +913,65 @@ test('a plan can be created from a template', async () => {
   assert.match(await page.textContent('.home-intro p'), /Ganzkörper · 3 Tage/);
   await page.click('[data-nav="plans"]');
   assert.equal(await page.locator('[data-edit-plan]').count(), 2);
+});
+
+test('custom exercises: promoted from old plans, created in the picker, managed in More, kept in backups', async () => {
+  await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('volumora-plans-v2'));
+    data.items[0].days[0].exercises.push({
+      id: 'legacy-custom',
+      name: 'Seilspringen',
+      sets: 2,
+      range: '8–12',
+      gif: '',
+      note: '',
+      custom: true,
+      category: 'other',
+    });
+    localStorage.setItem('volumora-plans-v2', JSON.stringify(data));
+    localStorage.setItem('volumora-schema-version', '6');
+  });
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  const store = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-custom-exercises-v1')));
+  assert.equal(store.length, 1, 'the plan-level custom exercise moved into the store');
+  assert.equal(store[0].name, 'Seilspringen');
+  const migrated = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('volumora-plans-v2')).items[0].days[0].exercises.at(-1)
+  );
+  assert.equal(migrated.libraryId, 'legacy-custom');
+  assert.equal(migrated.custom, undefined);
+  await page.click('[data-nav="plans"]');
+  await page.click('[data-edit-plan]');
+  assert.match(await page.textContent('.plan-exercise-row:last-child h3'), /Seilspringen/);
+  await page.click('[data-add-exercise="0"]');
+  await page.waitForSelector('.exercise-library');
+  await page.click('#addCustomExercise');
+  await page.waitForSelector('#customForm');
+  await page.fill('#customForm [name="name"]', 'Farmer Walk');
+  await page.selectOption('#customForm [name="category"]', 'legs');
+  await page.selectOption('#customForm [name="trackType"]', 'distance_time');
+  await page.click('#customForm button[type="submit"]');
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+  assert.equal(await page.locator('.library-item[data-custom]').count(), 2);
+  await page.click('#closeLibraryBottom');
+  await page.click('#savePlan');
+  const plans = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')));
+  const added = plans.items[0].days[0].exercises.at(-1);
+  assert.equal(added.name, 'Farmer Walk');
+  assert.ok(added.libraryId, 'linked to the stored custom exercise');
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="backup"]');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#exportJson')]);
+  const backup = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+  assert.equal(backup.customExercises.length, 2);
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="customExercises"]');
+  await page.waitForSelector('[data-custom-exercise]');
+  assert.equal(await page.locator('[data-custom-exercise]').count(), 2);
+  await page.locator('[data-custom-exercise]').first().click();
+  await page.getByRole('button', { name: 'Löschen' }).click();
+  assert.equal(await page.locator('[data-custom-exercise]').count(), 1);
+  await page.click('.toast-action');
+  assert.equal(await page.locator('[data-custom-exercise]').count(), 2, 'undo restores it');
 });

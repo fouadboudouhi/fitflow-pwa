@@ -1,6 +1,6 @@
 // Persistence: localStorage for structured data, IndexedDB for photos, plus versioned migrations.
 import { t } from './i18n.js';
-import { DEFAULT_PLAN_ID, defaultPlan, normalizeLegacyExercise } from './library.js';
+import { DEFAULT_PLAN_ID, GROUPS, defaultPlan, normalizeLegacyExercise, setCustomSource } from './library.js';
 import { annotateAll } from './records.js';
 import { trackTypeOf } from './sets.js';
 import { toast } from './ui.js';
@@ -16,6 +16,7 @@ export const LS = {
   exercisePrefs: 'volumora-exercise-prefs-v1',
   rest: 'volumora-rest-until',
   onboarded: 'volumora-onboarded',
+  customExercises: 'volumora-custom-exercises-v1',
 };
 export const DEFAULT_SETTINGS = {
   language: 'auto',
@@ -82,6 +83,61 @@ export const getBody = () => read(LS.body, []);
 export const saveBody = (entries) => write(LS.body, entries);
 export const getPrefs = () => ({ favorites: [], recent: [], ...read(LS.exercisePrefs, {}) });
 export const savePrefs = (prefs) => write(LS.exercisePrefs, prefs);
+
+// Custom exercises: { id, name, category (group key), equipment, trackType, note, createdAt }.
+export const getCustomExercises = () => read(LS.customExercises, []);
+export const saveCustomExercises = (list) => write(LS.customExercises, list);
+export function saveCustomExercise(record) {
+  const list = getCustomExercises();
+  const index = list.findIndex((x) => x.id === record.id);
+  if (index < 0) list.push(record);
+  else list[index] = record;
+  saveCustomExercises(list);
+  return record;
+}
+export function removeCustomExercise(id) {
+  const list = getCustomExercises();
+  const index = list.findIndex((x) => x.id === id);
+  if (index < 0) return null;
+  const [removed] = list.splice(index, 1);
+  saveCustomExercises(list);
+  return { removed, index };
+}
+setCustomSource(getCustomExercises);
+
+// Custom exercises used to live inside plans (`custom: true`). They move into their own store, keeping their
+// id, so plan exercises link to them like catalogue exercises and the history stays attached.
+export function promoteCustomExercises() {
+  const data = allPlans();
+  const customs = getCustomExercises();
+  let changed = false;
+  data.items.forEach((p) =>
+    p.days?.forEach((d) =>
+      d.exercises?.forEach((ex) => {
+        if (!ex.custom) return;
+        if (!customs.some((c) => c.id === ex.id))
+          customs.push({
+            id: ex.id,
+            name: ex.name || t('exercise.customName'),
+            category: GROUPS.includes(ex.category) ? ex.category : 'other',
+            equipment: ex.equipment || 'other',
+            trackType: ex.trackType || 'weight_reps',
+            note: ex.note || '',
+            createdAt: new Date().toISOString(),
+          });
+        ex.libraryId = ex.id;
+        delete ex.custom;
+        delete ex.category;
+        delete ex.equipment;
+        changed = true;
+      })
+    )
+  );
+  if (!changed) return false;
+  saveCustomExercises(customs);
+  savePlans(data);
+  return true;
+}
 export const getActive = () => read(LS.active, null);
 export const saveActive = (session) => write(LS.active, session);
 export const clearActive = () => localStorage.removeItem(LS.active);
@@ -208,6 +264,10 @@ const MIGRATIONS = [
     );
     annotateAll(history);
     saveHistory(history);
+  },
+  // 7: custom exercises get their own store and plan exercises link to them by id.
+  () => {
+    promoteCustomExercises();
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;

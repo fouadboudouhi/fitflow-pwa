@@ -4,33 +4,36 @@
 import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import {
-  EXERCISE_LIBRARY,
+  EQUIPMENT_KEYS,
   GROUPS,
+  allExercises,
+  customRecord,
   equipmentLabel,
   exerciseName,
   groupLabel,
-  libraryExercise,
+  libraryOf,
   muscleLabel,
 } from '../library.js';
 import { popOverlay, pushOverlay } from '../router.js';
-import { getPrefs, savePrefs } from '../storage.js';
+import { getPrefs, saveCustomExercise, savePrefs } from '../storage.js';
 import { esc, fold } from '../util.js';
+import { openCustomForm } from './customForm.js';
 import { openExerciseSheet } from './exercise.js';
 
-const EQUIPMENT = [...new Set(EXERCISE_LIBRARY.map((x) => x.equipment).filter(Boolean))];
+const EQUIPMENT = EQUIPMENT_KEYS;
 const searchText = (ex, name) =>
   fold(
     `${name} ${ex.sourceName || ''} ${groupLabel(ex.group)} ${equipmentLabel(ex.equipment)} ${muscleLabel(ex.target)} ${ex.equipment || ''} ${ex.target || ''}`
   );
 
 // `isAdded(id)` marks exercises that are already in the target; `onPick(exercise)` adds one (the picker stays open
-// unless `closeOnPick`); `onCustom()` is called after the picker closed itself. Returns the close function.
+// unless `closeOnPick`). A custom exercise created from the picker is stored and then picked the same way.
+// Returns the close function.
 export function openPicker({
   title = t('picker.title'),
   subtitle = '',
   isAdded = () => false,
   onPick,
-  onCustom,
   closeOnPick = false,
 }) {
   let query = '';
@@ -43,7 +46,7 @@ export function openPicker({
     .sort((a, b) => a[1].localeCompare(b[1]))
     .map(([key, label]) => `<option value="${esc(key)}">${esc(label)}</option>`)
     .join('');
-  backdrop.innerHTML = `<section class="exercise-library" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="library-head"><div><h2>${esc(title)}</h2><p class="muted">${subtitle ? `${esc(subtitle)} · ` : ''}${plural(EXERCISE_LIBRARY.length, 'exercises')}</p></div><button type="button" class="icon-btn" id="closeLibrary" aria-label="${t('common.close')}">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="${t('picker.search')}" autocomplete="off"></label><div class="category-chips">${['all', ...GROUPS].map((g) => `<button type="button" class="${g === 'all' ? 'active' : ''}" data-library-category="${g}" aria-pressed="${g === 'all'}">${esc(groupLabel(g))}</button>`).join('')}</div><label class="library-filter"><span>${t('picker.equipment')}</span><select id="libraryEquipment"><option value="all">${t('picker.allEquipment')}</option>${equipmentOptions}</select></label><div class="library-list"></div><p class="muted library-empty" hidden>${t('picker.noResults')}</p><button type="button" class="custom-exercise-button" id="addCustomExercise">${t('picker.custom')}</button><button type="button" class="primary full library-done" id="closeLibraryBottom">${t('common.done')}</button></section>`;
+  backdrop.innerHTML = `<section class="exercise-library" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="library-head"><div><h2>${esc(title)}</h2><p class="muted">${subtitle ? `${esc(subtitle)} · ` : ''}${plural(allExercises().length, 'exercises')}</p></div><button type="button" class="icon-btn" id="closeLibrary" aria-label="${t('common.close')}">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="${t('picker.search')}" autocomplete="off"></label><div class="category-chips">${['all', ...GROUPS].map((g) => `<button type="button" class="${g === 'all' ? 'active' : ''}" data-library-category="${g}" aria-pressed="${g === 'all'}">${esc(groupLabel(g))}</button>`).join('')}</div><label class="library-filter"><span>${t('picker.equipment')}</span><select id="libraryEquipment"><option value="all">${t('picker.allEquipment')}</option>${equipmentOptions}</select></label><div class="library-list"></div><p class="muted library-empty" hidden>${t('picker.noResults')}</p><button type="button" class="custom-exercise-button" id="addCustomExercise">${t('picker.custom')}</button><button type="button" class="primary full library-done" id="closeLibraryBottom">${t('common.done')}</button></section>`;
   const dialog = backdrop.querySelector('.exercise-library');
   const list = backdrop.querySelector('.library-list');
   const empty = backdrop.querySelector('.library-empty');
@@ -59,10 +62,20 @@ export function openPicker({
     empty.hidden = !!list.querySelector('.library-item:not([hidden])');
   };
 
+  const pick = (source) => {
+    if (!source) return;
+    const current = getPrefs();
+    current.recent = [source.id, ...current.recent.filter((x) => x !== source.id)].slice(0, 12);
+    savePrefs(current);
+    onPick?.(source);
+    if (closeOnPick) close();
+    else renderList();
+  };
+
   const renderList = () => {
     const prefs = getPrefs();
     const rank = (id) => (prefs.recent.indexOf(id) < 0 ? 99 : prefs.recent.indexOf(id));
-    const sorted = EXERCISE_LIBRARY.slice().sort(
+    const sorted = allExercises().sort(
       (a, b) => prefs.favorites.includes(b.id) - prefs.favorites.includes(a.id) || rank(a.id) - rank(b.id)
     );
     list.innerHTML = sorted
@@ -70,7 +83,13 @@ export function openPicker({
         const added = isAdded(ex.id);
         const favorite = prefs.favorites.includes(ex.id);
         const name = exerciseName(ex);
-        return `<article class="library-item" data-group="${esc(ex.group)}" data-equipment="${esc(ex.equipment || '')}" data-search="${esc(searchText(ex, name))}"><button type="button" class="library-info" data-library-info="${ex.id}" aria-label="${esc(t('picker.details', { name }))}"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"><div><h3>${esc(name)}</h3><span>${esc(groupLabel(ex.group))} · ${esc(equipmentLabel(ex.equipment))}</span></div></button><div class="library-actions"><button type="button" class="star ${favorite ? 'active' : ''}" data-library-favorite="${ex.id}" aria-label="${t('picker.favorite')}" aria-pressed="${favorite}">★</button><button type="button" class="${added ? 'added' : ''}" data-pick-exercise="${ex.id}" ${added ? 'disabled' : ''} aria-label="${added ? t('picker.added') : t('picker.add')}">${added ? '✓' : '＋'}</button></div></article>`;
+        const meta = [groupLabel(ex.group), equipmentLabel(ex.equipment), ex.custom ? t('custom.tag') : '']
+          .filter(Boolean)
+          .join(' · ');
+        const media = ex.gif
+          ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">`
+          : '<div class="custom-exercise-icon">＋</div>';
+        return `<article class="library-item" data-group="${esc(ex.group)}" data-equipment="${esc(ex.equipment || '')}" data-search="${esc(searchText(ex, name))}" ${ex.custom ? 'data-custom' : ''}><button type="button" class="library-info" data-library-info="${esc(ex.id)}" aria-label="${esc(t('picker.details', { name }))}">${media}<div><h3>${esc(name)}</h3><span>${esc(meta)}</span></div></button><div class="library-actions"><button type="button" class="star ${favorite ? 'active' : ''}" data-library-favorite="${esc(ex.id)}" aria-label="${t('picker.favorite')}" aria-pressed="${favorite}">★</button><button type="button" class="${added ? 'added' : ''}" data-pick-exercise="${esc(ex.id)}" ${added ? 'disabled' : ''} aria-label="${added ? t('picker.added') : t('picker.add')}">${added ? '✓' : '＋'}</button></div></article>`;
       })
       .join('');
     applyFilter();
@@ -86,19 +105,10 @@ export function openPicker({
       };
     });
     list.querySelectorAll('[data-pick-exercise]').forEach((b) => {
-      b.onclick = () => {
-        const source = libraryExercise(b.dataset.pickExercise);
-        if (!source) return;
-        const current = getPrefs();
-        current.recent = [source.id, ...current.recent.filter((x) => x !== source.id)].slice(0, 12);
-        savePrefs(current);
-        onPick?.(source);
-        if (closeOnPick) close();
-        else renderList();
-      };
+      b.onclick = () => pick(libraryOf({ id: b.dataset.pickExercise }));
     });
     list.querySelectorAll('[data-library-info]').forEach((b) => {
-      b.onclick = () => openExerciseSheet(libraryExercise(b.dataset.libraryInfo));
+      b.onclick = () => openExerciseSheet(libraryOf({ id: b.dataset.libraryInfo }));
     });
   };
 
@@ -163,10 +173,13 @@ export function openPicker({
   });
   backdrop.querySelector('#closeLibrary').onclick = close;
   backdrop.querySelector('#closeLibraryBottom').onclick = close;
-  backdrop.querySelector('#addCustomExercise').onclick = () => {
-    close();
-    onCustom?.();
-  };
+  backdrop.querySelector('#addCustomExercise').onclick = () =>
+    openCustomForm({
+      onSave: (record) => {
+        saveCustomExercise(record);
+        pick(customRecord(record));
+      },
+    });
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) close();
   });

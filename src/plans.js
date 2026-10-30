@@ -27,16 +27,6 @@ export const planExerciseFromLibrary = (source) => ({
   range: source.range || '8–12',
   note: '',
 });
-export const customExercise = () => ({
-  id: uid(),
-  name: t('exercise.customName'),
-  sets: 3,
-  range: '8–12',
-  gif: '',
-  note: '',
-  custom: true,
-  category: 'other',
-});
 export const setCount = (day) => day.exercises.reduce((sum, ex) => sum + Number(ex.sets || 0), 0);
 
 export function createEmptyPlan() {
