@@ -69,6 +69,34 @@ export function addDay(
   plan.schedule.assignments[day.id] = slots[slots.length - 1] ?? 0;
   return day;
 }
+// A copy of a day, appended to the plan with fresh ids.
+export function duplicateDay(plan, index) {
+  const source = plan.days[index];
+  if (!source) return null;
+  const copy = clone(source);
+  copy.id = uid();
+  copy.name = `${source.name}${t('plan.copySuffix')}`.slice(0, 60);
+  copy.exercises.forEach((ex) => {
+    ex.id = uid();
+  });
+  return addDay(plan, copy);
+}
+// Moves one exercise to the end of another day of the same plan; returns the moved exercise.
+export function moveExerciseToDay(plan, fromDay, index, toDay) {
+  const from = plan.days[fromDay];
+  const to = plan.days[toDay];
+  if (!from || !to || from === to) return null;
+  const [ex] = from.exercises.splice(index, 1);
+  if (!ex) return null;
+  delete ex.supersetId;
+  to.exercises.push(ex);
+  return ex;
+}
+// Applies a new order of a day's exercises given as the previous indexes.
+export function reorderExercises(day, order) {
+  if (order.length !== day.exercises.length) return;
+  day.exercises = order.map((i) => day.exercises[i]);
+}
 // A finished free (or edited) workout as a plan day; exercise ids are kept so custom-exercise history stays linked.
 export const dayFromSession = (session) => ({
   id: uid(),
