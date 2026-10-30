@@ -23,6 +23,8 @@ const ui = {
   'nav.history': 'Verlauf',
   'nav.more': 'Mehr',
   'credit.media': 'Übungsmedien:',
+  'update.ready': 'Neue Version verfügbar.',
+  'update.reload': 'Neu laden',
   'storage.full':
     'Speichern fehlgeschlagen: Der lokale Speicher ist voll. Exportiere ein Backup und lösche alte Daten.',
   'exercises.one': '{n} Übung',

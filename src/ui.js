@@ -1,6 +1,7 @@
 // In-app replacements for alert() and confirm(): a toast with optional undo, and a bottom-sheet confirmation.
 import { t } from './i18n.js';
 import { icon } from './icons.js';
+import { popOverlay, pushOverlay } from './router.js';
 
 let current = null; // { el, timer, commit }
 
@@ -70,13 +71,16 @@ export function confirmDialog({
     ok.textContent = confirmLabel;
     if (cancel) cancel.textContent = cancelLabel;
     const previous = document.activeElement;
+    let entry = null;
     const close = (result) => {
       document.removeEventListener('keydown', onKey, true);
       backdrop.classList.remove('show');
       setTimeout(() => backdrop.remove(), 200);
       previous?.focus?.({ preventScroll: true });
+      popOverlay(entry);
       resolve(result);
     };
+    entry = pushOverlay(() => close(false));
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -119,12 +123,15 @@ export function sheet({ title, content, closeLabel = t('common.close') }) {
   if (content instanceof Node) body.append(content);
   else body.innerHTML = content;
   const previous = document.activeElement;
+  let entry = null;
   const close = () => {
     document.removeEventListener('keydown', onKey, true);
     backdrop.classList.remove('show');
     setTimeout(() => backdrop.remove(), 200);
     previous?.focus?.({ preventScroll: true });
+    popOverlay(entry);
   };
+  entry = pushOverlay(close);
   const onKey = (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();

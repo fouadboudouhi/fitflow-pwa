@@ -19,6 +19,7 @@ import {
   scheduleSlots,
 } from '../plans.js';
 import { navigate, render } from '../render.js';
+import { popOverlay, pushOverlay } from '../router.js';
 import { state } from '../state.js';
 import { allPlans, getPrefs, persistPlan, savePlans, savePrefs } from '../storage.js';
 import { actionSheet, toast, undoToast } from '../ui.js';
@@ -121,6 +122,8 @@ function collectPlan() {
   return p;
 }
 
+// The library is rendered inside the view, but behaves like an overlay for the back button.
+let libraryOverlay = null;
 const openLibrary = (dayIndex, replaceIndex) => {
   collectPlan();
   Object.assign(state, {
@@ -129,10 +132,14 @@ const openLibrary = (dayIndex, replaceIndex) => {
     libraryCategory: 'all',
     libraryQuery: '',
   });
+  if (!libraryOverlay) libraryOverlay = pushOverlay(() => closeLibrary());
   render();
 };
 const closeLibrary = () => {
   Object.assign(state, { libraryDayIndex: null, replaceExerciseIndex: null });
+  const entry = libraryOverlay;
+  libraryOverlay = null;
+  if (entry) popOverlay(entry);
   render();
 };
 

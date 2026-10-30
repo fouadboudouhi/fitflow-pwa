@@ -602,3 +602,43 @@ test('the interface follows the device language and the language setting', async
   await page.waitForSelector('.next-card');
   assert.equal(await page.textContent('.home-intro h1'), 'Heute', 'the setting survives a reload');
 });
+
+test('the browser back button closes overlays first and then steps back through views', async () => {
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="settings"]');
+  await page.waitForSelector('#settingsForm');
+  await page.goBack();
+  await page.waitForSelector('#installRow');
+  assert.equal(await page.locator('#settingsForm').count(), 0, 'back leaves the settings view');
+  await page.click('[data-nav="plans"]');
+  await page.click('#newPlan');
+  await page.waitForSelector('.sheet-backdrop.show');
+  await page.goBack();
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+  assert.equal(await page.locator('#newPlan').count(), 1, 'back only closed the sheet');
+  // Closing a sheet with its own control leaves no dead history entry behind.
+  await page.click('#newPlan');
+  await page.waitForSelector('.sheet-backdrop.show');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+  await page.waitForTimeout(50);
+  await page.goBack();
+  await page.waitForSelector('#installRow');
+  // The exercise library behaves the same way.
+  await page.click('[data-nav="plans"]');
+  await page.click('[data-edit-plan]');
+  await page.click('[data-add-exercise="0"]');
+  await page.waitForSelector('.exercise-library');
+  await page.goBack();
+  await page.waitForSelector('.exercise-library', { state: 'detached' });
+  assert.equal(await page.locator('#savePlan').count(), 1, 'still in the editor');
+});
+
+test('charts follow the viewport width', async () => {
+  await seedHistory();
+  await page.click('[data-nav="analytics"]');
+  await page.waitForSelector('#volumeChart');
+  const before = await page.locator('#volumeChart').evaluate((c) => c.width);
+  await page.setViewportSize({ width: 520, height: 800 });
+  await page.waitForFunction((w) => document.querySelector('#volumeChart').width !== w, before);
+});

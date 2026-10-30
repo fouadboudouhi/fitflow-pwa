@@ -1,7 +1,8 @@
-// Entry point: storage migrations, theme, service worker and the first render.
-import { setLanguage } from './i18n.js';
-import { navigate, render } from './render.js';
+// Entry point: storage migrations, language, theme, router, service worker and the first render.
+import { setLanguage, t } from './i18n.js';
 import { nextSession } from './plans.js';
+import { applyRoute, navigate, redrawCharts, render } from './render.js';
+import { initRouter } from './router.js';
 import { state } from './state.js';
 import {
   activePlan,
@@ -12,12 +13,14 @@ import {
   runMigrations,
 } from './storage.js';
 import { applyTheme } from './theme.js';
+import { toast } from './ui.js';
 
 // The language comes first: migrations may seed the default plan in it.
 setLanguage(getSettings().language);
 runMigrations();
 applyTheme();
 state.restUntil = getRestUntil();
+initRouter(applyRoute);
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -27,24 +30,25 @@ window.addEventListener('beforeinstallprompt', (e) => {
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
   if (getSettings().theme === 'auto') applyTheme();
 });
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(redrawCharts, 150);
+});
 
 if ('serviceWorker' in navigator) {
-  let refreshing = false;
   let hadController = !!navigator.serviceWorker.controller;
-  // A new worker took over: reload to run the new code. Not on the very first install (nothing to update yet)
-  // and not while a workout is open; then the reload waits until the user leaves the workout view.
+  // A new worker took over: the next load runs the new code. Offer the reload instead of forcing it, so nothing
+  // interrupts a workout. Not on the very first install, where there is nothing to update yet.
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController) {
       hadController = true;
       return;
     }
-    if (refreshing) return;
-    if (state.view === 'workout') {
-      state.reloadPending = true;
-      return;
-    }
-    refreshing = true;
-    location.reload();
+    toast(t('update.ready'), {
+      action: { label: t('update.reload'), onClick: () => location.reload() },
+      duration: 15000,
+    });
   });
   window.addEventListener('load', () =>
     navigator.serviceWorker
@@ -69,7 +73,7 @@ window.addEventListener('pageshow', () => window.scrollTo(0, 0));
 render();
 // Homescreen shortcut: jump straight into the next session.
 if (new URLSearchParams(location.search).get('action') === 'start') {
-  history.replaceState(null, '', location.pathname);
+  history.replaceState(history.state, '', location.pathname);
   const plan = activePlan();
   const { day } = nextSession(plan, getHistory());
   if (day?.exercises.length) navigate('workout', { planId: plan.id, dayId: day.id });
