@@ -70,6 +70,8 @@ const ui = {
   'plans.new': 'Neuen Plan anlegen',
   'plans.active': 'Aktiv',
   'plans.newTitle': 'Neuer Plan',
+  'plans.fromTemplate': 'Vorlage wählen',
+  'plans.fromTemplateHint': 'Fertige Programme für Studio, Kurzhanteln oder Zuhause',
   'plans.withAssistant': 'Mit Assistent erstellen',
   'plans.withAssistantHint': 'Ziel und Tage wählen, Vorschlag anpassen',
   'plans.empty': 'Leeren Plan anlegen',
@@ -413,6 +415,38 @@ const ui = {
   'records.kind.maxTime': 'Längste Zeit',
   'records.kind.maxDistance': 'Längste Distanz',
 
+  // Templates
+  'templates.title': 'Vorlagen',
+  'templates.intro': 'Bewährte Programme. Sofort verwenden oder im Editor anpassen.',
+  'equipmentChoice.gym': 'Fitnessstudio',
+  'equipmentChoice.gymHint': 'Langhantel, Kabelzug, Maschinen',
+  'equipmentChoice.dumbbell': 'Nur Kurzhanteln',
+  'equipmentChoice.dumbbellHint': 'Zuhause mit Hanteln und Bank',
+  'equipmentChoice.home': 'Zuhause ohne Geräte',
+  'equipmentChoice.homeHint': 'Körpergewicht, Klimmzugstange hilft',
+  'template.full2.name': 'Ganzkörper · 2 Tage',
+  'template.full2.description': 'Zwei kurze Einheiten mit den Grundübungen, ideal für den Einstieg',
+  'template.full3.name': 'Ganzkörper · 3 Tage',
+  'template.full3.description': 'Drei Einheiten, jede trainiert den ganzen Körper',
+  'template.upperLower4.name': 'Ober-/Unterkörper · 4 Tage',
+  'template.upperLower4.description':
+    'Zwei Oberkörper- und zwei Unterkörpertage, jede Muskelgruppe zweimal pro Woche',
+  'template.ppl3.name': 'Push · Pull · Beine',
+  'template.ppl3.description': 'Der Klassiker: Drücken, Ziehen, Beine',
+  'template.split5.name': '5-Tage-Split',
+  'template.split5.description': 'Push, Pull, Beine plus Ober- und Unterkörper für Fortgeschrittene',
+  'template.ppl6.name': 'Push · Pull · Beine · 6 Tage',
+  'template.ppl6.description': 'Zwei Runden pro Woche mit wechselnden Übungen',
+  'template.home3.name': 'Zuhause ohne Geräte',
+  'template.home3.description': 'Liegestütze, Kniebeugen, Ausfallschritte und Core, drei Einheiten',
+  'template.dumbbell3.name': 'Nur Kurzhanteln · 3 Tage',
+  'template.dumbbell3.description': 'Ganzkörper mit einem Hantelpaar und Bank',
+  'template.linear2.name': 'Anfänger 5×5',
+  'template.linear2.description':
+    'Kniebeuge, Bankdrücken, Rudern, Drücken, Kreuzheben, im Wechsel A/B, jede Woche schwerer',
+  'template.minimal2.name': 'Minimal · 2 Tage',
+  'template.minimal2.description': 'Vier Übungen pro Einheit, fertig in 30 Minuten',
+
   // CSV export
   'csv.date': 'Datum',
   'csv.plan': 'Plan',
@@ -527,6 +561,9 @@ const data = {
   'day.upperB': 'Oberkörper B',
   'day.lowerB': 'Unterkörper B',
   'day.upper': 'Oberkörper',
+  'day.fullC': 'Ganzkörper C',
+  'day.workoutA': 'Training A',
+  'day.workoutB': 'Training B',
   'day.lower': 'Unterkörper',
 
   // Built-in exercises of the default plan: names and coaching notes
