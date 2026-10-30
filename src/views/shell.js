@@ -23,7 +23,7 @@ export const mediaCredit = () =>
   `<footer class="media-credit">${t('credit.media')} <a href="https://github.com/YaKohen/exercises-dataset" target="_blank" rel="noopener">Exercises Dataset</a> · <a href="https://exercisedb.dev" target="_blank" rel="noopener">ExerciseDB</a></footer>`;
 export const empty = (title, text) => `<div class="empty"><strong>${title}</strong><p>${text}</p></div>`;
 export const backRow = (label, target) =>
-  `<div class="backrow"><button class="back" data-nav="${target}" aria-label="${t('common.back')}">←</button><span>${label}</span></div>`;
+  `<div class="backrow"><button class="back" data-nav="${target}" aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${label}</span></div>`;
 
 export function bindShell() {
   document.onkeydown = null;

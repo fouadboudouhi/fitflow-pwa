@@ -1,91 +1,103 @@
 # Volumora Design System
 
-Quiet, private workout companion. One obvious next action per screen, no explanatory copy, no decoration. The interface is mobile-first and usable one-handed in a gym.
+Quiet, private workout companion. One obvious next action per screen, no explanatory copy, no decoration. The interface is mobile-first, usable one-handed in a gym, and feels native on the phone it is installed on: neutral surfaces, the system typeface at calm weights, depth from tone rather than lines, and motion that eases the way the platform does.
 
 ## 1. Visual Theme
 
 - Calm and precise. The content (a plan, a set, a number) is the design; chrome stays out of the way.
 - One accent hue, green, used only for action, selection, progress and completion.
-- Depth comes from tonal layers and 1px hairlines, never from shadows on resting elements.
+- Depth comes from tone: white cards on a light grey canvas, dark grey cards on black. Hairlines separate rows inside a surface; resting elements have no border. Light mode adds one soft ambient shadow under cards, dark mode none.
 - Nothing is decorated: no uppercase tracked labels above headings, no arrows appended to buttons, no marketing copy inside the product, no cards inside cards.
-- No top bar. The bottom navigation is the only chrome; each screen starts with its title.
+- No top bar. The bottom tab bar is the only chrome; each screen starts with its title.
 - One primary action per screen. Everything secondary lives in a „⋯“ action sheet, never as a row of visible buttons.
 
 ## 2. Color Palette
 
-Tokens live in `styles.css` on `:root` and `html[data-theme=dark]`.
+Tokens live in `styles.css` on `:root` and `html[data-theme=dark]` (the last section of the file holds the current values; earlier sections are history).
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| `--paper` | `#F6F7F4` | `#0B0E0C` | canvas |
-| `--surface` | `#FFFFFF` | `#121713` | lists, cards, sheets |
-| `--cloud` | `#EEF1ED` | `#1A211C` | inset fields, tracks, chips |
-| `--line` | `#DDE2DC` | `#293129` | hairlines |
-| `--ink` | `#131713` | `#F2F5F2` | text |
-| `--muted` | `#606760` | `#98A099` | secondary text (4.5:1 on every surface) |
-| `--green` | `#16B86A` | `#34D889` | fills: primary button, progress, chips |
+| `--paper` | `#F2F2F7` | `#000000` | canvas |
+| `--surface` | `#FFFFFF` | `#1C1C1E` | lists, cards, sheets |
+| `--cloud` | `#ECECF1` | `#2C2C2E` | inset fields, tracks, secondary buttons |
+| `--line` | `#E2E2E7` | `#323236` | hairlines between rows |
+| `--ink` | `#1C1C1E` | `#F5F5F7` | text |
+| `--muted` | `#66666D` | `#9A9AA0` | secondary text (4.5:1 on every surface) |
+| `--green` | `#34C759` | `#30D158` | fills: primary button, switches, progress |
 | `--on-green` | `#0B1A10` | `#0B1A10` | text on green fills |
-| `--green-ink` | `#0D7A45` | `#34D889` | green text and links |
-| `--danger` | `#C43B37` | `#FF756F` | destructive only |
-| `--orange`, `--blue` | | | second and third chart series only |
+| `--green-ink` | `#176D30` | `#30D158` | green text, links, active tab |
+| `--danger` | `#D70015` | `#FF453A` | destructive only |
+| `--blue`, `--orange` | | | second and third chart series only |
 
-Rules: text never wears a fill color; red is destructive only; amber is caution only; never rely on color alone for state.
+Rules: text never wears a fill color; red is destructive only; amber is caution only; never rely on color alone for state. Tints (green at 14–18 % over a surface) mark positive state on chips, icons and completed sets.
 
 ## 3. Typography Rules
 
-- System sans-serif stack. No web font is loaded.
-- Scale: page title 30–40px/800 with `-0.03em` tracking, card title 28–36px/800, section heading 15–16px/800, body 14–16px/500–650, secondary 12–13px muted, table headers 9–10px/800 uppercase.
+- System stack, SF Pro on Apple devices, Roboto/Segoe elsewhere: `-apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, system-ui, 'Segoe UI', Roboto, sans-serif`. No web font is loaded.
+- Three weights only: **700** for titles (page title 32px, card title 30px, exercise 20px, day name 18px, all with `-0.02em` tracking), **600** for names, buttons and anything bold inline, **400–500** for text.
+- Sizes: body 16–17px, secondary 13–15px muted, tab labels 10.5px, table headers 10px with `0.06em` tracking (the only uppercase text besides settings group headings).
 - Numbers that line up use `font-variant-numeric: tabular-nums`.
-- Sentence case everywhere. The only uppercase text is a settings group heading or a table column header.
-- Headings carry the page. No label above a heading, no subtitle copy below it unless it names a date, a plan or another fact.
+- Sentence case everywhere. Headings carry the page: no label above, no subtitle unless it names a date, a plan or another fact.
 
 ## 4. Component Stylings
 
-- **Primary button**: green fill, dark text, 12px radius, 48–52px tall, centered label, no icon. One per screen.
-- **Secondary button**: surface fill, 1px line. **Text button**: green-ink text, no border.
-- **List** (`.list` + `.row`): one surface with 16px radius, rows separated by hairlines, a chevron at the right of every tappable row. Used for days, sessions and menus.
-- **Next card**: the one bordered card on the home screen; label (sentence case, green-ink), title, one fact line, primary button.
+- **Primary button**: green fill, dark text, 14px radius, 50–52px tall, 17px/600 label, no icon. One per screen.
+- **Secondary button**: `--cloud` fill, no border. **Text button**: green-ink text, 16px/600. **Icon and back buttons**: 44px, `--cloud` fill, 12px radius; back is a chevron, never an arrow glyph.
+- **List** (`.list` + `.row`): one surface with 18px radius, rows 58px minimum separated by hairlines, a faint chevron at the right of every tappable row, an optional tinted icon tile at the left.
+- **Next card**: the hero on the home screen; 24px radius, label (sentence case, green-ink), title, one fact line, primary button.
 - **Stat row**: three numbers between two hairlines, no fill.
-- **Chart card**: surface, 1px line, 20px radius, sentence-case title, canvas with crosshair tooltip.
-- **Segmented control**: inset track, active segment on surface with a 1px shadow.
-- **Set table**: one shared header row, one row per set, inputs on `--cloud`, trailing completion control, "Zuletzt" hint under the inputs.
-- **Chips**: hairline pill for state, green fill for positive state (Aktiv, Bestwert, PR).
-- **Sheet**: bottom sheet on surface for confirmations and details; **Action sheet**: list of secondary actions, destructive ones in red; **Toast**: ink pill with optional Rückgängig.
+- **Chart card**: surface, 18px radius, sentence-case title, canvas with crosshair tooltip.
+- **Segmented control**: `--cloud` track with 2px inset, active segment on surface with a 1px shadow (grey in dark mode).
+- **Switch**: 51×31 iOS-style toggle, green when on, white knob with a short eased slide.
+- **Fields**: `--cloud` fill, no border, 12px radius, 48px tall, 17px text (so iOS does not zoom), green focus ring.
+- **Set table**: transparent header row, one row per set, inputs on `--cloud`, a completion control that pops once when the set lands; completed rows get a green tint.
+- **Chips**: hairline pill for neutral state, green tint with green-ink text for positive state (Aktiv, Bestwert, PR).
+- **Sheet**: rises from the bottom edge with a grabber, 24px top radius; **Action sheet**: list of 52px actions, destructive ones in red; **Toast** and **rest timer**: floating blurred pills with a little spring.
 - **Settings** save on change. No Speichern button.
 
 ## 5. Layout Principles
 
-- 4/8px grid. Outer margin 16px on phones, 24px on wider screens. Content column 760px for reading views, 680px for the workout, 1120px max.
-- Section rhythm 24–28px. Card padding 18–22px. List row 60px minimum, 44px minimum for every control, 48px for inputs used during training.
+- 4/8px grid. Outer margin 16px on phones, 20px on wider screens. Content column 760px for reading views, 680px for the workout, 1120px max.
+- Section rhythm 20–26px. Card padding 16–22px. List row 58px minimum, 44px minimum for every control, 48px for inputs used during training.
 - Summary before detail on every screen. One primary action visible without scrolling.
 - Optional state (Tagesform, RIR, notes) stays collapsed until requested.
 
 ## 6. Depth & Elevation
 
-- Resting elements: 1px `--line` borders on `--surface`, no shadow.
-- Temporary overlays (sheet, toast, tooltip, segmented active state): a single soft shadow.
-- Blur is reserved for the sticky top and bottom bars.
+- Resting elements: `--surface` on `--paper`, no border; light mode adds `--shadow-card` (a 1px contact shadow plus a soft 32px ambient one), dark mode relies on tone alone.
+- Floating elements (sheet, toast, rest timer, tooltip): `--shadow-float`.
+- Blur with saturation is reserved for the tab bar, the workout bar, the editor footer and the floating pills.
 
-## 7. Do's and Don'ts
+## 7. Motion
 
-Do: sentence case, one accent, lists over cards, chevrons on tappable rows, facts instead of copy, undo instead of confirm, placeholders instead of hint lines, „⋯“ menus instead of button rows.
-Don't: eyebrows, tracked uppercase labels, appended arrows, middle-dot meta strings longer than two facts, dark "stat tile" blocks, gradients, nested cards, bounce easing, decorative icons.
+Easing tokens: `--ease` (the platform's modal curve, `cubic-bezier(.32,.72,0,1)`), `--ease-out` (fast start, long settle), `--ease-spring` (a touch of overshoot for pops only).
 
-## 8. Responsive Behavior
+- **View change**: deeper screens slide in from the right (360ms), going back slides in from the left (300ms), full-screen flows (workout, editor, assistant, summary) rise like a modal (440ms), a tab switch fades up (320ms). `render.js` adds `view-push`, `view-pop`, `view-modal` or `view-fade` next to `view-enter`.
+- **Press**: controls scale to 0.97 in 80ms and ease back over 400ms; tab icons scale to 0.9; rows and action items highlight instantly.
+- **Sheet**: 500ms rise on `--ease`, backdrop fade 280ms. **Toast and rest timer**: 500ms spring in, 220ms fade out.
+- **Set done**: the check pops (0.8 → 1.12 → 1) in 400ms. **Switch**: knob slides in 300ms.
+- Everything is off under `prefers-reduced-motion`.
 
-- Phone first (390px). Rows stack, stat row keeps three columns, backup tiles collapse to one column.
-- 600px+: sheets center on screen, the shell widens, cards keep their padding.
-- Safe areas: bars add `env(safe-area-inset-*)` padding; nothing sits behind them.
-- Motion: one 160ms fade on view change, 120ms press feedback, 180ms color transitions; all off under `prefers-reduced-motion`.
+## 8. Do's and Don'ts
 
-## 9. Agent Prompt Guide
+Do: sentence case, one accent, lists over cards, chevrons on tappable rows, facts instead of copy, undo instead of confirm, placeholders instead of hint lines, „⋯“ menus instead of button rows, tints instead of fills for state.
+Don't: eyebrows, tracked uppercase labels, appended arrows, middle-dot meta strings longer than two facts, dark "stat tile" blocks, gradients, nested cards, borders around cards, black weights, decorative icons.
+
+## 9. Responsive Behavior
+
+- Phone first (375–390px). Rows stack, stat row keeps three columns, backup tiles collapse to one column.
+- 600px+: sheets center on screen and scale in, the shell widens, cards keep their padding.
+- Installed on iOS: the body pads for the status bar, the tab bar and sheets pad for the home indicator; nothing sits behind either.
+
+## 10. Agent Prompt Guide
 
 When adding or changing a screen:
 
 1. Start from an existing view module; reuse `.list`/`.row`, `.stat-row`, `.chart-card`, `.segmented`, `.chip`, `sheet()`, `toast()` before writing new CSS.
-2. Only tokens for color. Text on green is `--on-green`; green text is `--green-ink`.
-3. No eyebrow labels, no arrows in button labels, no explanatory sentence under a title, no top bar.
+2. Only tokens for color. Text on green is `--on-green`; green text is `--green-ink`. New rules go into the last section of `styles.css`.
+3. No eyebrow labels, no arrows in button labels, no explanatory sentence under a title, no top bar, no borders around cards.
    A screen has at most one primary button; put further actions into `actionSheet()`.
 4. Every destructive action gets `undoToast`; only truly irreversible actions get `confirmDialog`.
 5. Every tappable row shows a chevron; every icon button has an `aria-label`.
-6. Run `npm test`. The axe check must stay at zero serious violations in both themes.
+6. Motion only through the easing tokens and the existing classes; nothing bounces except a pop.
+7. Run `npm test`. The axe check must stay at zero serious violations in both themes.

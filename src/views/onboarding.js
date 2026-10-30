@@ -1,5 +1,6 @@
 // First-run flow: language, unit, goal and experience, training days, then a ready plan. Skippable at any step.
 import { LANGUAGES, currentLanguage, languageLabel, setLanguage, t, weekdayShort } from '../i18n.js';
+import { icon } from '../icons.js';
 import { defaultPlan, exerciseName } from '../library.js';
 import { planSchedule, scheduleLabel } from '../plans.js';
 import { navigate, render } from '../render.js';
@@ -26,7 +27,7 @@ const draft = () =>
 const progress = (step) =>
   `<div class="assistant-progress five">${Array.from({ length: STEPS }, (_, i) => `<i class="${step > i ? 'active' : ''}"></i>`).join('')}<span>${t('onboarding.step', { step, total: STEPS })}</span></div>`;
 const head = (step) =>
-  `<div class="backrow">${step > 1 ? `<button class="back" id="onboardingBack" aria-label="${t('common.back')}">←</button>` : '<span class="back-spacer"></span>'}<span>${t('onboarding.title')}</span><button type="button" class="text-btn backrow-action" id="onboardingSkip">${t('onboarding.skip')}</button></div>`;
+  `<div class="backrow">${step > 1 ? `<button class="back" id="onboardingBack" aria-label="${t('common.back')}">${icon('chevron-left')}</button>` : '<span class="back-spacer"></span>'}<span>${t('onboarding.title')}</span><button type="button" class="text-btn backrow-action" id="onboardingSkip">${t('onboarding.skip')}</button></div>`;
 const hero = (title, text) => `<section class="assistant-hero"><h1>${title}</h1><p>${text}</p></section>`;
 const card = (name, value, title, text, checked) =>
   `<label><input type="radio" name="${name}" value="${value}" ${checked ? 'checked' : ''}><span><b>${esc(title)}</b>${text ? `<small>${esc(text)}</small>` : ''}</span></label>`;

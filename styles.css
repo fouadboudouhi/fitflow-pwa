@@ -3408,3 +3408,810 @@ label.row {
   font-size: 12px;
   margin: 8px 0 0;
 }
+
+/* ==========================================================================
+   Design language: quiet, native, alive. Neutral surfaces, system type at
+   calmer weights, depth from tone instead of hairlines, motion that eases
+   like the platform. Later rules win, so this layer only states differences.
+   ========================================================================== */
+:root {
+  --paper: #f2f2f7;
+  --surface: #ffffff;
+  --cloud: #ececf1;
+  --line: #e2e2e7;
+  --ink: #1c1c1e;
+  --muted: #66666d;
+  --green: #34c759;
+  --green2: #2db350;
+  --green-ink: #176d30;
+  --on-green: #0b1a10;
+  --blue: #0a7aff;
+  --danger: #d70015;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px -14px rgba(20, 20, 30, 0.14);
+  --shadow-float: 0 18px 50px -12px rgba(0, 0, 0, 0.35);
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+html[data-theme='dark'] {
+  --paper: #000000;
+  --surface: #1c1c1e;
+  --cloud: #2c2c2e;
+  --line: #323236;
+  --ink: #f5f5f7;
+  --muted: #9a9aa0;
+  --green: #30d158;
+  --green2: #4ae072;
+  --green-ink: #30d158;
+  --blue: #409cff;
+  --danger: #ff453a;
+  --shadow-card: none;
+  --shadow-float: 0 18px 50px -10px rgba(0, 0, 0, 0.7);
+}
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.4;
+}
+::selection {
+  background: color-mix(in srgb, var(--green) 30%, transparent);
+}
+a {
+  color: var(--green-ink);
+  text-decoration: none;
+}
+:is(button, input, select, textarea, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+/* Type: one bold weight for titles, semibold for names and buttons, regular text */
+b,
+strong {
+  font-weight: 600;
+}
+.page-head h1,
+.home-intro h1,
+.calendar-head h1,
+.hero h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.1;
+}
+.page-head p,
+.home-intro p,
+.assistant-hero p {
+  font-size: 15px;
+  font-weight: 400;
+}
+.assistant-hero h1 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  margin: 6px 0 10px;
+}
+.next-card h2 {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
+}
+.next-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.next-card p {
+  font-size: 15px;
+}
+.week-head,
+.list-section h2,
+.chart-card h2,
+.section-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.week-line b,
+.stat-row b,
+.day-name,
+.rest-timer b,
+.workout-exercise-head h2,
+.sheet h2,
+.sheet-head h2 {
+  font-weight: 700;
+  letter-spacing: -0.018em;
+}
+.day-name {
+  font-size: 18px;
+}
+.sheet h2,
+.sheet-head h2 {
+  font-size: 20px;
+}
+.row-main b,
+.row-value b {
+  font-weight: 600;
+}
+.row-main small,
+.row-value small,
+.stat-row span {
+  font-weight: 400;
+}
+.editor-title span,
+.settings-form label > span,
+.body-form label > span,
+.notes-field > span,
+.exercise-fields span,
+.plates-inputs label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.settings-form h2 {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.backrow {
+  margin-bottom: 20px;
+}
+.backrow span {
+  font-size: 17px;
+  font-weight: 600;
+}
+.about,
+.media-credit {
+  font-weight: 400;
+}
+.media-credit {
+  margin-top: 36px;
+}
+.media-credit a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Shell: tighter on phones, room for the tab bar and the home indicator */
+.shell {
+  padding: 20px 20px calc(96px + env(safe-area-inset-bottom));
+}
+@media (max-width: 760px) {
+  .shell {
+    padding: 14px 16px calc(96px + env(safe-area-inset-bottom));
+  }
+}
+.page-head {
+  margin-bottom: 20px;
+}
+.page-head.compact {
+  margin-top: 6px;
+}
+.home-intro {
+  margin: 10px 0 18px;
+}
+
+/* Buttons */
+.primary,
+.secondary,
+.compact-btn,
+.text-btn,
+.icon-btn,
+.back,
+.tiny,
+.nav-btn,
+.toast-action,
+.set-delete {
+  font-weight: 600;
+}
+.primary,
+.secondary {
+  min-height: 50px;
+  border-radius: var(--r-md);
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  padding: 12px 18px;
+}
+.primary.start-main {
+  min-height: 52px;
+}
+.compact-btn {
+  min-height: 40px;
+  border-radius: 11px;
+  font-size: 15px;
+  padding: 8px 14px;
+}
+.secondary {
+  border: 0;
+  background: var(--cloud);
+  color: var(--ink);
+}
+.secondary.danger {
+  color: var(--danger);
+}
+.text-btn {
+  font-size: 16px;
+}
+.icon-btn,
+.back,
+.tiny {
+  border: 0;
+  background: var(--cloud);
+  border-radius: 12px;
+  color: var(--ink);
+}
+.back .icon {
+  width: 22px;
+  height: 22px;
+  margin: auto;
+}
+
+/* Motion: press feedback eases back like a spring, nothing snaps */
+.primary,
+.secondary,
+.compact-btn,
+.icon-btn,
+.tiny,
+.back,
+.text-btn,
+.set-check,
+.nav-btn,
+.row,
+.history-card,
+.other-days button,
+.menu-list button,
+.action-tile,
+.action-item,
+.choose-exercise,
+.add-day-card,
+.segmented button,
+.library-item,
+.calendar-day.completed {
+  transition:
+    transform 0.4s var(--ease-out),
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.3s ease,
+    opacity 0.2s ease;
+}
+.primary:active,
+.secondary:active,
+.compact-btn:active,
+.icon-btn:active,
+.tiny:active,
+.back:active,
+.set-check:active,
+.history-card:active,
+.other-days button:active,
+.menu-list button:active,
+.action-tile:active,
+.choose-exercise:active,
+.add-day-card:active,
+button.calendar-day:active {
+  transform: scale(0.97);
+  transition-duration: 0.08s;
+}
+.nav-btn:active {
+  transform: scale(0.9);
+  transition-duration: 0.08s;
+}
+.row:active,
+.action-item:active {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  transition-duration: 0s;
+}
+
+/* Views arrive the way the platform moves them: deeper screens from the right, back from the left,
+   full-screen flows rise, a tab switch fades */
+.view-enter {
+  animation: viewIn 0.32s var(--ease-out) both;
+}
+@keyframes viewIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.view-enter.view-push {
+  animation: viewPush 0.36s var(--ease-out) both;
+}
+@keyframes viewPush {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.view-enter.view-pop {
+  animation: viewPop 0.3s var(--ease-out) both;
+}
+@keyframes viewPop {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.view-enter.view-modal {
+  animation: viewModal 0.44s var(--ease) both;
+}
+@keyframes viewModal {
+  from {
+    opacity: 0;
+    transform: translateY(36px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Tab bar */
+.bottom-nav {
+  padding: 6px 10px max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  background: color-mix(in srgb, var(--paper) 80%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+}
+.nav-btn {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  gap: 3px;
+  min-height: 48px;
+  padding: 6px 4px 4px;
+  border-radius: 12px;
+}
+.nav-btn .icon {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.9;
+  transition: transform 0.45s var(--ease-spring);
+}
+.nav-btn.active .icon {
+  transform: translateY(-1px);
+}
+
+/* Surfaces: cards and lists are tone on tone, a soft shadow in light, none in dark */
+.list,
+.set-table,
+.chart-card,
+.editor-title,
+.settings-form,
+.body-form,
+.editor-day,
+.next-card,
+.plan-card,
+.history-card,
+.empty,
+.resume-card,
+.plan-preview {
+  border: 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--r-lg);
+}
+.next-card,
+.resume-card {
+  border-radius: var(--r-xl);
+  padding: 22px 20px 20px;
+}
+.plan-card.selected {
+  box-shadow:
+    0 0 0 2px var(--green),
+    var(--shadow-card);
+}
+.empty {
+  padding: 30px 22px;
+}
+.chart-card {
+  padding: 16px 16px 12px;
+}
+.row {
+  min-height: 58px;
+  padding: 12px 14px 12px 16px;
+}
+.row > .icon-chevron-right {
+  width: 16px;
+  height: 16px;
+  color: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+.row-icon {
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.stat-row {
+  border-color: var(--line);
+}
+.week-progress,
+.progress-line,
+.bar-track {
+  background: var(--cloud);
+  border-radius: 99px;
+}
+.chip {
+  font-weight: 600;
+  padding: 4px 10px;
+}
+.chip-green,
+.pr-chip {
+  border: 0;
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green-ink);
+}
+
+/* Fields */
+.editor-title input,
+.editor-day input,
+.settings-form input,
+.settings-form select,
+.body-form input,
+.body-form select,
+.notes-field textarea,
+.plates-inputs input,
+.plates-inputs select,
+.exercise-fields input,
+.exercise-fields select,
+.library-search input {
+  border: 0;
+  background: var(--cloud);
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  font-size: 17px;
+  font-weight: 500;
+}
+.notes-field textarea {
+  min-height: 96px;
+}
+.toggle-setting {
+  border-top: 1px solid var(--line);
+  padding: 14px 0 2px;
+}
+.toggle-setting > span {
+  flex: 1;
+}
+.toggle-setting input {
+  appearance: none;
+  -webkit-appearance: none;
+  order: 2;
+  width: 51px !important;
+  height: 31px;
+  margin: 0 0 0 auto;
+  flex: none;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.25s ease;
+}
+.toggle-setting input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.15),
+    0 1px 1px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s var(--ease-out);
+}
+.toggle-setting input:checked {
+  background: var(--green);
+}
+.toggle-setting input:checked::after {
+  transform: translateX(20px);
+}
+.assistant-form fieldset label {
+  border: 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--r-md);
+  transition:
+    box-shadow 0.25s ease,
+    background-color 0.2s ease,
+    transform 0.3s var(--ease-out);
+}
+.assistant-form fieldset label:has(input:checked) {
+  box-shadow:
+    0 0 0 2px var(--green),
+    var(--shadow-card);
+  background: color-mix(in srgb, var(--green) 8%, var(--surface));
+}
+.assistant-form fieldset label:active {
+  transform: scale(0.98);
+}
+
+/* Segmented control */
+.segmented {
+  background: var(--cloud);
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+.segmented button {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 32px;
+  color: var(--muted);
+}
+.segmented button.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+html[data-theme='dark'] .segmented button.active {
+  background: #636366;
+  color: #fff;
+}
+
+/* Sheets: rise from the bottom edge on the platform curve, with a grabber */
+.sheet-backdrop {
+  background: rgba(0, 0, 0, 0.42);
+  transition: opacity 0.28s ease;
+}
+.sheet {
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: 12px 20px calc(22px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.5s var(--ease);
+  box-shadow: var(--shadow-float);
+}
+.sheet::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  margin: 0 auto 14px;
+}
+.sheet-backdrop.show .sheet {
+  transform: none;
+}
+.sheet-actions button {
+  min-height: 50px;
+}
+.action-item {
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 500;
+  border-radius: 12px;
+}
+@media (min-width: 600px) {
+  .sheet {
+    border-radius: var(--r-xl);
+    transform: translateY(16px) scale(0.97);
+  }
+  .sheet::before {
+    display: none;
+  }
+}
+
+/* Toast and rest timer: floating pills with a little spring */
+.toast {
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ink) 94%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-float);
+  font-weight: 500;
+  font-size: 15px;
+  transform: translate(-50%, 18px) scale(0.96);
+  transition:
+    transform 0.5s var(--ease-spring),
+    opacity 0.22s ease;
+}
+.toast.show {
+  transform: translate(-50%, 0) scale(1);
+}
+html[data-theme='dark'] .toast {
+  background: color-mix(in srgb, var(--cloud) 94%, transparent);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+html[data-theme='dark'] .toast-close {
+  color: var(--ink);
+}
+.rest-timer {
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  border-radius: 20px;
+  padding: 12px 14px 12px 18px;
+  background: color-mix(in srgb, var(--ink) 94%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-float);
+  transition: transform 0.55s var(--ease-spring);
+}
+.rest-timer span {
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+  font-weight: 500;
+}
+.rest-timer b {
+  font-size: 28px;
+}
+.rest-timer button {
+  border: 0;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  min-height: 40px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 15px;
+}
+html[data-theme='dark'] .rest-timer {
+  background: color-mix(in srgb, var(--cloud) 94%, transparent);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+html[data-theme='dark'] .rest-timer button {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+}
+
+/* Workout: the day name leads the bar, sets are a quiet table, the check pops when a set lands */
+.workout-top {
+  min-height: 56px;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+}
+.workout-top h1 {
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.workout-top > div > b {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.workout-top .text-btn {
+  font-size: 17px;
+}
+.workout-exercise-head h2 {
+  font-size: 20px;
+}
+.set-head {
+  background: transparent;
+  min-height: 30px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--line);
+}
+.set-row {
+  background: var(--surface);
+}
+.set-card {
+  padding: 7px 8px;
+  gap: 6px;
+}
+.set-card input[type='number'] {
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  background: var(--cloud);
+  transition:
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+.set-card input[type='number']:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--green);
+  background: var(--surface);
+}
+.set-card.complete {
+  background: color-mix(in srgb, var(--green) 9%, var(--surface));
+}
+.set-label b {
+  font-size: 16px;
+  font-weight: 600;
+}
+.set-check {
+  border: 1.5px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius: 12px;
+  font-size: 18px;
+}
+.set-check:empty::before {
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.set-card.complete .set-check {
+  border-color: var(--green);
+  animation: checkPop 0.4s var(--ease-spring);
+}
+@keyframes checkPop {
+  0% {
+    transform: scale(0.8);
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.set-delete {
+  font-size: 11px;
+}
+.editor-footer {
+  background: color-mix(in srgb, var(--paper) 84%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-radius: var(--r-lg);
+}
+.library-item {
+  border-radius: var(--r-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-enter,
+  .set-card.complete .set-check {
+    animation: none;
+  }
+  .sheet,
+  .toast,
+  .rest-timer,
+  .nav-btn .icon,
+  .toggle-setting input,
+  .toggle-setting input::after {
+    transition: none;
+  }
+}
+
+/* Contrast and target sizes: red text needs more light in dark mode, the back control stays 44px */
+html[data-theme='dark'] {
+  --danger: #ff6961;
+}
+html[data-theme='dark'] .primary.danger-fill,
+html[data-theme='dark'] .set-delete {
+  background: #d93025;
+  color: #fff;
+}
+.icon-btn,
+.back,
+.workout-top .back {
+  height: 44px;
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+}
+
+/* A toast during the rest countdown sits above the timer pill instead of on it */
+body:has(.workout-shell .rest-timer.show) .toast {
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+/* A sticky footer on a screen with the tab bar sits above it */
+main:has(+ .bottom-nav) .editor-footer {
+  bottom: calc(86px + env(safe-area-inset-bottom));
+}
