@@ -514,3 +514,37 @@ test('backup validation keeps custom exercises within limits', () => {
     ]
   );
 });
+
+test('editor helpers: duplicate a day, move an exercise to another day, reorder', async () => {
+  const { duplicateDay, moveExerciseToDay, reorderExercises } = await import('../src/plans.js');
+  setLanguage('de');
+  const plan = {
+    days: [
+      {
+        id: 'a',
+        name: 'A',
+        exercises: [{ id: 'x', supersetId: 's' }, { id: 'y', supersetId: 's' }, { id: 'z' }],
+      },
+      { id: 'b', name: 'B', exercises: [] },
+    ],
+    schedule: { mode: 'flexible', assignments: {} },
+  };
+  const copy = duplicateDay(plan, 0);
+  assert.equal(plan.days.length, 3);
+  assert.equal(copy.name, 'A – Kopie');
+  assert.notEqual(copy.exercises[0].id, 'x', 'copied exercises get fresh ids');
+  const moved = moveExerciseToDay(plan, 0, 0, 1);
+  assert.equal(moved.id, 'x');
+  assert.equal(moved.supersetId, undefined, 'a moved exercise leaves its superset');
+  assert.deepEqual(
+    plan.days[1].exercises.map((e) => e.id),
+    ['x']
+  );
+  reorderExercises(plan.days[0], [1, 0]);
+  assert.deepEqual(
+    plan.days[0].exercises.map((e) => e.id),
+    ['z', 'y']
+  );
+  reorderExercises(plan.days[0], [0]);
+  assert.equal(plan.days[0].exercises.length, 2, 'a wrong-sized order is ignored');
+});

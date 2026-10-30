@@ -975,3 +975,34 @@ test('custom exercises: promoted from old plans, created in the picker, managed 
   await page.click('.toast-action');
   assert.equal(await page.locator('[data-custom-exercise]').count(), 2, 'undo restores it');
 });
+
+test('editor: drag to reorder, duplicate a day, move an exercise to another day', async () => {
+  await page.click('[data-nav="plans"]');
+  await page.click('[data-edit-plan]');
+  await page.waitForSelector('.plan-exercise-row');
+  const names = () => page.locator('.plan-exercise-row h3').allTextContents();
+  const before = await names();
+  await page.locator('[data-drag="0"]').dragTo(page.locator('.plan-exercise-row[data-ex-index="2"]'), {
+    targetPosition: { x: 10, y: 50 },
+  });
+  await page.waitForFunction(
+    (first) => document.querySelector('.plan-exercise-row h3')?.textContent !== first,
+    before[0]
+  );
+  const after = await names();
+  assert.equal(after[0], before[1], 'the first exercise moved down');
+  assert.ok(after.includes(before[0]));
+  await page.click('[data-day-menu="0"]');
+  await page.getByRole('button', { name: 'Tag duplizieren' }).click();
+  await page.waitForSelector('[data-editor-day="3"].active');
+  assert.match(await page.inputValue('.day-name'), /Push – Kopie/);
+  await page.click('[data-exercise-menu="3:0"]');
+  await page.getByRole('button', { name: 'In anderen Tag verschieben' }).click();
+  await page.waitForSelector('.sheet-backdrop.show');
+  await page.locator('.sheet .action-item', { hasText: /^Pull$/ }).click();
+  await page.waitForSelector('.toast.show');
+  const plans = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')));
+  assert.equal(plans.items[0].days.length, 4);
+  assert.equal(plans.items[0].days[3].exercises.length, 4);
+  assert.equal(plans.items[0].days[1].exercises.length, 6);
+});

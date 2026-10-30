@@ -1,13 +1,16 @@
-// Plan editor. Exercises come from the picker overlay; secondary actions live in "⋯" menus.
+// Plan editor. Exercises come from the picker overlay; secondary actions live in "⋯" menus; rows can be dragged.
 import { plural, t, weekdayShort } from '../i18n.js';
 import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
 import {
   addDay,
+  duplicateDay,
   duplicatePlan,
   linkSuperset,
+  moveExerciseToDay,
   planExerciseFromLibrary,
   planSchedule,
+  reorderExercises,
   scheduleSlots,
   supersetLetters,
   unlinkSuperset,
@@ -26,7 +29,7 @@ const detailsOpen = (di, ei) => state.editorDetails?.has(`${di}:${ei}`);
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
 const exerciseRow = (ex, di, ei, letters) =>
-  `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : '<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${
+  `<article class="plan-exercise-row" data-ex-index="${ei}"><button type="button" class="drag-handle" data-drag="${ei}" aria-label="${esc(t('editor.dragHandle', { name: exerciseName(ex) }))}">${icon('drag')}</button>${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : '<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${
     ex.custom
       ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="${t('editor.customName')}">`
       : `<h3>${esc(exerciseName(ex))}</h3>`
@@ -58,7 +61,7 @@ export function view() {
     <div class="editor-day-tabs">${p.days.map((day, i) => `<button class="${i === di ? 'active' : ''}" data-editor-day="${i}" aria-pressed="${i === di}"><span>${i + 1}</span>${esc(day.name)}</button>`).join('')}<button type="button" class="add-day" id="addDay" aria-label="${t('editor.newDay')}">${icon('plus')}</button></div>
     ${
       d
-        ? `<div class="editor-days"><section class="editor-day" data-day-index="${di}"><div class="simple-day-head"><input class="day-name" value="${esc(d.name)}" aria-label="${t('editor.dayName')}"><button class="icon-btn quiet" data-remove-day="${di}" aria-label="${t('editor.removeDay')}">${icon('close')}</button></div>
+        ? `<div class="editor-days"><section class="editor-day" data-day-index="${di}"><div class="simple-day-head"><input class="day-name" value="${esc(d.name)}" aria-label="${t('editor.dayName')}"><button type="button" class="icon-btn quiet" data-day-menu="${di}" aria-label="${t('editor.dayMenu')}">${icon('more')}</button></div>
       <div class="editor-exercises">${d.exercises.length ? d.exercises.map((ex, ei) => exerciseRow(ex, di, ei, supersetLetters(d.exercises))).join('') : empty(t('editor.noExercisesTitle'), t('editor.noExercisesText'))}</div><button class="choose-exercise" data-add-exercise="${di}">${icon('plus')}<b>${t('editor.addExercise')}</b></button></section></div>`
         : ''
     }
@@ -83,8 +86,9 @@ function collectPlan() {
     const di = number(el.dataset.dayIndex);
     const d = p.days[di];
     d.name = el.querySelector('.day-name').value.trim() || t('day.nth', { n: di + 1 });
-    el.querySelectorAll('.plan-exercise-row').forEach((row, ei) => {
-      const ex = d.exercises[ei];
+    el.querySelectorAll('.plan-exercise-row').forEach((row) => {
+      const ex = d.exercises[number(row.dataset.exIndex)];
+      if (!ex) return;
       row.querySelectorAll('[data-prop]').forEach((input) => {
         const prop = input.dataset.prop;
         if (prop === 'trackType') {
@@ -175,6 +179,47 @@ function bindPlanMenu() {
   });
 }
 
+function removeDay(di) {
+  const p = collectPlan();
+  const [removed] = p.days.splice(di, 1);
+  const weekday = p.schedule?.assignments?.[removed.id];
+  state.editorDayIndex = Math.max(0, Math.min(state.editorDayIndex, p.days.length - 1));
+  persistPlan(p);
+  render();
+  undoToast(t('editor.removed', { name: removed.name }), () => {
+    const current = allPlans().items.find((x) => x.id === p.id);
+    if (!current) return;
+    current.days.splice(Math.min(di, current.days.length), 0, removed);
+    if (weekday !== undefined)
+      (current.schedule ||= { mode: 'flexible', assignments: {} }).assignments[removed.id] = weekday;
+    state.editorDayIndex = di;
+    persistPlan(current);
+    render();
+  });
+}
+
+function bindDayMenu() {
+  document.querySelectorAll('[data-day-menu]').forEach((b) => {
+    b.onclick = () => {
+      const di = number(b.dataset.dayMenu);
+      const p = collectPlan();
+      actionSheet(p.days[di].name, [
+        {
+          label: t('editor.duplicateDay'),
+          onClick: () => {
+            const plan = collectPlan();
+            duplicateDay(plan, di);
+            state.editorDayIndex = plan.days.length - 1;
+            persistPlan(plan);
+            render();
+          },
+        },
+        { label: t('editor.deleteDay'), danger: true, onClick: () => removeDay(di) },
+      ]);
+    };
+  });
+}
+
 function bindExerciseMenus() {
   document.querySelectorAll('[data-exercise-menu]').forEach((b) => {
     b.onclick = () => {
@@ -193,6 +238,27 @@ function bindExerciseMenus() {
         { label: t('editor.replace'), hint: t('editor.replaceHint'), onClick: () => openLibrary(di, ei) },
         ei > 0 && { label: t('editor.moveUp'), onClick: () => move(ei - 1) },
         ei < list.length - 1 && { label: t('editor.moveDown'), onClick: () => move(ei + 1) },
+        p.days.length > 1 && {
+          label: t('editor.moveToDay'),
+          onClick: () =>
+            actionSheet(
+              t('editor.moveToDayTitle'),
+              p.days.map(
+                (day, j) =>
+                  j !== di && {
+                    label: day.name,
+                    onClick: () => {
+                      const plan = collectPlan();
+                      const moved = moveExerciseToDay(plan, di, ei, j);
+                      if (!moved) return;
+                      persistPlan(plan);
+                      render();
+                      toast(t('editor.movedTo', { name: plan.days[j].name }));
+                    },
+                  }
+              )
+            ),
+        },
         canLink && {
           label: t('editor.linkSuperset'),
           hint: t('editor.linkSupersetHint'),
@@ -239,6 +305,44 @@ function bindExerciseMenus() {
   });
 }
 
+// Drag-and-drop reordering with the handle: the dragged row follows the pointer through the list; on release
+// the new order is read from the DOM and stored. "Nach oben/unten" in the menu remains the keyboard alternative.
+function bindDrag() {
+  document.querySelectorAll('.drag-handle').forEach((handle) => {
+    handle.onpointerdown = (e) => {
+      const row = handle.closest('.plan-exercise-row');
+      const list = row.parentElement;
+      const di = number(row.closest('.editor-day')?.dataset.dayIndex);
+      e.preventDefault();
+      handle.setPointerCapture(e.pointerId);
+      row.classList.add('dragging');
+      const onMove = (ev) => {
+        const target = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.plan-exercise-row');
+        if (!target || target === row || target.parentElement !== list) return;
+        const box = target.getBoundingClientRect();
+        const before = ev.clientY < box.top + box.height / 2;
+        list.insertBefore(row, before ? target : target.nextSibling);
+      };
+      const onUp = () => {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        row.classList.remove('dragging');
+        const order = [...list.querySelectorAll('.plan-exercise-row')].map((r) => number(r.dataset.exIndex));
+        if (order.some((v, i) => v !== i)) {
+          const p = collectPlan();
+          reorderExercises(p.days[di], order);
+          persistPlan(p);
+          render();
+        }
+      };
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+      handle.addEventListener('pointercancel', onUp);
+    };
+  });
+}
+
 export function bind() {
   document.querySelectorAll('[data-editor-day]').forEach((b) => {
     b.onclick = () => {
@@ -262,30 +366,11 @@ export function bind() {
     persistPlan(p);
     render();
   };
-  document.querySelectorAll('[data-remove-day]').forEach((b) => {
-    b.onclick = () => {
-      const p = collectPlan();
-      const di = number(b.dataset.removeDay);
-      const [removed] = p.days.splice(di, 1);
-      const weekday = p.schedule?.assignments?.[removed.id];
-      state.editorDayIndex = Math.max(0, Math.min(state.editorDayIndex, p.days.length - 1));
-      persistPlan(p);
-      render();
-      undoToast(t('editor.removed', { name: removed.name }), () => {
-        const current = allPlans().items.find((x) => x.id === p.id);
-        if (!current) return;
-        current.days.splice(Math.min(di, current.days.length), 0, removed);
-        if (weekday !== undefined)
-          (current.schedule ||= { mode: 'flexible', assignments: {} }).assignments[removed.id] = weekday;
-        state.editorDayIndex = di;
-        persistPlan(current);
-        render();
-      });
-    };
-  });
   document.querySelectorAll('[data-add-exercise]').forEach((b) => {
     b.onclick = () => openLibrary(number(b.dataset.addExercise));
   });
   bindPlanMenu();
+  bindDayMenu();
   bindExerciseMenus();
+  bindDrag();
 }
