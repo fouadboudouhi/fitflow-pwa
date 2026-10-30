@@ -54,14 +54,16 @@ export const fmtDate = format({ day: '2-digit', month: '2-digit', year: '2-digit
 export const fmtLong = format({ weekday: 'short', day: '2-digit', month: 'short' });
 export const fmtMonth = format({ month: 'long', year: 'numeric' });
 
+// Working sets are everything but warm-ups; `type` wins over the older `warmup` flag.
+export const isWorkSet = (set) => (set?.type ? set.type !== 'warmup' : !set?.warmup);
+// Volume is weight × reps of completed working sets; timed and distance sets have none.
+export const setVolume = (set, trackType = 'weight_reps') =>
+  !set?.done || !isWorkSet(set) || trackType === 'time' || trackType === 'distance_time'
+    ? 0
+    : number(set.weight) * number(set.reps);
 export const volumeOf = (session) =>
   session.entries?.reduce(
-    (sum, entry) =>
-      sum +
-      entry.sets.reduce(
-        (s, set) => s + (set.warmup || !set.done ? 0 : number(set.weight) * number(set.reps)),
-        0
-      ),
+    (sum, entry) => sum + entry.sets.reduce((s, set) => s + setVolume(set, entry.trackType), 0),
     0
   ) || 0;
 export const doneSets = (session) =>

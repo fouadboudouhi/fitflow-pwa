@@ -10,6 +10,7 @@ const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 let server, browser, baseURL, context, page, errors;
 const SCHEMA = 5;
+const BACKUP_VERSION = 4;
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
   'base64'
@@ -123,7 +124,7 @@ test('body photos are stored in IndexedDB and included in the JSON backup', asyn
   await page.click('[data-nav="backup"]');
   const [download] = await Promise.all([page.waitForEvent('download'), page.click('#exportJson')]);
   const backup = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-  assert.equal(backup.version, 3);
+  assert.equal(backup.version, BACKUP_VERSION);
   assert.match(backup.body[0].photo, /^data:image\/jpeg;base64,/);
   assert.equal(backup.body[0].weight, 80.5);
   assert.ok(backup.exercisePrefs);
@@ -725,4 +726,62 @@ test('exercise picker: folded multi-word search, equipment and group filters, de
   assert.equal(await page.locator('.exercise-library').count(), 1, 'the picker stays open under the sheet');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.exercise-library').count(), 0);
+});
+
+test('bodyweight and timed exercises: reps-only sets count, set types can be changed', async () => {
+  await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('volumora-plans-v2'));
+    const day = data.items[0].days[0];
+    day.exercises.unshift({
+      id: 'bw-test',
+      libraryId: '0662',
+      name: 'Push-up',
+      sets: 2,
+      range: '8–12',
+      gif: '',
+      note: '',
+    });
+    day.exercises.unshift({
+      id: 'time-test',
+      name: 'Plank',
+      sets: 1,
+      range: '30–60',
+      gif: '',
+      note: '',
+      custom: true,
+      trackType: 'time',
+    });
+    localStorage.setItem('volumora-plans-v2', JSON.stringify(data));
+  });
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  await page.click('[data-start="push"]');
+  await page.waitForSelector('.workout-exercise');
+  const plank = page.locator('.workout-exercise').nth(0);
+  assert.equal(await plank.locator('.set-head span').nth(1).textContent(), 'Zeit');
+  await plank.locator('input[data-set-field="time"][data-index="0"]').fill('1:30');
+  await plank.locator('[data-set-done="0"]').click();
+  const pushup = page.locator('.workout-exercise').nth(1);
+  assert.equal(await pushup.locator('.set-head span').nth(1).textContent(), '+kg');
+  await pushup.locator('input[data-set-field="reps"][data-index="0"]').fill('12');
+  await pushup.locator('[data-set-done="0"]').click();
+  await page.waitForSelector('.toast.show');
+  assert.match(await page.textContent('.toast'), /Neuer Bestwert: 12 Wdh\./);
+  await pushup.locator('[data-set-type="1"]').click();
+  await page.getByRole('button', { name: 'Dropsatz' }).click();
+  assert.equal(await pushup.locator('[data-set-type="1"] b').textContent(), 'D');
+  const active = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-active-v2')));
+  assert.equal(active.entries[0].trackType, 'time');
+  assert.equal(active.entries[0].sets[0].time, '90');
+  assert.equal(active.entries[0].sets[0].done, true);
+  assert.equal(active.entries[1].trackType, 'reps');
+  assert.equal(active.entries[1].sets[1].type, 'drop');
+  await page.click('#finishWorkout');
+  await page.waitForSelector('.row[data-session]');
+  const history = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
+  assert.equal(history[0].entries[0].sets[0].time, '90');
+  assert.equal(history[0].volume, 0, 'bodyweight and timed sets add no weight volume');
+  await page.locator('.row[data-session]').first().click();
+  await page.waitForSelector('#sessionForm');
+  assert.equal(await page.inputValue('[data-edit="time"][data-e="0"][data-s="0"]'), '1:30');
 });

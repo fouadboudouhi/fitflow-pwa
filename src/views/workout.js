@@ -3,14 +3,17 @@ import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
 import { navigate, render } from '../render.js';
+import { SET_TYPES, describeSet, parseDuration, setSetType } from '../sets.js';
 import { state } from '../state.js';
 import { getDay, getSettings, saveRestUntil, saveSettings } from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
-import { fieldValue, fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
-import { esc, number } from '../util.js';
+import { fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
+import { esc, isWorkSet, number } from '../util.js';
 import {
   activeSession,
+  carryFromSet,
   entryComplete,
+  entryTrackType,
   finishSession,
   isRecord,
   mutateSession,
@@ -23,31 +26,7 @@ import {
 } from '../workout.js';
 import { openExerciseSheet } from './exercise.js';
 import * as home from './home.js';
-
-const field = (name, label, set, i, exerciseIndex, workNumber, attrs, value, placeholder = '') =>
-  `<label><span>${label}</span><input aria-label="${esc(t('workout.fieldAria', { field: label, n: workNumber }))}" type="number" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${i}" value="${esc(value)}" placeholder="${esc(placeholder)}"></label>`;
-
-function setRow(set, i, last, workIndex, showRir, exerciseIndex) {
-  const workNumber = set.warmup ? 'W' : workIndex;
-  const u = unit();
-  // Values from the last session appear as placeholders, so an empty field already tells what was done before.
-  const lastWeight = last?.weight ? String(toDisplay(last.weight)) : '';
-  const lastReps = last?.reps ? String(last.reps) : '';
-  return `<div class="set-row"><button class="set-delete" data-delete-set="${i}" data-exercise="${exerciseIndex}" aria-label="${t('workout.deleteSet')}">${t('common.delete')}</button><div class="set-card ${set.done ? 'complete' : ''} ${set.warmup ? 'warmup' : ''}" data-set="${i}"><div class="set-label"><b>${workNumber}</b><span class="${set.pr ? 'pr' : ''}">${set.warmup ? t('workout.warmup') : set.pr ? t('workout.pr') : ''}</span></div>${field('weight', u, set, i, exerciseIndex, workNumber, 'inputmode="decimal" step="0.5" min="0"', fieldValue(set.weight), lastWeight)}${field('reps', t('workout.reps'), set, i, exerciseIndex, workNumber, 'inputmode="numeric" min="0"', set.reps, lastReps)}${
-    showRir
-      ? field(
-          'rir',
-          t('workout.rir'),
-          set,
-          i,
-          exerciseIndex,
-          workNumber,
-          'inputmode="numeric" min="0" max="10"',
-          set.rir
-        )
-      : ''
-  }<button class="set-check" data-set-done="${i}" data-exercise="${exerciseIndex}" aria-label="${t('workout.setDone')}" aria-pressed="${set.done}">${set.done ? '✓' : ''}</button></div></div>`;
-}
+import { setHead, setRow } from './setRow.js';
 
 const suggestionText = (s) =>
   s.kind === 'progress'
@@ -60,9 +39,19 @@ function exerciseSection(ex, index, entry, total, showRir) {
   const prevWork = previousEntry(ex);
   const prevSets = prevWork ? workSets(prevWork) : [];
   const name = exerciseName(ex);
+  const trackType = entryTrackType(entry);
+  // Values from the last session appear as placeholders, so an empty field already tells what was done before.
   const rows = entry.sets
     .map((set, i) =>
-      setRow(set, i, prevSets[i], entry.sets.slice(0, i).filter((s) => !s.warmup).length + 1, showRir, index)
+      setRow({
+        set,
+        index: i,
+        exerciseIndex: index,
+        trackType,
+        workNumber: entry.sets.slice(0, i).filter(isWorkSet).length + 1,
+        last: prevSets[i],
+        showRir,
+      })
     )
     .join('');
   const thumb = ex.gif
@@ -71,7 +60,7 @@ function exerciseSection(ex, index, entry, total, showRir) {
   return `<section class="workout-exercise ${complete ? 'complete' : ''}" id="exercise-${index}">
       <div class="workout-exercise-head"><span class="exercise-number">${complete ? '✓' : index + 1}</span><div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}</p></div>${thumb}</div>
       ${suggest.weight ? `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${icon('trend')}<span>${esc(suggestionText(suggest))}</span><small>${t('workout.apply')}</small></button>` : ''}
-      <div class="set-table ${showRir ? '' : 'no-rir'}"><div class="set-head"><span>${t('workout.set')}</span><span>${unit()}</span><span>${t('workout.reps')}</span>${showRir ? `<span>${t('workout.rir')}</span>` : ''}<span></span></div><div class="set-list">${rows}</div></div>
+      <div class="set-table ${showRir ? '' : 'no-rir'}">${setHead(trackType, showRir)}<div class="set-list">${rows}</div></div>
       <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">${t('workout.addSet')}</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="${esc(t('exercise.more', { name }))}">${icon('more')}</button></div>
       ${entry.note || state.openNotes?.has(index) ? `<label class="exercise-note"><span>${t('workout.note')}</span><textarea data-exercise-note="${index}" placeholder="${t('workout.notePlaceholder')}">${esc(entry.note || '')}</textarea></label>` : ''}
     </section>`;
@@ -105,8 +94,7 @@ const mutate = (fn, rerender = false) => {
 
 function openPlates(ex, entry) {
   const u = unit();
-  const start =
-    toDisplay(number(entry.sets.find((x) => !x.warmup)?.weight) || suggestion(ex).weight || 0) || '';
+  const start = toDisplay(number(entry.sets.find(isWorkSet)?.weight) || suggestion(ex).weight || 0) || '';
   const bar = toDisplay(getSettings().barWeight) || defaultBar();
   const box = document.createElement('div');
   box.className = 'plates';
@@ -169,13 +157,16 @@ export function bind() {
     x.oninput = () =>
       mutate((s) => {
         const set = s.entries[number(x.dataset.exercise)].sets[number(x.dataset.index)];
-        set[x.dataset.setField] = x.dataset.setField === 'weight' ? fromDisplay(x.value) : x.value;
+        const name = x.dataset.setField;
+        set[name] =
+          name === 'weight' ? fromDisplay(x.value) : name === 'time' ? parseDuration(x.value) : x.value;
       });
   });
   document.querySelectorAll('[data-set-done]').forEach((b) => {
     b.onclick = () => {
       const exerciseIndex = number(b.dataset.exercise);
       let record = null;
+      let recordType = 'weight_reps';
       mutate((s) => {
         const entry = s.entries[exerciseIndex];
         const set = entry.sets[number(b.dataset.setDone)];
@@ -183,7 +174,10 @@ export function bind() {
         const ex = getDay(state.planId, state.dayId).exercises[exerciseIndex];
         set.pr = set.done && isRecord(ex, set, entry);
         if (!set.done) return;
-        if (set.pr) record = set;
+        if (set.pr) {
+          record = set;
+          recordType = entryTrackType(entry);
+        }
         const settings = getSettings();
         if (settings.restTimer) {
           state.restUntil = Date.now() + (number(ex.rest) || number(settings.rest) || 90) * 1000;
@@ -192,10 +186,21 @@ export function bind() {
         }
         navigator.vibrate?.(40);
       }, true);
-      if (record)
-        toast(t('workout.record', { weight: fmtWeight(record.weight), reps: record.reps }), {
-          duration: 4000,
-        });
+      if (record) toast(t('workout.record', { set: describeSet(record, recordType) }), { duration: 4000 });
+    };
+  });
+  // The set number opens the type picker: working, warm-up, drop or failure set.
+  document.querySelectorAll('[data-set-type]').forEach((b) => {
+    b.onclick = () => {
+      const exerciseIndex = number(b.dataset.exercise);
+      const setIndex = number(b.dataset.setType);
+      actionSheet(
+        t('workout.setType'),
+        SET_TYPES.map((type) => ({
+          label: t(`setType.${type}`),
+          onClick: () => mutate((s) => setSetType(s.entries[exerciseIndex].sets[setIndex], type), true),
+        }))
+      );
     };
   });
   document.querySelectorAll('[data-delete-set]').forEach((b) => {
@@ -241,9 +246,9 @@ export function bind() {
   document.querySelectorAll('[data-add-set]').forEach((b) => {
     b.onclick = () =>
       mutate((s) => {
-        const sets = s.entries[number(b.dataset.addSet)].sets;
-        const lastWork = [...sets].reverse().find((x) => !x.warmup);
-        sets.push(newSet({ weight: lastWork?.weight ?? '' }));
+        const entry = s.entries[number(b.dataset.addSet)];
+        const lastWork = [...entry.sets].reverse().find(isWorkSet);
+        entry.sets.push(newSet(entryTrackType(entry), carryFromSet(lastWork)));
       }, true);
   });
   // Thumbnail and title both open the exercise sheet: animation, muscles, note and the last sessions.
@@ -259,24 +264,29 @@ export function bind() {
       const ex = getDay(state.planId, state.dayId).exercises[index];
       const entry = activeSession(state.planId, state.dayId).entries[index];
       const showRir = getSettings().showRir;
+      const weighted = entryTrackType(entry) === 'weight_reps';
       actionSheet(exerciseName(ex), [
-        {
+        weighted && {
           label: t('workout.calcWarmups'),
           onClick: () => {
-            const target = number(entry.sets.find((x) => !x.warmup)?.weight) || suggestion(ex).weight;
+            const target = number(entry.sets.find(isWorkSet)?.weight) || suggestion(ex).weight;
             if (!target) {
               toast(t('workout.enterWorkWeight'));
               return;
             }
             mutate((s) => {
               const e = s.entries[index];
-              e.sets = [...warmupSets(target), ...e.sets.filter((x) => !x.warmup)];
+              e.sets = [...warmupSets(target), ...e.sets.filter(isWorkSet)];
             }, true);
           },
         },
-        {
+        weighted && {
           label: t('workout.addWarmup'),
-          onClick: () => mutate((s) => s.entries[index].sets.unshift(newSet({ warmup: true })), true),
+          onClick: () =>
+            mutate(
+              (s) => s.entries[index].sets.unshift(newSet('weight_reps', { warmup: true, type: 'warmup' })),
+              true
+            ),
         },
         isBarbell(ex) && { label: t('plates.title'), onClick: () => openPlates(ex, entry) },
         {
@@ -304,11 +314,9 @@ export function bind() {
     b.onclick = () =>
       mutate(
         (s) =>
-          s.entries[number(b.dataset.applySuggestion)].sets
-            .filter((x) => !x.warmup)
-            .forEach((x) => {
-              x.weight = String(b.dataset.weight);
-            }),
+          s.entries[number(b.dataset.applySuggestion)].sets.filter(isWorkSet).forEach((x) => {
+            x.weight = String(b.dataset.weight);
+          }),
         true
       );
   });
