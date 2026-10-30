@@ -25,7 +25,7 @@ Die visuellen Regeln sind in [`DESIGN.md`](DESIGN.md) dokumentiert, im neunteili
 - Gewichtseinheit kg oder lbs (intern immer Kilogramm), Scheibenrechner für Langhantelübungen
 - Wochenziel mit Serie auf der Startseite
 - Körpermaße und komprimierte Fortschrittsfotos (Fotos liegen in IndexedDB, Messwerte in `localStorage`)
-- JSON-Backup, validierter JSON-Import und CSV-Export
+- JSON-Backup, validierter JSON-Import und CSV-Export; Import der CSV-Exporte von Hevy und Strong (Übungen werden dem Katalog zugeordnet, unbekannte werden eigene Übungen)
 - Dark Mode, Favoriten sowie Deload-, Krankheits- und Schmerzmarker
 - Wochenübersicht und Monatskalender mit Monatsnavigation für geplante und abgeschlossene Einheiten
 - Professionelle Übungsanimationen aus einem kuratierten Übungsdatensatz
@@ -44,6 +44,7 @@ Kein Build-Schritt, kein Framework: `index.html` lädt `src/app.js` als ES-Modul
 | `src/plans.js` | Wochenrhythmus, Plan-Assistent, nächste Einheit |
 | `src/workout.js` | Sessions anlegen, fortsetzen, abschließen, Progressionsvorschläge |
 | `src/backup.js` | JSON-Export, Validierung und Import, CSV |
+| `src/importers.js` | Hevy- und Strong-CSV: Parser, Übungszuordnung, Zusammenführen in den Verlauf |
 | `src/charts.js` | Canvas-Diagramme |
 | `src/ui.js` | Toast mit Rückgängig, Bottom-Sheets für Bestätigungen und Inhalte (ersetzt `alert`/`confirm`) |
 | `src/units.js`, `src/plates.js` | Einheitenumrechnung und Scheibenrechner |

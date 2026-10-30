@@ -1074,3 +1074,35 @@ test('legal page in both languages, then deleting all data returns to the first-
     'only the fresh defaults remain'
   );
 });
+
+test('a Hevy export merges into the history and unknown exercises become custom ones', async () => {
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="backup"]');
+  const file = path.join(__dirname, 'fixtures', 'hevy.csv');
+  await page.setInputFiles('#importCsv', file);
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.sheet'), /2 Trainings importieren\?/);
+  assert.match(await page.textContent('.sheet'), /Quelle: Hevy/);
+  await page.click('.sheet [data-ok]');
+  await page.waitForSelector('.sheet-backdrop.show', { state: 'detached' });
+  await page.waitForFunction(() =>
+    /2 Trainings importiert/.test(document.querySelector('.toast')?.textContent || '')
+  );
+  // The same file again adds nothing.
+  await page.setInputFiles('#importCsv', file);
+  await page.waitForSelector('.sheet-backdrop.show');
+  await page.click('.sheet [data-ok]');
+  await page.waitForFunction(() =>
+    /schon vorhanden/.test(document.querySelector('.toast')?.textContent || '')
+  );
+  await page.click('[data-nav="analytics"]');
+  // The fixture is from 2024: widen the range to everything.
+  await page.click('[data-range="all"]');
+  await page.waitForSelector('[data-session]');
+  assert.equal(await page.locator('[data-session]').count(), 2);
+  assert.match(await page.textContent('main'), /Push Day/);
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="customExercises"]');
+  await page.waitForSelector('[data-custom-exercise]');
+  assert.match(await page.textContent('[data-custom-exercise]'), /Banded Face Pull Special/);
+});

@@ -8,6 +8,8 @@ import { platesPerSide } from '../src/plates.js';
 import { plural, setLanguage, t } from '../src/i18n.js';
 import { BUILT_IN, exerciseName } from '../src/library.js';
 import { DEFAULT_SETTINGS } from '../src/storage.js';
+import { matchExercise, mergeImport, parseImport } from '../src/importers.js';
+import { readFileSync } from 'node:fs';
 import de from '../src/locales/de.js';
 import en from '../src/locales/en.js';
 
@@ -652,5 +654,121 @@ test('settings validation covers the rest feedback and the defaults for new exer
     validateBackup({ plans: { items: [{ id: 'p', name: 'P', days: [] }] }, history: [] }).settings
       .restVibrate,
     true
+  );
+});
+
+test('Hevy export: sessions, set types, tracking per exercise, unknown names', () => {
+  const parsed = parseImport(readFileSync(new URL('./fixtures/hevy.csv', import.meta.url), 'utf8'));
+  assert.equal(parsed.source, 'hevy');
+  assert.deepEqual(parsed.unknown, ['Banded Face Pull Special']);
+  assert.deepEqual(
+    parsed.sessions.map((s) => [s.day, s.dayName, s.volume, s.totalSets, s.duration]),
+    [
+      ['2024-10-14', 'Pull Day', 550, 4, 4200],
+      ['2024-10-12', 'Push Day', 1500, 7, 4320],
+    ]
+  );
+  const push = parsed.sessions[1];
+  assert.deepEqual(
+    push.entries.map((e) => [e.libraryId, e.trackType]),
+    [
+      ['0025', 'weight_reps'],
+      ['1457', 'weight_reps'],
+      ['2135', 'time'],
+      [undefined, 'reps'],
+    ]
+  );
+  const bench = push.entries[0];
+  assert.equal(bench.note, 'Pause at the chest');
+  assert.deepEqual(
+    bench.sets.map((x) => [x.type, x.weight, x.reps, x.rir, x.done]),
+    [
+      ['warmup', 40, 10, '', true],
+      ['normal', 60, 8, 2, true],
+      ['normal', 60, 8, '', true],
+    ]
+  );
+  assert.equal(push.entries[1].sets[1].type, 'drop');
+  assert.equal(push.entries[2].sets[0].time, 60);
+  const pull = parsed.sessions[0];
+  assert.deepEqual(
+    pull.entries.map((e) => [e.libraryId, e.trackType]),
+    [
+      ['0652', 'reps'],
+      ['0198', 'weight_reps'],
+      ['0685', 'distance_time'],
+    ]
+  );
+  assert.equal(pull.entries[0].sets[1].type, 'failure');
+  assert.deepEqual([pull.entries[2].sets[0].distance, pull.entries[2].sets[0].time], [3.2, 1080]);
+});
+
+test('Strong export: pounds become kilograms, timer and note rows are skipped, warm-ups are marked', () => {
+  const parsed = parseImport(readFileSync(new URL('./fixtures/strong.csv', import.meta.url), 'utf8'));
+  assert.equal(parsed.source, 'strong');
+  assert.equal(parsed.unitAssumed, false);
+  assert.deepEqual(parsed.unknown, []);
+  const push = parsed.sessions[1];
+  assert.deepEqual([push.dayName, push.duration, push.totalSets], ['Push Day', 4320, 4]);
+  assert.deepEqual(
+    push.entries.map((e) => [e.libraryId, e.sets.map((x) => `${x.type}:${x.weight}x${x.reps}`).join(' ')]),
+    [
+      ['0025', 'normal:61.235x8 normal:61.235x8'],
+      ['0043', 'warmup:43.091x5 normal:83.915x5'],
+    ]
+  );
+  assert.equal(push.entries[0].sets[0].rir, 2);
+  const cardio = parsed.sessions[0];
+  assert.deepEqual(
+    [cardio.entries[0].trackType, cardio.entries[0].sets[0].distance, cardio.entries[0].sets[0].time],
+    ['distance_time', 3.219, 1500]
+  );
+  // The newer Strong format has no unit column: the unit comes from the settings.
+  const assumed = parseImport(
+    'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE\n2024-10-12 10:03:00,Legs,45m,Squat (Barbell),1,100,5,0,0,,,\n',
+    { unit: 'lbs' }
+  );
+  assert.equal(assumed.unitAssumed, true);
+  assert.equal(assumed.sessions[0].entries[0].sets[0].weight, 45.359);
+  assert.equal(parseImport('a,b\n1,2\n').source, null);
+});
+
+test('merging an import skips sessions already there and creates each unknown exercise once', () => {
+  const text = readFileSync(new URL('./fixtures/hevy.csv', import.meta.url), 'utf8');
+  const once = mergeImport([], [], parseImport(text));
+  assert.deepEqual([once.added, once.skipped, once.created], [2, 0, 1]);
+  assert.deepEqual(
+    once.customs.map((c) => [c.name, c.trackType, c.category]),
+    [['Banded Face Pull Special', 'reps', 'other']]
+  );
+  const custom = once.history[1].entries[3];
+  assert.equal(custom.libraryId, once.customs[0].id, 'the entry links to the custom exercise');
+  assert.ok(once.history[1].entries[0].sets[1].pr, 'record flags are computed over the merged history');
+  const twice = mergeImport(once.history, once.customs, parseImport(text));
+  assert.deepEqual([twice.added, twice.skipped, twice.created, twice.history.length], [0, 2, 0, 2]);
+  const backup = validateBackup({
+    plans: { items: [{ id: 'p', name: 'P', days: [] }] },
+    history: once.history,
+  });
+  assert.equal(
+    backup.history[0].imported.key,
+    once.history[0].imported.key,
+    'the import marker survives a backup'
+  );
+});
+
+test('exercise names from other apps land on the catalogue entry', () => {
+  assert.deepEqual(
+    [
+      'Bench Press (Barbell)',
+      'Squat (Barbell)',
+      'Lat Pulldown (Cable)',
+      'Seated Cable Row - V Grip (Cable)',
+      'Bicep Curl (Machine)',
+      'Triceps Rope Pushdown',
+      'Pull Up',
+      'Farmers Walk',
+    ].map(matchExercise),
+    ['0025', '0043', '0198', '0861', '0575', '0200', '0652', null]
   );
 });

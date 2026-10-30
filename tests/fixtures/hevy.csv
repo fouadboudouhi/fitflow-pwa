@@ -1,0 +1,12 @@
+title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_kg,reps,distance_km,duration_seconds,rpe
+"Push Day","12 Oct 2024, 10:03","12 Oct 2024, 11:15","Felt strong","Bench Press (Barbell)",,"Pause at the chest",0,warmup,40,10,,,
+"Push Day","12 Oct 2024, 10:03","12 Oct 2024, 11:15","Felt strong","Bench Press (Barbell)",,"Pause at the chest",1,normal,60,8,,,8
+"Push Day","12 Oct 2024, 10:03","12 Oct 2024, 11:15","Felt strong","Bench Press (Barbell)",,"Pause at the chest",2,normal,60,8,,,
+"Push Day","12 Oct 2024, 10:03","12 Oct 2024, 11:15","Felt strong","Overhead Press (Barbell)",,"",0,normal,40,6,,,
+"Push Day","12 Oct 2024, 10:03","12 Oct 2024, 11:15","Felt strong","Overhead Press (Barbell)",,"",1,dropset,30,10,,,
+"Push Day","12 Oct 2024, 10:03","12 Oct 2024, 11:15","Felt strong","Plank",,"",0,normal,,,,60,
+"Push Day","12 Oct 2024, 10:03","12 Oct 2024, 11:15","Felt strong","Banded Face Pull Special",,"",0,normal,,15,,,
+"Pull Day","14 Oct 2024, 18:30","14 Oct 2024, 19:40","","Pull Up",,"",0,normal,,8,,,
+"Pull Day","14 Oct 2024, 18:30","14 Oct 2024, 19:40","","Pull Up",,"",1,failure,,6,,,
+"Pull Day","14 Oct 2024, 18:30","14 Oct 2024, 19:40","","Lat Pulldown (Cable)",,"",0,normal,55,10,,,
+"Pull Day","14 Oct 2024, 18:30","14 Oct 2024, 19:40","","Running",,"",0,normal,,,3.2,1080,
