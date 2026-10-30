@@ -2,7 +2,9 @@
 // demand) and the last sessions.
 import { currentLanguage, t } from '../i18n.js';
 import { equipmentLabel, exerciseName, groupLabel, libraryOf, muscleLabel } from '../library.js';
+import { KINDS, recordsFor } from '../records.js';
 import { describeBest, shortSet, trackTypeLabel, trackTypeOf } from '../sets.js';
+import { recordLine } from './records.js';
 import { sheet } from '../ui.js';
 import { esc, exerciseKey, fmtLong } from '../util.js';
 import { exerciseHistory } from '../workout.js';
@@ -39,9 +41,16 @@ export function openExerciseSheet(item) {
     trackType === 'weight_reps' ? '' : trackTypeLabel(trackType),
   ].filter(Boolean);
   const also = (lib?.secondary || []).map(muscleLabel).filter(Boolean);
+  const record = recordsFor(exerciseKey(item));
+  const bests = record
+    ? (KINDS[record.trackType] || [])
+        .map((kind) => recordLine(record, kind))
+        .filter(Boolean)
+        .join(' · ')
+    : '';
   const box = document.createElement('div');
   box.className = 'exercise-sheet';
-  box.innerHTML = `${gif ? `<img class="exercise-gif" src="${esc(gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">` : ''}${meta.length ? `<p class="exercise-meta">${meta.map(esc).join(' · ')}</p>` : ''}${also.length ? `<p class="exercise-meta">${esc(t('exercise.also', { muscles: also.join(', ') }))}</p>` : ''}${item.note ? `<p class="coach-note">${esc(item.note)}</p>` : ''}<div class="exercise-steps-slot"></div><h3>${t('exercise.lastSessions')}</h3>${historyRows(exerciseHistory(exerciseKey(item), 5))}`;
+  box.innerHTML = `${gif ? `<img class="exercise-gif" src="${esc(gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">` : ''}${meta.length ? `<p class="exercise-meta">${meta.map(esc).join(' · ')}</p>` : ''}${also.length ? `<p class="exercise-meta">${esc(t('exercise.also', { muscles: also.join(', ') }))}</p>` : ''}${bests ? `<p class="exercise-meta exercise-records">${t('exercise.records')}: ${esc(bests)}</p>` : ''}${item.note ? `<p class="coach-note">${esc(item.note)}</p>` : ''}<div class="exercise-steps-slot"></div><h3>${t('exercise.lastSessions')}</h3>${historyRows(exerciseHistory(exerciseKey(item), 5))}`;
   sheet({ title: name, content: box });
   if (lib && !lib.builtIn)
     loadSteps(lib.id).then((steps) => {
