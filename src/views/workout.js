@@ -1,4 +1,4 @@
-import { fmtNumber, t } from '../i18n.js';
+import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
@@ -23,6 +23,7 @@ import {
   newSet,
   previousEntry,
   removeSessionExercise,
+  repsAtPercent,
   replaceSessionExercise,
   restoreSessionExercise,
   sessionExercises,
@@ -39,7 +40,9 @@ import { setHead, setRow } from './setRow.js';
 const suggestionText = (s) =>
   s.kind === 'progress'
     ? t('workout.suggest', { weight: fmtWeight(s.weight) })
-    : t('workout.suggestConfirm', { weight: fmtWeight(s.weight) });
+    : s.kind === 'stall'
+      ? t('workout.suggestStall', { weight: fmtWeight(s.weight) })
+      : t('workout.suggestConfirm', { weight: fmtWeight(s.weight) });
 
 function exerciseSection(ex, index, entry, exercises, letters, showRir) {
   const complete = entryComplete(entry);
@@ -161,6 +164,34 @@ function openPlates(ex, entry) {
   sheet({ title: t('plates.title'), content: box });
   setTimeout(() => box.querySelector('#plateTarget').focus({ preventScroll: true }), 50);
 }
+
+// Estimated one-rep max from a set, with the loads a share of it allows.
+function openOneRm(entry) {
+  const u = unit();
+  const first = entry.sets.find(isWorkSet) || {};
+  const box = document.createElement('div');
+  box.className = 'onerm';
+  box.innerHTML = `<div class="plates-inputs"><label><span>${t('onerm.weight', { unit: u })}</span><input type="number" inputmode="decimal" step="0.5" min="0" id="oneRmWeight" value="${esc(fieldDisplayWeight(first.weight))}"></label><label><span>${t('onerm.reps')}</span><input type="number" inputmode="numeric" min="1" max="30" id="oneRmReps" value="${esc(first.reps || '')}"></label></div><div class="plates-result"><b id="oneRmResult"></b><small class="muted">${t('onerm.estimate')}</small></div><div class="onerm-table" id="oneRmTable"></div>`;
+  const update = () => {
+    const weight = number(box.querySelector('#oneRmWeight').value);
+    const reps = number(box.querySelector('#oneRmReps').value);
+    const max = weight && reps ? weight * (1 + reps / 30) : 0;
+    box.querySelector('#oneRmResult').textContent = max ? `${fmtNumber(Math.round(max))} ${u}` : '–';
+    box.querySelector('#oneRmTable').innerHTML = max
+      ? [100, 95, 90, 85, 80, 75, 70, 65, 60]
+          .map(
+            (p) =>
+              `<div><span>${p} %</span><b>${fmtNumber(Math.round((max * p) / 100))} ${u}</b><small>${esc(plural(repsAtPercent(p), 'reps'))}</small></div>`
+          )
+          .join('')
+      : '';
+  };
+  box.querySelector('#oneRmWeight').oninput = update;
+  box.querySelector('#oneRmReps').oninput = update;
+  update();
+  sheet({ title: t('onerm.title'), content: box });
+}
+const fieldDisplayWeight = (kg) => (kg === '' || kg == null ? '' : String(toDisplay(kg)));
 
 // Picker for adding exercises to the running session; it stays open for several picks.
 function addExercises() {
@@ -326,6 +357,7 @@ export function bind() {
             ),
         },
         isBarbell(ex) && { label: t('plates.title'), onClick: () => openPlates(ex, entry) },
+        weighted && { label: t('workout.oneRm'), onClick: () => openOneRm(entry) },
         {
           label: entry.note ? t('workout.editNote') : t('workout.addNote'),
           onClick: () => {

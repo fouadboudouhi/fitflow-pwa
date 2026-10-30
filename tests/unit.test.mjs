@@ -598,3 +598,42 @@ test('weekly stats: sets per group, weekly volume, frequency, record timeline, b
   assert.equal(combo.weight[2].value, 80, 'the measurement two days earlier counts');
   assert.equal(combo.weight[0].value, 80, 'a measurement within ten days counts for earlier sessions too');
 });
+
+test('progression: stall detection, per-exercise increment and 1RM reps table', async () => {
+  const { suggestion, stalled, repsAtPercent } = await import('../src/workout.js');
+  const session = (id, day, weight, reps) => ({
+    id,
+    day,
+    finishedAt: `${day}T10:00:00.000Z`,
+    entries: [
+      {
+        exerciseId: 'x',
+        libraryId: '0025',
+        trackType: 'weight_reps',
+        sets: [{ weight: String(weight), reps: String(reps), done: true, type: 'normal' }],
+      },
+    ],
+  });
+  const ex = { id: 'x', libraryId: '0025', range: '8–12' };
+  const flat = [
+    session('c', '2026-03-03', 60, 8),
+    session('b', '2026-02-24', 60, 8),
+    session('a', '2026-02-17', 60, 8),
+  ];
+  assert.equal(stalled(ex, flat), true);
+  const stall = suggestion(ex, flat);
+  assert.equal(stall.kind, 'stall');
+  assert.equal(stall.weight, 55, '10 % off 60 kg, rounded to the plate step');
+  const rising = [
+    session('c', '2026-03-03', 62.5, 8),
+    session('b', '2026-02-24', 60, 8),
+    session('a', '2026-02-17', 60, 8),
+  ];
+  assert.equal(stalled(ex, rising), false);
+  assert.equal(suggestion(ex, rising).kind, 'confirm');
+  const topOfRange = [session('c', '2026-03-03', 60, 12)];
+  assert.equal(suggestion(ex, topOfRange).weight, 62.5, 'default increment');
+  assert.equal(suggestion({ ...ex, increment: 1 }, topOfRange).weight, 61, 'plan exercise increment wins');
+  assert.equal(repsAtPercent(100), 1);
+  assert.equal(repsAtPercent(80), 8);
+});

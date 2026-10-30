@@ -20,6 +20,7 @@ import { TRACK_TYPES, trackTypeLabel } from '../sets.js';
 import { state } from '../state.js';
 import { allPlans, persistPlan, savePlans } from '../storage.js';
 import { actionSheet, toast, undoToast } from '../ui.js';
+import { fieldValue, fromDisplay, unit } from '../units.js';
 import { esc, number } from '../util.js';
 import { openPicker } from './picker.js';
 import { empty } from './shell.js';
@@ -34,8 +35,8 @@ const exerciseRow = (ex, di, ei, letters) =>
       ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="${t('editor.customName')}">`
       : `<h3>${esc(exerciseName(ex))}</h3>`
   }${ex.supersetId ? `<span class="superset-tag">${esc(t('editor.supersetTag'))} ${esc(letters[ex.supersetId] || '')}</span>` : ''}<div class="quick-fields"><label><span>${t('editor.sets')}</span><input data-prop="sets" type="number" min="1" max="12" value="${esc(ex.sets)}"></label><label><span>${t('editor.reps')}</span><input data-prop="range" value="${esc(ex.range)}"></label></div>${
-    detailsOpen(di, ei) || ex.rest || ex.trackType || (ex.note && ex.custom)
-      ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label><label><span>${t('editor.trackType')}</span><select data-prop="trackType"><option value="">${t('editor.trackDefault')}</option>${TRACK_TYPES.map((type) => `<option value="${type}" ${ex.trackType === type ? 'selected' : ''}>${esc(trackTypeLabel(type))}</option>`).join('')}</select></label></div>`
+    detailsOpen(di, ei) || ex.rest || ex.trackType || ex.increment || (ex.note && ex.custom)
+      ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.increment')}</span><div class="unit-input"><input data-prop="increment" type="number" min="0" step="0.25" value="${esc(fieldValue(ex.increment))}" placeholder="${t('editor.restDefault')}"><i>${unit()}</i></div></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label><label><span>${t('editor.trackType')}</span><select data-prop="trackType"><option value="">${t('editor.trackDefault')}</option>${TRACK_TYPES.map((type) => `<option value="${type}" ${ex.trackType === type ? 'selected' : ''}>${esc(trackTypeLabel(type))}</option>`).join('')}</select></label></div>`
       : ''
   }</div><button type="button" class="icon-btn quiet" data-exercise-menu="${di}:${ei}" aria-label="${esc(t('exercise.more', { name: exerciseName(ex) }))}">${icon('more')}</button></article>`;
 
@@ -94,6 +95,10 @@ function collectPlan() {
         if (prop === 'trackType') {
           if (input.value) ex.trackType = input.value;
           else delete ex.trackType;
+        } else if (prop === 'increment') {
+          const kg = number(fromDisplay(input.value));
+          if (kg) ex.increment = kg;
+          else delete ex.increment;
         } else ex[prop] = prop === 'sets' || prop === 'rest' ? number(input.value) : input.value.trim();
       });
     });

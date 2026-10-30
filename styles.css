@@ -3359,3 +3359,28 @@ label.row {
   display: block;
   color: var(--muted);
 }
+
+/* 1RM calculator */
+.onerm .plates-result {
+  margin: 14px 0;
+}
+.onerm .plates-result b {
+  font-size: 28px;
+  display: block;
+}
+.onerm-table {
+  display: grid;
+  gap: 6px;
+}
+.onerm-table > div {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.onerm-table small {
+  color: var(--muted);
+}
