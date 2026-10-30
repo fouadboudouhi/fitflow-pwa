@@ -3244,3 +3244,36 @@ label.row {
 .exercise-records {
   color: var(--ink);
 }
+
+/* Supersets and free workouts */
+.superset-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--green-ink);
+  border: 1px solid var(--green-ink);
+  border-radius: 99px;
+  padding: 1px 7px;
+  vertical-align: middle;
+}
+.plan-exercise-main .superset-tag {
+  margin: 2px 0 6px;
+}
+.workout-exercise.superset-first,
+.workout-exercise.superset-mid,
+.workout-exercise.superset-last {
+  border-left: 2px solid var(--green);
+  padding-left: 12px;
+}
+.workout-exercise.superset-first,
+.workout-exercise.superset-mid {
+  border-bottom-color: transparent;
+  padding-bottom: 8px;
+}
+.workout-exercise.superset-mid,
+.workout-exercise.superset-last {
+  padding-top: 8px;
+}
+#addSessionExercise {
+  margin: 16px 0 8px;
+}

@@ -6,9 +6,12 @@ import {
   addDay,
   customExercise,
   duplicatePlan,
+  linkSuperset,
   planExerciseFromLibrary,
   planSchedule,
   scheduleSlots,
+  supersetLetters,
+  unlinkSuperset,
 } from '../plans.js';
 import { navigate, render } from '../render.js';
 import { TRACK_TYPES, trackTypeLabel } from '../sets.js';
@@ -23,12 +26,12 @@ import * as plansView from './plans.js';
 const detailsOpen = (di, ei) => state.editorDetails?.has(`${di}:${ei}`);
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
-const exerciseRow = (ex, di, ei) =>
+const exerciseRow = (ex, di, ei, letters) =>
   `<article class="plan-exercise-row" data-ex-index="${ei}">${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : '<div class="custom-exercise-icon">＋</div>'}<div class="plan-exercise-main">${
     ex.custom
       ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="${t('editor.customName')}">`
       : `<h3>${esc(exerciseName(ex))}</h3>`
-  }<div class="quick-fields"><label><span>${t('editor.sets')}</span><input data-prop="sets" type="number" min="1" max="12" value="${esc(ex.sets)}"></label><label><span>${t('editor.reps')}</span><input data-prop="range" value="${esc(ex.range)}"></label></div>${
+  }${ex.supersetId ? `<span class="superset-tag">${esc(t('editor.supersetTag'))} ${esc(letters[ex.supersetId] || '')}</span>` : ''}<div class="quick-fields"><label><span>${t('editor.sets')}</span><input data-prop="sets" type="number" min="1" max="12" value="${esc(ex.sets)}"></label><label><span>${t('editor.reps')}</span><input data-prop="range" value="${esc(ex.range)}"></label></div>${
     detailsOpen(di, ei) || ex.rest || ex.trackType || (ex.note && ex.custom)
       ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label><label><span>${t('editor.trackType')}</span><select data-prop="trackType"><option value="">${t('editor.trackDefault')}</option>${TRACK_TYPES.map((type) => `<option value="${type}" ${ex.trackType === type ? 'selected' : ''}>${esc(trackTypeLabel(type))}</option>`).join('')}</select></label></div>`
       : ''
@@ -57,7 +60,7 @@ export function view() {
     ${
       d
         ? `<div class="editor-days"><section class="editor-day" data-day-index="${di}"><div class="simple-day-head"><input class="day-name" value="${esc(d.name)}" aria-label="${t('editor.dayName')}"><button class="icon-btn quiet" data-remove-day="${di}" aria-label="${t('editor.removeDay')}">${icon('close')}</button></div>
-      <div class="editor-exercises">${d.exercises.length ? d.exercises.map((ex, ei) => exerciseRow(ex, di, ei)).join('') : empty(t('editor.noExercisesTitle'), t('editor.noExercisesText'))}</div><button class="choose-exercise" data-add-exercise="${di}">${icon('plus')}<b>${t('editor.addExercise')}</b></button></section></div>`
+      <div class="editor-exercises">${d.exercises.length ? d.exercises.map((ex, ei) => exerciseRow(ex, di, ei, supersetLetters(d.exercises))).join('') : empty(t('editor.noExercisesTitle'), t('editor.noExercisesText'))}</div><button class="choose-exercise" data-add-exercise="${di}">${icon('plus')}<b>${t('editor.addExercise')}</b></button></section></div>`
         : ''
     }
     <div class="editor-footer"><span>${plural(p.days.length, 'trainingDays')}</span><button class="primary" id="savePlan">${t('common.done')}</button></div></main>`;
@@ -192,10 +195,28 @@ function bindExerciseMenus() {
         persistPlan(p);
         render();
       };
+      const canLink = ei < list.length - 1 && (!ex.supersetId || list[ei + 1].supersetId !== ex.supersetId);
       actionSheet(exerciseName(ex), [
         { label: t('editor.replace'), hint: t('editor.replaceHint'), onClick: () => openLibrary(di, ei) },
         ei > 0 && { label: t('editor.moveUp'), onClick: () => move(ei - 1) },
         ei < list.length - 1 && { label: t('editor.moveDown'), onClick: () => move(ei + 1) },
+        canLink && {
+          label: t('editor.linkSuperset'),
+          hint: t('editor.linkSupersetHint'),
+          onClick: () => {
+            linkSuperset(list, ei);
+            persistPlan(p);
+            render();
+          },
+        },
+        ex.supersetId && {
+          label: t('editor.unlinkSuperset'),
+          onClick: () => {
+            unlinkSuperset(list, ei);
+            persistPlan(p);
+            render();
+          },
+        },
         {
           label: t('editor.restAndNote'),
           onClick: () => {

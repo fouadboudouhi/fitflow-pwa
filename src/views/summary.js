@@ -1,13 +1,15 @@
 // Shown right after a workout was saved: numbers, new records, muscle split, sharing.
 import { plural, t } from '../i18n.js';
 import { exerciseName, groupLabel } from '../library.js';
+import { addDay, dayFromSession } from '../plans.js';
 import { headlineKind, sessionRecords } from '../records.js';
-import { navigate } from '../render.js';
+import { navigate, render } from '../render.js';
 import { describeSet } from '../sets.js';
 import { shareText, summaryText } from '../share.js';
 import { state } from '../state.js';
 import { setsByGroup } from '../stats.js';
-import { getHistory } from '../storage.js';
+import { activePlan, getHistory, persistPlan } from '../storage.js';
+import { toast } from '../ui.js';
 import { fmtVolume } from '../units.js';
 import { esc, number } from '../util.js';
 import * as home from './home.js';
@@ -40,8 +42,11 @@ export function view() {
         : `<p class="muted">${t('summary.noRecords')}</p>`
     }</section>
     ${groups.length ? `<section class="chart-section"><h2>${t('summary.muscles')}</h2><div class="bar-list">${groups.map((g) => `<div class="bar-row"><span>${esc(groupLabel(g.group))}</span><div class="bar-track"><i style="width:${Math.max(4, (g.sets / max) * 100)}%"></i></div><b>${plural(g.sets, 'sets')}</b></div>`).join('')}</div></section>` : ''}
-    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button></div></main>`;
+    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button>${session.detached && session.exercises?.length && !savedAsDay.has(session.id) ? `<button class="secondary" id="summarySaveDay">${t('summary.saveDay')}</button>` : ''}</div></main>`;
 }
+
+// Sessions already turned into a plan day during this visit, so the button does not offer it twice.
+const savedAsDay = new Set();
 
 export function bind() {
   document
@@ -50,5 +55,15 @@ export function bind() {
   document.querySelector('#summaryShare')?.addEventListener('click', () => {
     const session = getHistory().find((h) => h.id === state.sessionId);
     if (session) shareText(summaryText(session, newRecords(session)));
+  });
+  document.querySelector('#summarySaveDay')?.addEventListener('click', () => {
+    const session = getHistory().find((h) => h.id === state.sessionId);
+    const plan = activePlan();
+    if (!session || !plan) return;
+    const day = addDay(plan, dayFromSession(session));
+    persistPlan(plan);
+    savedAsDay.add(session.id);
+    render();
+    toast(t('summary.daySaved', { name: day.name }));
   });
 }
