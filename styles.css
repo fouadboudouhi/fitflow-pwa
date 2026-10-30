@@ -4736,3 +4736,11 @@ html[data-theme='dark'] .schedule-mode label:has(input:checked) {
 .exercise-number {
   border-radius: 10px;
 }
+
+/* Whole-pixel borders: a 1.5px border rounds the control below 44px on some devices */
+.set-check {
+  border-width: 1px;
+  height: 44px;
+  min-height: 44px;
+  min-width: 44px;
+}
