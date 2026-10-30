@@ -1,6 +1,7 @@
 // JSON backup (export, validation, import) and CSV export.
 import {
   LS,
+  SCHEMA_VERSION,
   allPlans,
   clearActive,
   getBody,
@@ -110,6 +111,7 @@ const asSet = (s) => ({
   rpe: asField(s?.rpe),
   done: !!s?.done,
   warmup: !!s?.warmup,
+  ...(s?.pr ? { pr: true } : {}),
 });
 const asExercise = (ex) => ({
   id: asStr(ex?.id) || uid(),
@@ -244,6 +246,6 @@ export async function importBackup(backup) {
   saveSettings(backup.settings);
   savePrefs(backup.exercisePrefs);
   clearActive();
-  write(LS.schema, 4);
+  write(LS.schema, SCHEMA_VERSION);
   return failed;
 }

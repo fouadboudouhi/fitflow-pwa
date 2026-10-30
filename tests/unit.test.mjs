@@ -158,3 +158,49 @@ test('weekly goal counts sessions per week and streaks of met weeks', () => {
   assert.deepEqual(weekStats(history, 1, monday), { thisWeek: 1, streak: 3, goal: 1 });
   assert.equal(weekStats([], 3, monday).streak, 0);
 });
+
+test('sw.js precaches every module under src/', async () => {
+  const { readdirSync, readFileSync, statSync, existsSync } = await import('node:fs');
+  const { join, relative } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const walk = (dir) =>
+    readdirSync(dir).flatMap((name) => {
+      const file = join(dir, name);
+      return statSync(file).isDirectory() ? walk(file) : file.endsWith('.js') ? [file] : [];
+    });
+  const modules = walk(join(root, 'src')).map((f) => relative(root, f).split('\\').join('/'));
+  const sw = readFileSync(join(root, 'sw.js'), 'utf8');
+  const listed = [...sw.matchAll(/'\.\/([^']+)'/g)].map((m) => m[1]);
+  for (const file of modules) assert.ok(listed.includes(file), `${file} is missing from the precache list`);
+  for (const file of listed.filter((f) => f.endsWith('.js')))
+    assert.ok(existsSync(join(root, file)), `${file} is precached but does not exist`);
+});
+
+test('backup validation keeps personal-record flags on sets', () => {
+  const backup = validateBackup({
+    plans: {
+      activePlanId: 'p1',
+      items: [{ id: 'p1', name: 'P', days: [{ id: 'd1', name: 'D', exercises: [{ id: 'e', name: 'E' }] }] }],
+    },
+    history: [
+      {
+        finishedAt: '2026-02-03T10:00:00Z',
+        entries: [
+          {
+            exerciseId: 'e',
+            sets: [
+              { weight: '50', reps: '8', done: true, pr: true },
+              { weight: '40', reps: '8', done: true },
+            ],
+          },
+        ],
+      },
+    ],
+    body: [],
+    settings: {},
+  });
+  const [first, second] = backup.history[0].entries[0].sets;
+  assert.equal(first.pr, true);
+  assert.equal('pr' in second, false);
+});
