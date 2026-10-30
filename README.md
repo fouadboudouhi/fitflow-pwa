@@ -8,7 +8,7 @@ Die visuellen Regeln sind in [`DESIGN.md`](DESIGN.md) dokumentiert, im neunteili
 - Deutsch und Englisch: folgt der Gerätesprache, in den Einstellungen umschaltbar; weitere Sprachen sind eine Datei in `src/locales/`
 - Beliebig viele Trainingspläne und Tage mit 100 häufigen Übungen erstellen
 - Dreistufiger Plan-Assistent für 2–6 Trainingstage mit Vorschau vor dem Speichern
-- Wahl zwischen flexibler Trainingsreihenfolge und festen Wochentagen
+- Flexible Reihenfolge: der nächste Trainingstag folgt auf den zuletzt absolvierten
 - Favoriten, zuletzt verwendete Übungen und direkter Übungstausch
 - Übungsanimationen und Hinweise werden bei der Auswahl automatisch übernommen
 - Durchgehender Trainingsmodus: alle Übungen kompakt untereinander und ohne Weiter-Button

@@ -1,8 +1,7 @@
 // First-run flow: language, unit, goal and experience, training days, then a ready plan. Skippable at any step.
-import { LANGUAGES, currentLanguage, languageLabel, setLanguage, t, weekdayShort } from '../i18n.js';
+import { plural, LANGUAGES, currentLanguage, languageLabel, setLanguage, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { defaultPlan, exerciseName } from '../library.js';
-import { planSchedule, scheduleLabel } from '../plans.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { getSettings, markOnboarded, savePlans, saveSettings } from '../storage.js';
@@ -21,7 +20,6 @@ const draft = () =>
     level: 'beginner',
     equipment: 'gym',
     days: 3,
-    scheduleMode: 'flexible',
   });
 
 const progress = (step) =>
@@ -53,17 +51,16 @@ function step3(d) {
 }
 function step4(d) {
   return `${hero(t('onboarding.daysTitle'), t('onboarding.daysText'))}${form(
-    `<fieldset>${EQUIPMENT_CHOICES.map((key) => card('equipment', key, t(`equipmentChoice.${key}`), t(`equipmentChoice.${key}Hint`), d.equipment === key)).join('')}</fieldset><label class="days-choice"><span>${t('wizard.daysPerWeek')}</span><select name="days">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${number(d.days) === n ? 'selected' : ''}>${t('trainingDays.other', { n })}</option>`).join('')}</select></label><fieldset>${card('scheduleMode', 'flexible', t('schedule.flexible'), t('wizard.flexibleHint'), d.scheduleMode !== 'fixed')}${card('scheduleMode', 'fixed', t('schedule.fixedDays'), t('wizard.fixedHint', { n: d.days }), d.scheduleMode === 'fixed')}</fieldset>`,
+    `<fieldset>${EQUIPMENT_CHOICES.map((key) => card('equipment', key, t(`equipmentChoice.${key}`), t(`equipmentChoice.${key}Hint`), d.equipment === key)).join('')}</fieldset><label class="days-choice"><span>${t('wizard.daysPerWeek')}</span><select name="days">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${number(d.days) === n ? 'selected' : ''}>${t('trainingDays.other', { n })}</option>`).join('')}</select></label>`,
     t('wizard.preview')
   )}`;
 }
 function step5() {
   const p = state.onboardingPreview;
-  const schedule = planSchedule(p);
-  return `<section class="assistant-hero preview-head"><h1>${esc(p.name)}</h1><p>${esc(scheduleLabel(p))}. ${t('onboarding.previewText')}</p></section><div class="plan-preview">${p.days
+  return `<section class="assistant-hero preview-head"><h1>${esc(p.name)}</h1><p>${plural(p.days.length, 'trainingDays')}. ${t('onboarding.previewText')}</p></section><div class="plan-preview">${p.days
     .map(
       (d, i) =>
-        `<article><span>${schedule.mode === 'fixed' ? weekdayShort(schedule.assignments[d.id]) : i + 1}</span><div><h2>${esc(d.name)}</h2><p>${d.exercises.map((x) => esc(exerciseName(x))).join(' · ')}</p></div><b>${d.exercises.length}</b></article>`
+        `<article><span>${i + 1}</span><div><h2>${esc(d.name)}</h2><p>${d.exercises.map((x) => esc(exerciseName(x))).join(' · ')}</p></div><b>${d.exercises.length}</b></article>`
     )
     .join(
       ''
@@ -75,7 +72,7 @@ export function view() {
   const d = draft();
   if (step === 5 && !state.onboardingPreview) {
     const template = pickTemplate({ days: d.days, equipment: d.equipment, goal: d.goal, level: d.level });
-    state.onboardingPreview = planFromTemplate(template.id, { scheduleMode: d.scheduleMode, level: d.level });
+    state.onboardingPreview = planFromTemplate(template.id, { level: d.level });
   }
   const body = [step1, step2, step3, step4, step5][step - 1](d);
   return `<main class="shell narrow onboarding">${head(step)}${progress(step)}${body}</main>`;
@@ -128,8 +125,7 @@ export function bind() {
   document.querySelector('#onboardingForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    for (const key of ['language', 'unit', 'goal', 'level', 'equipment', 'scheduleMode'])
-      if (f.has(key)) d[key] = f.get(key);
+    for (const key of ['language', 'unit', 'goal', 'level', 'equipment']) if (f.has(key)) d[key] = f.get(key);
     if (f.has('days')) d.days = number(f.get('days'));
     go((state.onboardingStep || 1) + 1);
   });

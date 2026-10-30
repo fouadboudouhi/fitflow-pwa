@@ -1,6 +1,5 @@
 import { plural, t, weekdayShort } from '../i18n.js';
 import { icon } from '../icons.js';
-import { planSchedule, scheduleLabel } from '../plans.js';
 import { state } from '../state.js';
 import { activePlan, getHistory } from '../storage.js';
 import { navigate } from '../render.js';
@@ -23,29 +22,24 @@ export function view() {
     const key = h.day || dayKey(h.finishedAt);
     if (key.startsWith(prefix)) sessions.set(key, [...(sessions.get(key) || []), h]);
   });
-  const schedule = planSchedule(plan);
-  const fixed = schedule.mode === 'fixed';
   const todayKey = dayKey(today);
   const cells = Array.from({ length: offset + days }, (_, i) => {
     if (i < offset) return '<div class="calendar-day blank"></div>';
     const d = new Date(year, month, i - offset + 1);
     const key = dayKey(d);
     const done = sessions.get(key) || [];
-    const plannedDay = fixed
-      ? plan.days.find((day) => schedule.assignments?.[day.id] === weekdayIndex(d))
-      : null;
     if (done.length)
       return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-session="${esc(done[0].id)}" aria-label="${esc(t('calendar.open', { day: d.getDate() }))}"><span>${d.getDate()}</span><b>${icon('check')} ${esc(done[0].dayName || t('session.title'))}</b></button>`;
-    return `<div class="calendar-day ${key === todayKey ? 'today' : ''}"><span>${d.getDate()}</span>${plannedDay ? `<small>${esc(plannedDay.name)}</small>` : ''}</div>`;
+    return `<div class="calendar-day ${key === todayKey ? 'today' : ''}"><span>${d.getDate()}</span></div>`;
   });
   const upcoming =
     plan?.days
       ?.map(
         (d, i) =>
-          `<div><span>${fixed ? weekdayShort(schedule.assignments?.[d.id]) : i + 1}</span><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'exercises')}</small></div>`
+          `<div><span>${i + 1}</span><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'exercises')}</small></div>`
       )
       .join('') || '';
-  return `<main class="shell calendar-shell">${parentRow('analytics')}<section class="calendar-head"><h1>${fmtMonth(first)}</h1><div class="calendar-nav"><button class="icon-btn" data-calendar-shift="-1" aria-label="${t('calendar.prev')}">${icon('chevron-left')}</button>${offsetMonths ? `<button class="icon-btn" data-calendar-shift="0">${t('calendar.today')}</button>` : ''}<button class="icon-btn" data-calendar-shift="1" aria-label="${t('calendar.next')}">${icon('chevron-right')}</button></div><div class="calendar-key">${fixed ? `<span><i class="planned-dot"></i>${t('calendar.planned')}</span>` : ''}<span><i class="done-dot"></i>${t('calendar.done')}</span></div></section><div class="calendar-weekdays">${[0, 1, 2, 3, 4, 5, 6].map((x) => `<span>${weekdayShort(x)}</span>`).join('')}</div><section class="calendar-grid">${cells.join('')}</section><section class="calendar-plan"><div class="section-title"><h2>${t('calendar.rhythm')}</h2><small>${esc(scheduleLabel(plan))}</small></div>${upcoming || empty(t('calendar.noPlanTitle'), t('calendar.noPlanText'), { label: t('calendar.emptyAction'), attrs: 'data-nav="templates"' })}</section></main>`;
+  return `<main class="shell calendar-shell">${parentRow('analytics')}<section class="calendar-head"><h1>${fmtMonth(first)}</h1><div class="calendar-nav"><button class="icon-btn" data-calendar-shift="-1" aria-label="${t('calendar.prev')}">${icon('chevron-left')}</button>${offsetMonths ? `<button class="icon-btn" data-calendar-shift="0">${t('calendar.today')}</button>` : ''}<button class="icon-btn" data-calendar-shift="1" aria-label="${t('calendar.next')}">${icon('chevron-right')}</button></div><div class="calendar-key"><span><i class="done-dot"></i>${t('calendar.done')}</span></div></section><div class="calendar-weekdays">${[0, 1, 2, 3, 4, 5, 6].map((x) => `<span>${weekdayShort(x)}</span>`).join('')}</div><section class="calendar-grid">${cells.join('')}</section><section class="calendar-plan"><div class="section-title"><h2>${t('calendar.rhythm')}</h2><small>${plan ? plural(plan.days.length, 'trainingDays') : ''}</small></div>${upcoming || empty(t('calendar.noPlanTitle'), t('calendar.noPlanText'), { label: t('calendar.emptyAction'), attrs: 'data-nav="templates"' })}</section></main>`;
 }
 
 export function bind() {

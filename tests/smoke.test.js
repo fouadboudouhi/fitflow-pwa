@@ -99,8 +99,6 @@ test('plan assistant creates and activates a plan', async () => {
   await page.check('input[name="goal"][value="strength"]');
   await page.selectOption('select[name="days"]', '4');
   await page.click('#assistantForm button[type="submit"]');
-  await page.check('input[name="scheduleMode"][value="fixed"]');
-  await page.click('#assistantScheduleForm button[type="submit"]');
   assert.match(await page.textContent('.preview-head h1'), /Kraft · 4 Tage/);
   await page.click('#useSuggestedPlan');
   await page.waitForSelector('.next-card');

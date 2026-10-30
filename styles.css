@@ -4357,3 +4357,382 @@ html {
 #app {
   overflow-x: clip;
 }
+
+/* Plan editor: a form that reads like a list. Fields on cloud, a segmented schedule switch, day pills,
+   compact set/rep fields beside the exercise, no dashed outlines */
+[hidden] {
+  display: none !important;
+}
+.simple-plan-head {
+  padding: 0;
+  margin: 0 0 16px;
+  border: 0;
+}
+.simple-plan-head input {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--cloud);
+  min-height: 48px;
+  padding: 10px 14px;
+}
+.simple-plan-head input:focus {
+  box-shadow: 0 0 0 2px var(--green);
+  outline: none;
+}
+.schedule-editor {
+  border: 0;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--r-lg);
+  padding: 14px 16px 16px;
+}
+.schedule-mode {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--cloud);
+  margin-bottom: 14px;
+}
+.schedule-mode label {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  transition:
+    background-color 0.25s ease,
+    color 0.2s ease,
+    box-shadow 0.25s ease;
+}
+.schedule-mode label:has(input:checked) {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+html[data-theme='dark'] .schedule-mode label:has(input:checked) {
+  background: #636366;
+  color: #fff;
+}
+.schedule-mode label:has(input:focus-visible) {
+  box-shadow: 0 0 0 2px var(--green);
+}
+.schedule-mode input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+.schedule-days select {
+  border: 0;
+  background: var(--cloud);
+  border-radius: 12px;
+  min-height: 44px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.editor-day-tabs {
+  gap: 8px;
+  margin: 18px 0 12px;
+}
+.editor-day-tabs button {
+  border: 0;
+  background: var(--cloud);
+  color: var(--ink);
+  border-radius: 999px;
+  min-height: 40px;
+  padding: 0 14px 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  gap: 8px;
+}
+.editor-day-tabs button span {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.editor-day-tabs button.active {
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green-ink);
+  box-shadow: none;
+}
+.editor-day-tabs button.active span {
+  background: var(--green);
+  color: var(--on-green);
+}
+.editor-day-tabs .add-day {
+  border: 0;
+  background: var(--cloud);
+  color: var(--ink);
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  justify-content: center;
+}
+.editor-day {
+  padding: 14px 16px 16px;
+}
+.simple-day-head {
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.day-name,
+.editor-day input.day-name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  border: 0;
+  background: var(--cloud);
+  border-radius: 12px;
+  min-height: 46px;
+  padding: 8px 14px;
+}
+.plan-exercise-row {
+  grid-template-columns: 24px 52px minmax(0, 1fr) 40px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.plan-exercise-row:first-child {
+  border-top: 0;
+}
+.plan-exercise-row > img,
+.plan-exercise-row > .custom-exercise-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: #fff;
+}
+.plan-exercise-row > .custom-exercise-icon {
+  background: var(--cloud);
+}
+.plan-exercise-main h3 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+.quick-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quick-fields label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 4px 0 10px;
+  border-radius: 10px;
+  background: var(--cloud);
+  border: 0;
+}
+.quick-fields label span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.quick-fields input {
+  width: 56px;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 0 2px;
+}
+.quick-fields input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.quick-fields label:has(input:focus-visible) {
+  box-shadow: 0 0 0 2px var(--green);
+}
+.detail-fields {
+  margin-top: 8px;
+}
+.plan-exercise-row .icon-btn.quiet,
+.simple-day-head .icon-btn.quiet {
+  background: transparent;
+  color: var(--muted);
+  width: 40px;
+  min-width: 40px;
+}
+.drag-handle {
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.choose-exercise,
+.add-day-card {
+  border: 0;
+  background: var(--cloud);
+  color: var(--ink);
+  border-radius: var(--r-md);
+  min-height: 48px;
+  margin-top: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  justify-content: center;
+  gap: 8px;
+}
+.choose-exercise .icon {
+  color: var(--green-ink);
+}
+.editor-footer {
+  margin-top: 16px;
+}
+
+.quick-fields label {
+  flex: none;
+}
+.quick-fields input[data-prop='range'] {
+  width: 64px;
+}
+.schedule-mode {
+  margin-bottom: 0;
+}
+.schedule-days {
+  margin-top: 14px;
+}
+.quick-fields label {
+  flex: none !important;
+  width: auto !important;
+}
+.quick-fields input {
+  width: 52px !important;
+  padding: 0 2px !important;
+}
+.quick-fields input[data-prop='range'] {
+  width: 64px !important;
+}
+
+/* Exercise row: name beside the picture, the set and rep fields on one line underneath both */
+.plan-exercise-row {
+  grid-template-columns: 24px 52px minmax(0, 1fr) 40px;
+  grid-template-areas:
+    'handle thumb name menu'
+    'handle thumb tag menu'
+    'handle fields fields menu';
+  align-items: center;
+}
+.plan-exercise-row > .drag-handle {
+  grid-area: handle;
+}
+.plan-exercise-row > img,
+.plan-exercise-row > .custom-exercise-icon {
+  grid-area: thumb;
+  align-self: center;
+}
+.plan-exercise-main {
+  display: contents;
+}
+.plan-exercise-main > h3,
+.plan-exercise-main > .custom-name {
+  grid-area: name;
+  margin: 0;
+  align-self: center;
+}
+.plan-exercise-main > .superset-tag {
+  grid-area: tag;
+  justify-self: start;
+  margin-top: 4px;
+}
+.plan-exercise-main > .quick-fields {
+  grid-area: fields;
+  margin-top: 8px;
+}
+.plan-exercise-main > .detail-fields {
+  grid-area: fields;
+  margin-top: 54px;
+}
+.plan-exercise-main > .quick-fields + .detail-fields {
+  grid-area: auto;
+  grid-column: 2 / 4;
+  margin-top: 0;
+}
+.plan-exercise-row > .icon-btn {
+  grid-area: menu;
+  align-self: center;
+}
+
+/* Sweep: the same three weights everywhere, no tracked uppercase outside table headers and group titles,
+   fields on cloud, favourites in the accent tint instead of yellow */
+.tiny,
+.custom-name,
+.assistant-form legend,
+.calendar-plan > div > span,
+.exercise-number,
+.plan-preview article > span,
+.set-label span.pr,
+.pr-chip,
+.edit-set input[type='number'],
+.edit-set input[type='text'],
+.plates-inputs select,
+.plate,
+.superset-tag,
+.chart-section h2,
+.edit-head,
+.simple-day-head .day-number {
+  font-weight: 600;
+}
+.chart-section h2 {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.calendar-weekdays span,
+.calendar-day > span,
+.suggest-row small,
+.suggestion span,
+.workout-exercise-head small {
+  font-weight: 500;
+}
+.suggestion span,
+.workout-exercise-head small,
+.simple-day-head .day-number {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.chart-card select,
+.chart-section select {
+  border: 0;
+  background: var(--cloud);
+  border-radius: 10px;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.library-actions .star.active,
+.favorite.active {
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green-ink);
+}
+.custom-exercise-icon {
+  background: var(--cloud);
+  color: var(--green-ink);
+}
+.exercise-number {
+  border-radius: 10px;
+}

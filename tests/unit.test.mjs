@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dayKey, exerciseKey, fmtDate, parseDate, rangeMax, volumeOf } from '../src/util.js';
-import { createSuggestedPlan, nextSession, scheduleLabel } from '../src/plans.js';
+import { createSuggestedPlan, nextSession } from '../src/plans.js';
 import { validateBackup } from '../src/backup.js';
 import { platesPerSide } from '../src/plates.js';
 import { plural, setLanguage, t } from '../src/i18n.js';
@@ -64,31 +64,22 @@ test('the assistant builds valid plans for every day count', () => {
   }
   const strength = createSuggestedPlan('strength', 3);
   assert.equal(strength.days[0].exercises[0].range, '4–6');
-  assert.equal(scheduleLabel(strength), 'Flexible Reihenfolge');
 });
 
-test('the next session rotates for flexible plans and follows weekdays for fixed plans', () => {
+test('the next session rotates through the plan after the last completed day', () => {
   const plan = {
     id: 'p',
     days: [
       { id: 'a', name: 'A', exercises: [{}] },
       { id: 'b', name: 'B', exercises: [{}] },
     ],
-    schedule: { mode: 'flexible', assignments: {} },
   };
-  assert.equal(nextSession(plan, []).day.id, 'a');
-  assert.equal(
-    nextSession(plan, [{ planId: 'p', dayId: 'a', finishedAt: '2026-01-01T10:00:00Z' }]).day.id,
-    'b'
-  );
-  const fixed = { ...plan, schedule: { mode: 'fixed', assignments: { a: 0, b: 3 } } };
-  const monday = new Date(2026, 8, 28, 9);
-  assert.deepEqual(
-    [nextSession(fixed, [], monday).day.id, nextSession(fixed, [], monday).label],
-    ['a', 'Heute geplant']
-  );
-  const doneToday = [{ planId: 'p', dayId: 'a', day: '2026-09-28', finishedAt: monday.toISOString() }];
-  assert.equal(nextSession(fixed, doneToday, monday).label, 'Als Nächstes · Do');
+  const monday = new Date(2026, 0, 5, 12);
+  const done = (dayId) => [{ planId: 'p', dayId, finishedAt: monday.toISOString() }];
+  assert.equal(nextSession(plan, [], monday).day.id, 'a');
+  assert.equal(nextSession(plan, done('a'), monday).day.id, 'b');
+  assert.equal(nextSession(plan, done('b'), monday).day.id, 'a');
+  assert.equal(nextSession(plan, done('b'), monday).label, 'Als Nächstes');
 });
 
 test('backup validation coerces hostile input', () => {
@@ -209,7 +200,7 @@ test('backup validation keeps personal-record flags on sets', () => {
 test('translations: fallback chain, interpolation and plural forms', () => {
   setLanguage('de');
   assert.equal(t('nav.home'), 'Heute');
-  assert.equal(t('wizard.step', { step: 2 }), 'Schritt 2 von 3');
+  assert.equal(t('wizard.step', { step: 2 }), 'Schritt 2 von 2');
   assert.equal(t('does.not.exist', null, 'Fallback'), 'Fallback');
   assert.equal(t('does.not.exist'), 'does.not.exist');
   assert.equal(plural(1, 'sets'), '1 Satz');

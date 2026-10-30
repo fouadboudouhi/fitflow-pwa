@@ -87,7 +87,7 @@ Don't: eyebrows, tracked uppercase labels, appended arrows, middle-dot meta stri
 
 - Phone first (375–390px). Rows stack, stat row keeps three columns, backup tiles collapse to one column.
 - 600px+: sheets center on screen and scale in, the shell widens, cards keep their padding.
-- Installed on iOS: the body pads for the status bar, the tab bar and sheets pad for the home indicator; nothing sits behind either.
+- Installed on iOS: the status bar is opaque in the canvas colour (`theme-color`), so nothing scrolls under it; the tab bar and sheets pad for the home indicator through `--inset-bottom` (measured and clamped in `src/viewport.js`).
 
 ## 10. Agent Prompt Guide
 
