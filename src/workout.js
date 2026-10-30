@@ -1,4 +1,5 @@
 // Session logic: creating, resuming and finishing a workout, progression suggestions, warm-up sets.
+import { annotatePrs } from './records.js';
 import { newSetFor, setScore, trackTypeOf } from './sets.js';
 import {
   clearActive,
@@ -155,6 +156,8 @@ export function finishSession(session) {
     })
   );
   const history = getHistory();
+  // Final record flags against everything stored before this session (the live toast only looked at done sets).
+  annotatePrs(session, history);
   history.unshift(session);
   saveHistory(history);
   clearActive();
@@ -231,6 +234,7 @@ export function saveEditedSession(session) {
   const history = getHistory();
   const index = history.findIndex((h) => h.id === session.id);
   if (index < 0) return false;
+  annotatePrs(session, history);
   history[index] = session;
   saveHistory(history);
   return true;

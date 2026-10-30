@@ -153,6 +153,7 @@ const ui = {
   'picker.noResults': 'No exercise found.',
   'picker.details': 'Details of {name}',
   'exercise.lastSessions': 'Last sessions',
+  'exercise.records': 'Records',
   'exercise.also': 'Also works: {muscles}',
   'exercise.steps': 'How to do it',
 
@@ -232,6 +233,7 @@ const ui = {
   // History (analytics), session, calendar
   'history.title': 'History',
   'history.calendar': 'Calendar',
+  'history.records': 'Records',
   'range.aria': 'Time range',
   'range.4w': '4 weeks',
   'range.3m': '3 months',
@@ -371,6 +373,25 @@ const ui = {
   'onboarding.use': 'Let’s go',
   'onboarding.installTip': 'Tip: Volumora can be installed on your home screen like an app.',
   'onboarding.installHow': 'How?',
+
+  // Summary, records, sharing
+  'summary.title': 'Workout finished',
+  'summary.newRecords': 'New records',
+  'summary.noRecords': 'No new records this time.',
+  'summary.muscles': 'Sets per muscle group',
+  'summary.share': 'Share',
+  'summary.done': 'Done',
+  'share.copied': 'Copied to the clipboard.',
+  'share.failed': 'Sharing did not work.',
+  'records.title': 'Records',
+  'records.empty': 'No records yet',
+  'records.emptyText': 'Finish a workout and your best sets show up here.',
+  'records.kind.e1rm': '1RM ≈',
+  'records.kind.maxWeight': 'Max weight',
+  'records.kind.maxVolume': 'Max set volume',
+  'records.kind.maxReps': 'Max reps',
+  'records.kind.maxTime': 'Longest time',
+  'records.kind.maxDistance': 'Longest distance',
 
   // CSV export
   'csv.date': 'Date',

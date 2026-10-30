@@ -3228,3 +3228,19 @@ label.row {
 .exercise-steps li {
   padding-left: 4px;
 }
+
+/* Summary and records */
+.page-actions {
+  display: flex;
+  gap: 4px;
+}
+.summary .next-label {
+  display: block;
+  margin-bottom: 4px;
+}
+.summary .preview-actions {
+  margin-top: 24px;
+}
+.exercise-records {
+  color: var(--ink);
+}

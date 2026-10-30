@@ -157,6 +157,7 @@ const ui = {
   'picker.noResults': 'Keine Übung gefunden.',
   'picker.details': 'Details zu {name}',
   'exercise.lastSessions': 'Letzte Einheiten',
+  'exercise.records': 'Bestwerte',
   'exercise.also': 'Auch beteiligt: {muscles}',
   'exercise.steps': 'Ausführung',
 
@@ -236,6 +237,7 @@ const ui = {
   // History (analytics), session, calendar
   'history.title': 'Verlauf',
   'history.calendar': 'Kalender',
+  'history.records': 'Rekorde',
   'range.aria': 'Zeitraum',
   'range.4w': '4 Wochen',
   'range.3m': '3 Monate',
@@ -375,6 +377,25 @@ const ui = {
   'onboarding.use': 'Los geht’s',
   'onboarding.installTip': 'Tipp: Volumora lässt sich wie eine App auf dem Homescreen installieren.',
   'onboarding.installHow': 'Wie?',
+
+  // Summary, records, sharing
+  'summary.title': 'Training abgeschlossen',
+  'summary.newRecords': 'Neue Bestwerte',
+  'summary.noRecords': 'Diesmal keine neuen Bestwerte.',
+  'summary.muscles': 'Sätze pro Muskelgruppe',
+  'summary.share': 'Teilen',
+  'summary.done': 'Fertig',
+  'share.copied': 'In die Zwischenablage kopiert.',
+  'share.failed': 'Teilen hat nicht geklappt.',
+  'records.title': 'Bestwerte',
+  'records.empty': 'Noch keine Bestwerte',
+  'records.emptyText': 'Schließe ein Training ab, dann erscheinen hier deine besten Sätze.',
+  'records.kind.e1rm': '1RM ≈',
+  'records.kind.maxWeight': 'Max. Gewicht',
+  'records.kind.maxVolume': 'Max. Satzvolumen',
+  'records.kind.maxReps': 'Max. Wdh.',
+  'records.kind.maxTime': 'Längste Zeit',
+  'records.kind.maxDistance': 'Längste Distanz',
 
   // CSV export
   'csv.date': 'Datum',

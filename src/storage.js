@@ -1,6 +1,8 @@
 // Persistence: localStorage for structured data, IndexedDB for photos, plus versioned migrations.
 import { t } from './i18n.js';
 import { DEFAULT_PLAN_ID, defaultPlan, normalizeLegacyExercise } from './library.js';
+import { annotateAll } from './records.js';
+import { trackTypeOf } from './sets.js';
 import { toast } from './ui.js';
 import { dayKey, exerciseKey, uid, volumeOf } from './util.js';
 
@@ -69,7 +71,13 @@ export function persistPlan(plan) {
 }
 
 export const getHistory = () => read(LS.history, []);
-export const saveHistory = (history) => write(LS.history, history);
+// Bumped on every write so derived data (records) can cache per revision.
+let historyRevision = 0;
+export const getHistoryRevision = () => historyRevision;
+export const saveHistory = (history) => {
+  historyRevision++;
+  return write(LS.history, history);
+};
 export const getBody = () => read(LS.body, []);
 export const saveBody = (entries) => write(LS.body, entries);
 export const getPrefs = () => ({ favorites: [], recent: [], ...read(LS.exercisePrefs, {}) });
@@ -184,6 +192,22 @@ const MIGRATIONS = [
     const data = allPlans();
     data.items.forEach((p) => p.days?.forEach((d) => d.exercises?.forEach(normalizeLegacyExercise)));
     savePlans(data);
+  },
+  // 6: sets carry an explicit type, entries their exercise type, and record flags are recomputed from the
+  // whole history so each exercise has exactly the bests it earned.
+  () => {
+    const history = getHistory();
+    history.forEach((s) =>
+      s.entries?.forEach((e) => {
+        e.trackType ||= trackTypeOf(e);
+        e.sets?.forEach((x) => {
+          x.type ||= x.warmup ? 'warmup' : 'normal';
+          x.warmup = x.type === 'warmup';
+        });
+      })
+    );
+    annotateAll(history);
+    saveHistory(history);
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;

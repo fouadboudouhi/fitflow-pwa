@@ -374,3 +374,58 @@ test('the exercise catalogue is complete and consistent', async () => {
     assert.match(ex.gif, /^https:\/\//, `${ex.id} gif`);
   }
 });
+
+test('records: bests per kind, record flags in chronological order, session diffs', async () => {
+  const { computeRecords, annotateAll, sessionRecords, headlineKind } = await import('../src/records.js');
+  const session = (id, day, weight, reps = 8) => ({
+    id,
+    day,
+    finishedAt: `${day}T10:00:00.000Z`,
+    entries: [
+      {
+        exerciseId: 'x',
+        libraryId: '0025',
+        name: 'Bank',
+        trackType: 'weight_reps',
+        sets: [
+          { weight: '20', reps: '5', done: true, warmup: true, type: 'warmup' },
+          { weight: String(weight), reps: String(reps), done: true, type: 'normal' },
+          { weight: String(weight), reps: String(reps), done: true, type: 'normal' },
+        ],
+      },
+      {
+        exerciseId: 'p',
+        libraryId: '0662',
+        trackType: 'reps',
+        sets: [{ reps: String(reps + 4), done: true }],
+      },
+    ],
+  });
+  const history = [
+    session('new', '2026-03-10', 60),
+    session('old', '2026-01-10', 50),
+    session('mid', '2026-02-10', 55, 10),
+  ];
+  const records = computeRecords(history);
+  assert.equal(records['0025'].maxWeight.value, 60);
+  assert.equal(records['0025'].maxWeight.day, '2026-03-10');
+  assert.ok(records['0025'].e1rm.value > records['0025'].maxWeight.value);
+  assert.equal(records['0025'].e1rm.sessionId, 'new', '60×8 estimates higher than 55×10');
+  assert.equal(records['0025'].maxVolume.sessionId, 'mid', '55×10 is the biggest set');
+  assert.equal(records['0662'].maxReps.value, 14);
+  assert.equal(headlineKind('reps'), 'maxReps');
+  annotateAll(history);
+  const flags = (id) => history.find((h) => h.id === id).entries[0].sets.map((s) => !!s.pr);
+  assert.deepEqual(flags('old'), [false, true, false], 'first session: first working set is a record');
+  assert.deepEqual(flags('mid'), [false, true, false]);
+  assert.deepEqual(flags('new'), [false, true, false], '60×8 beats the 1RM of 55×10');
+  const diff = sessionRecords(
+    history.find((h) => h.id === 'new'),
+    history
+  );
+  assert.deepEqual(
+    diff.map((r) => `${r.key}:${r.kind}`).sort(),
+    ['0025:e1rm', '0025:maxWeight'].sort(),
+    '1RM and weight improved; set volume (480 < 550) and push-up reps (12 < 14) did not'
+  );
+});

@@ -40,7 +40,7 @@ export function view() {
         `<button type="button" class="row" data-session="${esc(h.id)}"><span class="row-main"><b>${esc(h.dayName || h.day)}</b><small>${fmtLong(h.day || h.finishedAt)}${markerText(h) ? ` · ${markerText(h)}` : ''}</small></span><span class="row-value"><b>${fmtVolume(h.volume || volumeOf(h))}</b><small>${plural(number(h.totalSets), 'sets')}</small></span>${icon('chevron-right')}</button>`
     )
     .join('');
-  const head = `<section class="page-head"><h1>${t('history.title')}</h1><button class="text-btn" data-nav="calendar">${t('history.calendar')}</button></section>`;
+  const head = `<section class="page-head"><h1>${t('history.title')}</h1><div class="page-actions"><button class="text-btn" data-nav="records">${t('history.records')}</button><button class="text-btn" data-nav="calendar">${t('history.calendar')}</button></div></section>`;
   if (!history.length) {
     return `<main class="shell">${head}${rangeControl}${empty(t('history.emptyTitle'), t('history.emptyText'))}</main>`;
   }

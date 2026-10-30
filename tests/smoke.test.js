@@ -9,7 +9,7 @@ const { createServer } = require('./serve.js');
 const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 let server, browser, baseURL, context, page, errors;
-const SCHEMA = 5;
+const SCHEMA = 6;
 const BACKUP_VERSION = 4;
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
@@ -445,7 +445,8 @@ async function seedHistory() {
       'volumora-history-v2',
       JSON.stringify([session('s-recent', key(recent), 50), session('s-old', key(old), 40)])
     );
-    localStorage.setItem('volumora-schema-version', String(SCHEMA));
+    // One version behind, so the newest migration (record flags) runs over the seeded sessions on reload.
+    localStorage.setItem('volumora-schema-version', String(SCHEMA - 1));
   }, SCHEMA);
   await page.reload();
   await page.waitForSelector('.next-card');
@@ -492,7 +493,8 @@ test('workout: exercise history sheet and personal record toast', async () => {
   await page.waitForSelector('.workout-exercise');
   await page.click('[data-exercise-history="0"]');
   await page.waitForSelector('.sheet-backdrop.show');
-  assert.match(await page.textContent('.sheet-body'), /50×8 · 50×8/);
+  // The first 50 kg set carries a record chip since the history migration flags it.
+  assert.match(await page.textContent('.sheet-body'), /50×8(PR)? · 50×8/);
   await page.keyboard.press('Escape');
   const first = page.locator('.workout-exercise').first();
   await first.locator('input[data-set-field="weight"][data-index="0"]').fill('60');
@@ -778,6 +780,10 @@ test('bodyweight and timed exercises: reps-only sets count, set types can be cha
   assert.equal(active.entries[1].trackType, 'reps');
   assert.equal(active.entries[1].sets[1].type, 'drop');
   await page.click('#finishWorkout');
+  await page.waitForSelector('.summary');
+  await page.click('#summaryDone');
+  await page.waitForSelector('.next-card');
+  await page.click('[data-nav="analytics"]');
   await page.waitForSelector('.row[data-session]');
   const history = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
   assert.equal(history[0].entries[0].sets[0].time, '90');
@@ -785,4 +791,44 @@ test('bodyweight and timed exercises: reps-only sets count, set types can be cha
   await page.locator('.row[data-session]').first().click();
   await page.waitForSelector('#sessionForm');
   assert.equal(await page.inputValue('[data-edit="time"][data-e="0"][data-s="0"]'), '1:30');
+});
+
+test('finishing a workout shows the summary with records and sharing; the records screen lists bests', async () => {
+  await context.addInitScript(() => {
+    window.__shared = [];
+    navigator.share = (data) => {
+      window.__shared.push(data);
+      return Promise.resolve();
+    };
+  });
+  await seedHistory();
+  const seeded = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
+  assert.equal(seeded[0].entries[0].sets[0].pr, true, 'migration flags the 50 kg set as a record');
+  assert.equal(seeded[0].entries[0].sets[1].pr, false);
+  await page.click('[data-start="push"]');
+  await page.waitForSelector('.workout-exercise');
+  const first = page.locator('.workout-exercise').first();
+  await first.locator('input[data-set-field="weight"][data-index="0"]').fill('60');
+  await first.locator('input[data-set-field="reps"][data-index="0"]').fill('8');
+  await first.locator('[data-set-done="0"]').click();
+  await page.click('#finishWorkout');
+  await page.waitForSelector('.summary');
+  assert.match(await page.textContent('.summary .list'), /Brustpresse/);
+  assert.match(await page.textContent('.summary .list'), /60 kg × 8/);
+  assert.match(await page.textContent('.summary .bar-list'), /Brust/);
+  await page.click('#summaryShare');
+  await page.waitForFunction(() => window.__shared.length === 1);
+  const shared = await page.evaluate(() => window.__shared[0].text);
+  assert.match(shared, /Volumora · Push/);
+  assert.match(shared, /Brustpresse 60 kg × 8/);
+  await page.click('#summaryDone');
+  await page.waitForSelector('.next-card');
+  await page.click('[data-nav="analytics"]');
+  await page.click('[data-nav="records"]');
+  await page.waitForSelector('[data-record]');
+  assert.match(await page.textContent('[data-record]'), /Brustpresse/);
+  assert.match(await page.textContent('[data-record]'), /Max\. Gewicht 60 kg/);
+  await page.click('[data-record]');
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.exercise-records'), /1RM ≈/);
 });

@@ -331,8 +331,8 @@ export function bind() {
       }))
     )
       return;
-    finishSession(session);
-    navigate('analytics');
+    const saved = finishSession(session);
+    navigate('summary', { sessionId: saved.id }, { replace: true });
     toast(t('workout.saved'));
   };
   document.querySelector('#exitWorkout').onclick = () => navigate('home');
