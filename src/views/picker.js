@@ -88,8 +88,8 @@ export function openPicker({
           .join(' · ');
         const media = ex.gif
           ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">`
-          : '<div class="custom-exercise-icon">＋</div>';
-        return `<article class="library-item" data-group="${esc(ex.group)}" data-equipment="${esc(ex.equipment || '')}" data-search="${esc(searchText(ex, name))}" ${ex.custom ? 'data-custom' : ''}><button type="button" class="library-info" data-library-info="${esc(ex.id)}" aria-label="${esc(t('picker.details', { name }))}">${media}<div><h3>${esc(name)}</h3><span>${esc(meta)}</span></div></button><div class="library-actions"><button type="button" class="star ${favorite ? 'active' : ''}" data-library-favorite="${esc(ex.id)}" aria-label="${t('picker.favorite')}" aria-pressed="${favorite}">★</button><button type="button" class="${added ? 'added' : ''}" data-pick-exercise="${esc(ex.id)}" ${added ? 'disabled' : ''} aria-label="${added ? t('picker.added') : t('picker.add')}">${added ? '✓' : '＋'}</button></div></article>`;
+          : `<div class="custom-exercise-icon">${icon('dumbbell')}</div>`;
+        return `<article class="library-item" data-group="${esc(ex.group)}" data-equipment="${esc(ex.equipment || '')}" data-search="${esc(searchText(ex, name))}" ${ex.custom ? 'data-custom' : ''}><button type="button" class="library-info" data-library-info="${esc(ex.id)}" aria-label="${esc(t('picker.details', { name }))}">${media}<div><h3>${esc(name)}</h3><span>${esc(meta)}</span></div></button><div class="library-actions"><button type="button" class="star ${favorite ? 'active' : ''}" data-library-favorite="${esc(ex.id)}" aria-label="${t('picker.favorite')}" aria-pressed="${favorite}">${icon('star')}</button><button type="button" class="${added ? 'added' : ''}" data-pick-exercise="${esc(ex.id)}" ${added ? 'disabled' : ''} aria-label="${added ? t('picker.added') : t('picker.add')}">${added ? icon('check') : icon('plus')}</button></div></article>`;
       })
       .join('');
     applyFilter();

@@ -89,7 +89,7 @@ test('an unfinished workout survives editing the plan day', async () => {
     '42',
     'logged set of the kept exercise is preserved'
   );
-  assert.equal(await kept.locator('[data-set-done="0"]').textContent(), '✓');
+  assert.equal(await kept.locator('[data-set-done="0"]').getAttribute('aria-pressed'), 'true');
 });
 
 test('plan assistant creates and activates a plan', async () => {
