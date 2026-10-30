@@ -40,7 +40,7 @@ Kein Build-Schritt, kein Framework: `index.html` lädt `src/app.js` als ES-Modul
 | --- | --- |
 | `src/storage.js` | `localStorage`-Zugriff, IndexedDB für Fotos, versionierte Migrationen |
 | `src/i18n.js`, `src/locales/*.js` | Übersetzungen: `t(key, params)`, Plural, Datums- und Zahlenformat je Sprache |
-| `src/library.js` | Übungskatalog mit stabilen Schlüsseln (Muskelgruppe, Gerät, Zielmuskel) und der eingebaute Standardplan; Namen kommen aus dem Wörterbuch |
+| `src/library.js` | Übungskatalog (296 Übungen aus `assets/data/exercises.js`, erzeugt von `tools/import-exercises.mjs`) mit stabilen Schlüsseln für Muskelgruppe, Gerät und Zielmuskel, plus der eingebaute Standardplan; Namen kommen aus dem Wörterbuch, Anleitungen aus `assets/data/steps.*.js` |
 | `src/plans.js` | Wochenrhythmus, Plan-Assistent, nächste Einheit |
 | `src/workout.js` | Sessions anlegen, fortsetzen, abschließen, Progressionsvorschläge |
 | `src/backup.js` | JSON-Export, Validierung und Import, CSV |

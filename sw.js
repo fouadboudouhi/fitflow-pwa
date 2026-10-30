@@ -1,4 +1,4 @@
-const VERSION = 'v22';
+const VERSION = 'v23';
 const CACHE = `volumora-${VERSION}`;
 // Cross-origin exercise GIFs get their own bounded cache so the app shell cache stays small and predictable.
 const MEDIA_CACHE = `volumora-media-${VERSION}`;
@@ -9,6 +9,8 @@ const ASSETS = [
   './styles.css',
   './manifest.json',
   './assets/data/exercises.js',
+  './assets/data/steps.de.js',
+  './assets/data/steps.en.js',
   './src/app.js',
   './src/backup.js',
   './src/charts.js',

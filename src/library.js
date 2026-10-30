@@ -109,12 +109,17 @@ const trackOverride = (name) =>
       ? 'reps'
       : undefined;
 
+// Animations are hot-linked from the dataset repository; the catalogue only stores the file name.
+export const GIF_BASE = 'https://raw.githubusercontent.com/YaKohen/exercises-dataset/main/videos/';
+
 export const EXERCISE_LIBRARY = EXERCISES.map((ex) => ({
   ...ex,
   sourceName: ex.name,
   name: titleCase(ex.name),
   group: groupOfBodyPart(ex.category),
-  trackType: trackOverride(ex.name),
+  gif: ex.gif || (ex.file ? GIF_BASE + ex.file : ''),
+  secondary: ex.secondary || [],
+  trackType: ex.trackType || trackOverride(ex.name),
   sets: 3,
   range: ex.category === 'waist' || ex.target === 'calves' ? '12–15' : '8–12',
   note: '',
