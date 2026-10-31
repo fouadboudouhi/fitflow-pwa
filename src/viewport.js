@@ -1,6 +1,5 @@
-// Bottom inset for bars and floating controls. Installed iOS apps sometimes report a home-indicator inset far
-// larger than the indicator, or keep the indicator area clear themselves (the viewport ends above it). The
-// measured value is clamped, and not applied at all when the viewport is already shorter than the screen.
+// Bottom inset for bars and floating controls: the measured home-indicator inset, clamped so an oversized value
+// cannot push the controls out of reach.
 const MAX_INSET = 40;
 
 function measured(side) {
@@ -15,13 +14,7 @@ const standalone = () => matchMedia('(display-mode: standalone)').matches || nav
 
 export function calibrateInset() {
   const inset = measured('bottom');
-  const portrait = window.innerHeight >= window.innerWidth;
-  const missing = (screen.height || 0) - window.innerHeight;
-  const systemKeepsClear = standalone() && portrait && missing >= 20;
-  document.documentElement.style.setProperty(
-    '--inset-bottom',
-    systemKeepsClear ? '0px' : `${Math.min(inset, MAX_INSET)}px`
-  );
+  document.documentElement.style.setProperty('--inset-bottom', `${Math.min(inset, MAX_INSET)}px`);
 }
 
 export function watchInset() {

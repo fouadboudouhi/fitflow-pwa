@@ -4799,3 +4799,237 @@ html[data-theme='dark'] .schedule-mode label:has(input:checked) {
   line-height: 1.6;
   word-break: break-word;
 }
+
+/* ==========================================================================
+   Compact scale: a notch smaller everywhere so screens breathe. Switches as switches. Gesture layers.
+   ========================================================================== */
+body {
+  font-size: 15px;
+}
+.page-head h1,
+.home-intro h1,
+.calendar-head h1,
+.hero h1 {
+  font-size: 28px;
+}
+.page-head p,
+.home-intro p,
+.assistant-hero p {
+  font-size: 14px;
+}
+.assistant-hero h1 {
+  font-size: 26px;
+}
+.next-card h2 {
+  font-size: 26px;
+}
+.next-card p,
+.row-main b,
+.row-value b {
+  font-size: 15px;
+}
+.next-card,
+.resume-card {
+  padding: 18px 18px 16px;
+}
+.row-main small,
+.row-value small {
+  font-size: 12.5px;
+}
+.row {
+  min-height: 54px;
+  padding: 10px 12px 10px 14px;
+}
+.row-icon {
+  width: 32px;
+  height: 32px;
+}
+.row-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+.week-head,
+.list-section h2,
+.chart-card h2,
+.section-head h2,
+.chart-section h2 {
+  font-size: 14px;
+}
+.primary,
+.secondary {
+  min-height: 48px;
+  font-size: 16px;
+}
+.primary.start-main {
+  min-height: 50px;
+}
+.text-btn {
+  font-size: 15px;
+}
+.backrow span {
+  font-size: 16px;
+}
+.editor-title input,
+.editor-day input,
+.settings-form input:not([type='checkbox']),
+.settings-form select,
+.body-form input,
+.body-form select,
+.notes-field textarea,
+.plates-inputs input,
+.plates-inputs select,
+.exercise-fields input,
+.exercise-fields select,
+.simple-plan-head input {
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 16px;
+}
+.editor-title span,
+.settings-form label > span,
+.body-form label > span,
+.notes-field > span,
+.exercise-fields span,
+.plates-inputs label {
+  font-size: 12.5px;
+}
+.settings-form {
+  padding: 16px;
+  gap: 14px;
+}
+.settings-form h2 {
+  font-size: 11px;
+}
+.toggle-setting {
+  padding: 12px 0 2px;
+}
+.toggle-setting b {
+  font-size: 15px;
+}
+.toggle-setting small {
+  font-size: 12.5px;
+}
+.toggle-setting input,
+.settings-form .toggle-setting input[type='checkbox'] {
+  width: 51px !important;
+  height: 31px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border-radius: 16px !important;
+  margin: 0 0 0 auto;
+  font-size: 0;
+}
+.stat-row b {
+  font-size: clamp(18px, 5vw, 22px);
+}
+.stat-row span {
+  font-size: 11.5px;
+}
+.chip {
+  font-size: 11.5px;
+  padding: 3px 9px;
+}
+.nav-btn {
+  font-size: 10px;
+  min-height: 46px;
+}
+.nav-btn .icon {
+  width: 24px;
+  height: 24px;
+}
+.bottom-nav {
+  padding-top: 4px;
+}
+.workout-exercise-head h2 {
+  font-size: 18px;
+}
+.set-card input[type='number'] {
+  height: 44px;
+  font-size: 16px;
+}
+.set-check {
+  height: 44px;
+  min-height: 44px;
+  width: 44px;
+  min-width: 44px;
+}
+.set-head {
+  font-size: 9.5px;
+}
+.sheet h2,
+.sheet-head h2 {
+  font-size: 18px;
+}
+.action-item {
+  min-height: 48px;
+  font-size: 16px;
+}
+.library-item h3 {
+  font-size: 15px;
+}
+.library-item span {
+  font-size: 12.5px;
+}
+.library-item button {
+  width: 40px;
+  height: 40px;
+}
+.day-name,
+.editor-day input.day-name {
+  font-size: 16px;
+  min-height: 42px;
+}
+.plan-exercise-main h3 {
+  font-size: 15px;
+}
+.editor-day-tabs button {
+  min-height: 36px;
+  font-size: 14px;
+}
+.editor-day-tabs button span {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+.shell {
+  padding-top: 16px;
+}
+@media (max-width: 760px) {
+  .shell {
+    padding-top: 12px;
+  }
+}
+
+/* Gestures: the current screen slides over the one it returns to */
+#app > main {
+  touch-action: pan-y;
+  position: relative;
+}
+#app > main.gesture-dragging {
+  z-index: 46;
+  background: var(--paper);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.25);
+  will-change: transform;
+}
+.gesture-underlay {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  overflow: hidden;
+  background: var(--paper);
+  pointer-events: none;
+  transform: translateX(-30%);
+}
+.gesture-underlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, var(--dim, 0.45));
+}
+.gesture-underlay .bottom-nav {
+  position: absolute;
+}
+.sheet {
+  touch-action: pan-y;
+  will-change: transform;
+}
