@@ -1,4 +1,4 @@
-import { plural, t } from '../i18n.js';
+import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
 import { navigate, render } from '../render.js';
@@ -11,10 +11,18 @@ import {
   getSettings,
   saveActive,
 } from '../storage.js';
+import { startOfWeek } from '../stats.js';
 import { confirmDialog, undoToast } from '../ui.js';
-import { doneSets, esc, fmtLong } from '../util.js';
+import { toDisplay, unit } from '../units.js';
+import { dayKey, doneSets, esc, fmtLong, number, volumeOf } from '../util.js';
 import { sessionStarted } from '../workout.js';
 import { empty } from './shell.js';
+
+// The week ring in the hero: sessions done against the weekly goal.
+function weekRing(done, goal) {
+  const share = Math.min(1, done / Math.max(1, goal));
+  return `<svg class="week-ring" viewBox="0 0 44 44" role="img" aria-label="${esc(t('home.weekCount', { done, goal }))}"><circle cx="22" cy="22" r="18" fill="none" stroke="var(--line)" stroke-width="4"/>${share ? `<circle cx="22" cy="22" r="18" fill="none" stroke="var(--green)" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(113.1 * share).toFixed(1)} 113.1" transform="rotate(-90 22 22)"/>` : ''}<text x="22" y="26" text-anchor="middle">${done}/${goal}</text></svg>`;
+}
 
 const dayRow = (plan, d) =>
   `<button type="button" class="row" data-start="${d.id}" data-plan="${plan.id}"><span class="row-main"><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'exercises')}</small></span>${icon('chevron-right')}</button>`;
@@ -26,6 +34,13 @@ export function view() {
   const readyDays = plan?.days?.filter((d) => d.exercises.length) || [];
   const goal = Number(getSettings().weeklyGoal) || readyDays.length;
   const stats = weekStats(history, goal, today);
+  const fromKey = dayKey(startOfWeek(today));
+  const weekSessions = history.filter((h) => (h.day || dayKey(h.finishedAt)) >= fromKey);
+  const volume = weekSessions.reduce((sum, h) => sum + (number(h.volume) || volumeOf(h)), 0);
+  const records = weekSessions.reduce(
+    (n, h) => n + (h.entries || []).reduce((m, e) => m + (e.sets || []).filter((x) => x.pr).length, 0),
+    0
+  );
 
   let { day: next, label: nextLabel } = nextSession(plan, history, today);
   const active = getActive();
@@ -42,7 +57,7 @@ export function view() {
       ? `data-start="${next.id}" data-plan="${resume && !freeActive ? active.planId : plan.id}"`
       : 'id="editActivePlan"';
   const nextCard = next
-    ? `<section class="next-card ${resume ? 'resume-card' : ''} ${next.exercises.length ? '' : 'empty-plan-card'}"><span class="next-label">${esc(next.exercises.length ? nextLabel : t('home.completePlan'))}</span><h2>${esc(next.name)}</h2><p>${
+    ? `<section class="next-card ${resume ? 'resume-card' : ''} ${next.exercises.length ? '' : 'empty-plan-card'}"><span class="next-label">${esc(next.exercises.length ? nextLabel : t('home.completePlan'))}</span>${readyDays.length ? weekRing(stats.thisWeek, goal) : ''}<h2>${esc(next.name)}</h2><p>${
         resume
           ? plural(doneSets(active), 'home.setsDone')
           : next.exercises.length
@@ -56,8 +71,9 @@ export function view() {
         attrs: 'id="editActivePlan"',
       });
   const others = readyDays.filter((d) => d.id !== next?.id);
+  // Three numbers for the week: volume, records, sessions against the goal; the streak sits in the heading.
   const weekStrip = readyDays.length
-    ? `<section class="week" aria-label="${t('home.weeklyGoal')}"><div class="week-progress" role="progressbar" aria-label="${t('home.weeklyGoal')}" aria-valuenow="${stats.thisWeek}" aria-valuemax="${goal}"><i style="width:${Math.min(100, (stats.thisWeek / Math.max(1, goal)) * 100)}%"></i></div><div class="week-line"><span><b>${t('home.weekCount', { done: stats.thisWeek, goal })}</b> ${t('home.weekSuffix')}</span>${stats.streak ? `<em>${plural(stats.streak, 'home.streak')}</em>` : ''}</div></section>`
+    ? `<section class="week week-line" aria-label="${t('home.weeklyGoal')}"><h2>${t('home.thisWeek')}${stats.streak ? `<em>${plural(stats.streak, 'home.streak')}</em>` : ''}</h2><div class="kpis"><div class="kpi"><b>${fmtNumber(Math.round(toDisplay(volume)))}<u>${unit()}</u></b><span>${t('home.kpiVolume')}</span></div><div class="kpi"><b>${records}</b><span>${t('home.kpiRecords')}</span></div><div class="kpi"><b>${t('home.weekCount', { done: stats.thisWeek, goal })}</b><span>${t('home.kpiSessions')}</span></div></div></section>`
     : '';
   const freeRow = freeActive
     ? ''

@@ -990,4 +990,13 @@ export default {
   'plans.activate': 'Aktivieren',
   'backup.exported': 'Backup gespeichert',
   'settings.diagnostics': 'Anzeige-Diagnose',
+
+  // Look (October 2026): set captions, last-session hint, week line
+  'workout.weight': 'Gewicht',
+  'workout.distance': 'Distanz',
+  'workout.last': 'zuletzt {set}',
+  'home.thisWeek': 'Diese Woche',
+  'home.kpiVolume': 'Volumen',
+  'home.kpiRecords': 'Bestwerte',
+  'home.kpiSessions': 'Trainings',
 };

@@ -5,7 +5,7 @@ import { exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
 import { planExerciseFromLibrary, supersetLetters, supersetPosition } from '../plans.js';
 import { navigate, render } from '../render.js';
-import { SET_TYPES, describeSet, parseDuration, setSetType } from '../sets.js';
+import { SET_TYPES, describeSet, parseDuration, setScore, setSetType } from '../sets.js';
 import { state } from '../state.js';
 import { getSettings, saveRestUntil, saveSettings } from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
@@ -70,11 +70,20 @@ function exerciseSection(ex, index, entry, exercises, letters, showRir) {
       })
     )
     .join('');
-  const thumb = ex.gif
-    ? `<button type="button" class="exercise-thumb" data-technique="${index}" aria-label="${t('workout.technique')}"><img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async"></button>`
-    : '';
+  // The picture leads the head; without one, a quiet tile stands in. Both open the exercise sheet.
+  const tile = `<button type="button" class="exercise-thumb ${ex.gif ? '' : 'placeholder'}" data-technique="${index}" aria-label="${t('workout.technique')}">${
+    ex.gif
+      ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">`
+      : icon('dumbbell')
+  }</button>`;
+  const best = prevSets.reduce(
+    (top, s) => (!top || setScore(s, trackType) > setScore(top, trackType) ? s : top),
+    null
+  );
+  const last = best ? ` · ${esc(t('workout.last', { set: describeSet(best, trackType) }))}` : '';
+  const done = entry.sets.filter((s) => s.done).length;
   return `<section class="workout-exercise ${complete ? 'complete' : ''} ${position === 'single' ? '' : `superset-${position}`}" id="exercise-${index}">
-      <div class="workout-exercise-head"><span class="exercise-number">${complete ? icon('check') : index + 1}</span><div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}${superset}</p></div>${thumb}</div>
+      <div class="workout-exercise-head">${tile}<div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)}${last}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}${superset}</p></div><span class="exercise-count ${complete ? 'complete' : ''}">${complete ? icon('check') : `${done}/${entry.sets.length}`}</span></div>
       ${suggest.weight ? `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${icon('trend')}<span>${esc(suggestionText(suggest))}</span><small>${t('workout.apply')}</small></button>` : ''}
       <div class="set-table ${showRir ? '' : 'no-rir'}">${setHead(trackType, showRir)}<div class="set-list">${rows}</div></div>
       <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">${t('workout.addSet')}</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="${esc(t('exercise.more', { name }))}">${icon('more')}</button></div>
@@ -222,13 +231,16 @@ export function bind() {
       });
   });
   document.querySelectorAll('[data-set-field]').forEach((x) => {
-    x.oninput = () =>
+    x.oninput = () => {
+      const sizer = x.previousElementSibling;
+      if (sizer?.classList.contains('set-sizer')) sizer.textContent = x.value || x.placeholder;
       mutate((s) => {
         const set = s.entries[number(x.dataset.exercise)].sets[number(x.dataset.index)];
         const name = x.dataset.setField;
         set[name] =
           name === 'weight' ? fromDisplay(x.value) : name === 'time' ? parseDuration(x.value) : x.value;
       });
+    };
   });
   document.querySelectorAll('[data-set-done]').forEach((b) => {
     b.onclick = () => {
