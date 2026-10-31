@@ -4744,3 +4744,58 @@ html[data-theme='dark'] .schedule-mode label:has(input:checked) {
   min-height: 44px;
   min-width: 44px;
 }
+
+/* Installed on iOS: an opaque strip under the status bar so the system's edge blur has nothing to smear; full-screen
+   overlays start below it */
+@media (display-mode: standalone) {
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background: var(--paper);
+    z-index: 125;
+    pointer-events: none;
+  }
+  .exercise-library {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
+  }
+}
+
+/* Picker search as one field with the icon inside */
+.library-search {
+  background: var(--cloud);
+  border: 0;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  gap: 8px;
+}
+.library-search .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.library-search input {
+  background: transparent !important;
+  border: 0;
+  min-height: 44px;
+  padding: 0 !important;
+  font-size: 17px;
+  border-radius: 0;
+}
+.library-search input:focus {
+  box-shadow: none;
+  outline: none;
+}
+.library-search:has(input:focus-visible) {
+  box-shadow: 0 0 0 2px var(--green);
+}
+.settings-hint.diag {
+  margin-top: 24px;
+  font-size: 11px;
+  line-height: 1.6;
+  word-break: break-word;
+}

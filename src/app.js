@@ -15,6 +15,7 @@ import {
 } from './storage.js';
 import { applyTheme } from './theme.js';
 import { toast } from './ui.js';
+import { initGestures } from './gestures.js';
 import { watchInset } from './viewport.js';
 
 // The language comes first: migrations may seed the default plan in it.
@@ -76,6 +77,7 @@ window.addEventListener('pageshow', () => window.scrollTo(0, 0));
 
 render();
 watchInset();
+initGestures();
 // Homescreen shortcut: jump straight into the next session.
 if (!firstRun && new URLSearchParams(location.search).get('action') === 'start') {
   history.replaceState(history.state, '', location.pathname);

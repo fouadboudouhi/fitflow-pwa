@@ -974,4 +974,20 @@ const exercises = {
   'ex.3769': 'Curtsy Squats',
 };
 
-export default { ...ui, ...data, ...exercises };
+export default {
+  ...ui,
+  ...data,
+  ...exercises,
+  'picker.addedWorkout': 'Bereits im Training',
+  'home.discard': 'Verwerfen',
+  'home.discarded': '„{name}“ verworfen',
+  'home.emptyAction': 'Plan bearbeiten',
+  'history.emptyAction': 'Training starten',
+  'records.emptyAction': 'Training starten',
+  'calendar.emptyAction': 'Vorlagen ansehen',
+  'rest.addAria': '30 Sekunden länger',
+  'summary.view': 'Training ansehen',
+  'plans.activate': 'Aktivieren',
+  'backup.exported': 'Backup gespeichert',
+  'settings.diagnostics': 'Anzeige-Diagnose',
+};
