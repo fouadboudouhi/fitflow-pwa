@@ -26,7 +26,7 @@ export function lineChart(
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   const c = canvas.getContext('2d');
-  const pad = { l: 46, r: secondary ? 46 : 14, t: 18, b: 28 };
+  const pad = { l: 58, r: secondary ? 46 : 14, t: 18, b: 28 };
   const vals = points.map((p) => p.value);
   const min = Math.min(...vals);
   const low = Math.max(...vals);
@@ -45,7 +45,7 @@ export function lineChart(
   const draw = (highlight) => {
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, w, h);
-    c.font = '11px system-ui';
+    c.font = '500 11px Satoshi, system-ui, sans-serif';
     c.lineWidth = 1;
     c.strokeStyle = token('--line');
     c.fillStyle = token('--muted');

@@ -5288,7 +5288,7 @@ strong,
 .kpis {
   display: flex;
   align-items: center;
-  padding: 2px 2px 0;
+  padding-top: 2px;
 }
 .kpi {
   flex: 1;
@@ -5461,8 +5461,7 @@ strong,
   color: var(--muted);
 }
 .exercise-title .icon {
-  width: 14px;
-  height: 14px;
+  display: none;
 }
 .exercise-count {
   color: var(--muted);
@@ -5528,11 +5527,14 @@ strong,
 .set-head span {
   text-align: left;
 }
-.set-row {
-  background: var(--danger);
+.set-row,
+.set-row + .set-row {
+  background: transparent;
+  border-top: 0;
   border-radius: 0;
 }
 .set-row .set-card,
+.set-table .set-row:first-child .set-card,
 .set-row .set-card.complete,
 .set-row .set-card.warmup,
 .set-row .set-card.drop,
@@ -5591,10 +5593,10 @@ strong,
   display: block;
   visibility: hidden;
   white-space: pre;
-  min-width: 2.5ch;
+  min-width: 1.5ch;
   height: 44px;
   line-height: 44px;
-  padding: 0 2px;
+  padding: 0;
   font-size: 17px;
   font-weight: 700;
   font-style: normal;
@@ -5607,7 +5609,7 @@ strong,
   width: 100%;
   height: 100%;
   min-width: 0;
-  padding: 0 2px;
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -5624,7 +5626,9 @@ strong,
   font-weight: 500;
   opacity: 1;
 }
-.set-card input:focus {
+.set-card input[type='number']:focus,
+.set-card input[type='text']:focus,
+.set-card input:focus-visible {
   outline: none;
   box-shadow: none;
   background: transparent;
@@ -5632,8 +5636,8 @@ strong,
 .set-num:focus-within::after {
   content: '';
   position: absolute;
-  left: 2px;
-  right: 2px;
+  left: 0;
+  right: 0;
   bottom: 8px;
   height: 2px;
   border-radius: 2px;
@@ -5657,7 +5661,7 @@ strong,
   background: transparent;
   justify-self: end;
   display: grid;
-  place-items: center;
+  place-items: center end;
   color: #04210f;
 }
 .set-check::before,
@@ -5691,7 +5695,7 @@ strong,
   position: relative;
   width: 14px;
   height: 14px;
-  margin: 0;
+  margin: 0 7px 0 0;
   stroke-width: 2.8;
 }
 .set-delete {
@@ -5719,7 +5723,7 @@ strong,
   padding: 0 8px 0 16px;
   gap: 8px;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--cloud) 92%, transparent);
+  background: color-mix(in srgb, var(--cloud) 97%, transparent);
   color: var(--ink);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -5759,4 +5763,267 @@ strong,
   .set-card.complete .set-check::before {
     animation: none;
   }
+}
+
+/* Number fields carry no spinners: on desktop browsers they take up room even when invisible */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* The set label: number first, its tag underneath */
+.set-card .set-label {
+  grid-column: auto;
+  grid-template-columns: auto;
+  overflow: visible;
+}
+.set-card .set-label span {
+  white-space: nowrap;
+}
+.set-card .set-label span:empty {
+  display: none;
+}
+
+/* Selects look like every other field */
+select,
+.library-filter select,
+.settings-form select,
+.body-form select,
+.days-choice select,
+.chart-card select,
+.chart-section select,
+.plates-inputs select,
+.exercise-fields select {
+  border: 0;
+  border-radius: 12px;
+  background-color: var(--cloud);
+}
+
+.bottom-nav {
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+}
+
+/* Calendar: a quiet month. Plain numbers, a green tint and the session name on trained days */
+.calendar-shell .calendar-head {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+.calendar-nav {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+}
+.calendar-nav .icon-btn {
+  background: transparent;
+  color: var(--muted);
+  min-width: 36px;
+  width: auto;
+  font-size: 13px;
+}
+.calendar-nav .icon-btn .icon {
+  width: 20px;
+  height: 20px;
+}
+.calendar-weekdays,
+.calendar-grid {
+  gap: 4px;
+}
+.calendar-weekdays span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.calendar-day,
+.calendar-day.blank,
+.calendar-day.completed {
+  min-height: 52px;
+  padding: 7px 2px 6px;
+  gap: 2px;
+  align-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  overflow: hidden;
+}
+.calendar-day > span {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--muted);
+}
+.calendar-day.completed {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.calendar-day.completed > span {
+  font-weight: 700;
+  color: var(--ink);
+}
+.calendar-day b {
+  max-width: 100%;
+  margin-top: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.calendar-day.today > span {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--ink);
+  color: var(--paper);
+}
+.calendar-plan {
+  margin-top: 26px;
+}
+
+/* Exercise picker: the same scale and hairline rows as the training */
+.exercise-library {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+.library-head {
+  align-items: center;
+  margin-bottom: 14px;
+}
+.library-head h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.library-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.library-search,
+.library-search:has(input:focus-visible) {
+  border: 0;
+  border-radius: 12px;
+  outline: 0;
+  box-shadow: none;
+  background: var(--cloud);
+}
+.library-search input,
+.library-search input:focus {
+  min-height: 42px;
+  font-size: 16px;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.category-chips {
+  gap: 6px;
+  margin: 12px -24px 12px 0;
+  padding-right: 24px;
+}
+.category-chips button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cloud);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+.category-chips button.active {
+  background: var(--green);
+  color: var(--on-green);
+  font-weight: 700;
+}
+.library-filter {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.library-filter select {
+  min-height: 40px;
+  font-size: 14px;
+}
+.library-list {
+  gap: 0;
+}
+.library-item {
+  padding: 8px 0;
+  gap: 8px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.library-item .library-info {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+.library-item img,
+.library-info .custom-exercise-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+}
+.library-info h3,
+.library-item h3 {
+  margin: 0 0 2px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.library-info span,
+.library-item span {
+  font-size: 12.5px;
+}
+.library-actions {
+  gap: 0;
+}
+.library-actions button,
+.library-item button:not(.library-info) {
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  background-clip: content-box;
+  color: var(--muted);
+}
+.library-actions .star.active {
+  color: var(--green-ink);
+  background: transparent;
+}
+.library-actions button[data-pick-exercise] {
+  background-color: var(--cloud);
+  color: var(--green-ink);
+}
+.library-actions button[data-pick-exercise].added {
+  background-color: var(--green);
+  color: var(--on-green);
+}
+.library-actions button .icon,
+.library-actions button[data-pick-exercise] .icon {
+  width: 16px;
+  height: 16px;
+}
+.custom-exercise-button {
+  font-size: 14px;
+}
+.library-done {
+  min-height: 44px;
 }

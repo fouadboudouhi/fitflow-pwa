@@ -40,7 +40,7 @@ export function view() {
             .slice(1)
             .map((k) => recordLine(r, k))
             .filter(Boolean);
-          return `<button type="button" class="row" data-record="${esc(r.key)}"><span class="row-main"><b>${esc(exerciseName(r.item))}</b><small>${esc([recordLine(r, kind), ...extra].join(' · '))}</small></span><span class="row-value"><small>${fmtDate(r[kind]?.day)}</small></span></button>`;
+          return `<button type="button" class="row" data-record="${esc(r.key)}"><span class="row-main"><b>${esc(exerciseName(r.item))}</b><small>${esc([recordLine(r, kind), ...extra].filter(Boolean).slice(0, 2).join(' · '))}</small></span><span class="row-value"><small>${fmtDate(r[kind]?.day)}</small></span></button>`;
         })
         .join('');
       return `<section class="list-section"><h2>${esc(groupLabel(group))}</h2><div class="list">${rows}</div></section>`;
