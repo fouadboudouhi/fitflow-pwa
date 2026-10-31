@@ -1,7 +1,7 @@
 // Entry point: storage migrations, language, theme, router, service worker and the first render.
 import { setLanguage, t } from './i18n.js';
 import { nextSession } from './plans.js';
-import { applyRoute, navigate, redrawCharts, render } from './render.js';
+import { applyRoute, navigate, redrawCharts, render, scrollToTop } from './render.js';
 import { initRouter } from './router.js';
 import { state } from './state.js';
 import {
@@ -73,7 +73,7 @@ document.addEventListener(
 );
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-window.addEventListener('pageshow', () => window.scrollTo(0, 0));
+window.addEventListener('pageshow', scrollToTop);
 
 render();
 watchInset();

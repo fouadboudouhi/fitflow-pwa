@@ -53,6 +53,11 @@ const NAV_FOR = {
   legal: 'more',
 };
 const $app = document.querySelector('#app');
+// Installed on iOS the app shell scrolls instead of the document (see styles.css), so both go to the top.
+export const scrollToTop = () => {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  $app.scrollTop = 0;
+};
 
 // How a view arrives: deeper screens slide in from the right, going back slides in from the left, full-screen
 // flows (workout, editor, assistant) rise like a modal, a tab switch fades.
@@ -103,7 +108,7 @@ export function render() {
   const previous = state.lastRenderedView;
   const viewChanged = previous !== state.view;
   state.lastRenderedView = state.view;
-  if (viewChanged) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  if (viewChanged) scrollToTop();
   const module = VIEWS[state.view] || more;
   // A view may redirect (e.g. workout without exercises); render whatever the state says afterwards.
   let content = module.view();
@@ -127,7 +132,7 @@ export function render() {
   if (focusKey) document.querySelector(focusKey)?.focus({ preventScroll: true });
   bindShell();
   (VIEWS[state.view] || more).bind();
-  if (viewChanged) requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+  if (viewChanged) requestAnimationFrame(scrollToTop);
   requestAnimationFrame(redrawCharts);
   if (state.view === 'workout') workout.startRestTicker();
 }

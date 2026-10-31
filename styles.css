@@ -5047,3 +5047,43 @@ body {
     margin-top: 0;
   }
 }
+
+/* Installed on iOS, measured in the simulator: the system paints scrolled document content into the status-bar zone
+   above the viewport, so the document never scrolls; the app shell does. Nothing is left to mirror, the zone shows
+   the canvas colour. The bottom inset comes straight from the environment, clamped. */
+:root {
+  --inset-bottom: min(env(safe-area-inset-bottom, 0px), 40px);
+  --status-gap: 0px;
+}
+@media (display-mode: standalone) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+  #app {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: clip;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  body::before {
+    display: none;
+  }
+  body {
+    padding-top: 0;
+  }
+  .shell {
+    padding-top: 18px;
+  }
+  .workout-shell {
+    padding-top: 0;
+  }
+  .workout-top {
+    top: 0;
+  }
+  .exercise-library {
+    padding-top: 16px;
+  }
+}
