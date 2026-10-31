@@ -1,7 +1,8 @@
 // Session logic: creating, resuming and finishing a workout, progression suggestions, warm-up sets.
 import { t } from './i18n.js';
-import { annotatePrs } from './records.js';
-import { newSetFor, setScore, trackTypeOf } from './sets.js';
+import { annotateAll, annotatePrs } from './records.js';
+import { fillFromReference, newSetFor, setReady, setScore, setType, trackTypeOf } from './sets.js';
+import { state } from './state.js';
 import {
   clearActive,
   findPlan,
@@ -10,10 +11,25 @@ import {
   getSettings,
   saveActive,
   saveHistory,
+  saveRestUntil,
 } from './storage.js';
 import { libraryOf } from './library.js';
-import { roundToStep } from './units.js';
-import { clone, dayKey, doneSets, exerciseKey, isWorkSet, number, rangeMax, uid, volumeOf } from './util.js';
+import { plateStep, roundToStep } from './units.js';
+import {
+  clone,
+  dayKey,
+  doneSets,
+  exerciseKey,
+  isWorkSet,
+  number,
+  rangeMax,
+  setsCount,
+  uid,
+  volumeOf,
+} from './util.js';
+
+const HOUR = 3600000;
+const MAX_DURATION = 6 * HOUR;
 
 // What a new set inherits from the matching set of the last session: weight, time and distance, never reps.
 const carry = (set) =>
@@ -25,14 +41,57 @@ const carry = (set) =>
       }
     : {};
 
-// Newest history entry for the same library exercise, in any plan.
+const loggedSets = (entry) => entry.sets.filter((s) => s.done && isWorkSet(s));
+// Newest history entry in which the exercise was actually trained, in any plan.
 export function previousEntry(ex) {
   const key = exerciseKey(ex);
   for (const session of getHistory()) {
     const entry = session.entries?.find((e) => exerciseKey(e) === key);
-    if (entry) return entry;
+    if (entry && loggedSets(entry).length) return entry;
   }
   return null;
+}
+// The completed working sets of the last time, the values a new workout starts from.
+export const previousWork = (ex) => {
+  const entry = previousEntry(ex);
+  return entry ? loggedSets(entry) : [];
+};
+// What a set falls back to while it is empty: the same set of the last session, else the set before it.
+export function setReference(entry, index, lastWork) {
+  const set = entry.sets[index];
+  if (!isWorkSet(set)) return null;
+  const workIndex = entry.sets.slice(0, index).filter(isWorkSet).length;
+  if (lastWork[workIndex]) return lastWork[workIndex];
+  for (let i = index - 1; i >= 0; i--) {
+    const s = entry.sets[i];
+    if (isWorkSet(s) && [s.weight, s.reps, s.time, s.distance].some((v) => number(v) > 0)) return s;
+  }
+  return null;
+}
+// Ticks or unticks a set. Returns false when it holds nothing to log yet.
+export function toggleSet(session, exerciseIndex, setIndex, lastWork = []) {
+  const entry = session.entries[exerciseIndex];
+  const set = entry.sets[setIndex];
+  if (set.done) {
+    set.done = false;
+    set.pr = false;
+    return true;
+  }
+  const trackType = entryTrackType(entry);
+  fillFromReference(set, setReference(entry, setIndex, lastWork), trackType);
+  if (!setReady(set, trackType)) return false;
+  set.done = true;
+  touchSession(session);
+  session.lastSetAt = session.lastActivityAt;
+  return true;
+}
+// The clock starts with the first thing logged, not with opening the screen.
+export function touchSession(session, at = new Date().toISOString()) {
+  if (!session.begun) {
+    session.begun = true;
+    session.startedAt = at;
+  }
+  session.lastActivityAt = at;
 }
 export const workSets = (entry) => entry.sets.filter(isWorkSet);
 export const entryComplete = (entry) => workSets(entry).length > 0 && workSets(entry).every((s) => s.done);
@@ -45,8 +104,7 @@ export const sessionExercises = (session) =>
 
 const entryFor = (ex) => {
   const trackType = trackTypeOf(ex);
-  const previous = previousEntry(ex);
-  const previousWork = previous ? workSets(previous) : [];
+  const last = previousWork(ex);
   return {
     exerciseId: ex.id,
     libraryId: ex.libraryId || undefined,
@@ -54,7 +112,7 @@ const entryFor = (ex) => {
     trackType,
     ...(ex.supersetId ? { supersetId: ex.supersetId } : {}),
     note: '',
-    sets: Array.from({ length: ex.sets || 3 }, (_, i) => newSetFor(trackType, carry(previousWork[i]))),
+    sets: Array.from({ length: setsCount(ex.sets) }, (_, i) => newSetFor(trackType, carry(last[i]))),
   };
 };
 const blankSession = () => ({
@@ -88,11 +146,32 @@ export const freshFreeSession = () => ({
   entries: [],
 });
 
-// The plan day may have been edited while this session was open: entries follow the current exercise list,
-// new exercises get fresh sets, removed ones are dropped. Returns true when something changed.
+// A plan exercise rebuilt from its entry, for when the plan no longer holds it.
+const exerciseFromEntry = (entry) => {
+  const lib = libraryOf(entry);
+  return {
+    id: entry.exerciseId,
+    ...(entry.libraryId ? { libraryId: entry.libraryId } : {}),
+    name: entry.name,
+    gif: lib?.gif,
+    sets: entry.sets.length,
+    range: lib?.range || getSettings().defaultRange || '8–12',
+    note: '',
+    ...(entry.trackType ? { trackType: entry.trackType } : {}),
+    ...(entry.supersetId ? { supersetId: entry.supersetId } : {}),
+  };
+};
+const worked = (entry) => entry.sets.some((s) => s.done || s.touched);
+
+// The plan day may have been edited while this session was open: entries follow the current exercise list and
+// new exercises get fresh sets. A removed exercise goes too, unless it already holds work: then the session
+// detaches from the day and keeps it. Returns true when something changed.
 export function syncSessionWithDay(session, day) {
   const before = (session.entries || []).map((e) => e.exerciseId).join('|');
   const template = freshSession(session.planId, session.dayId);
+  const orphans = (session.entries || []).filter(
+    (e) => worked(e) && !day.exercises.some((ex) => ex.id === e.exerciseId)
+  );
   session.entries = day.exercises.map((ex, i) => {
     const existing = session.entries?.find((e) => e.exerciseId === ex.id);
     if (existing) {
@@ -104,20 +183,45 @@ export function syncSessionWithDay(session, day) {
     return template.entries[i];
   });
   session.dayName = day.name;
+  if (orphans.length) {
+    session.exercises = [...clone(day.exercises), ...orphans.map(exerciseFromEntry)];
+    session.entries.push(...orphans);
+    session.detached = true;
+  }
   return session.entries.map((e) => e.exerciseId).join('|') !== before;
 }
 
-// `planId` null means the free workout.
-export function activeSession(planId, dayId) {
+// The stored running workout, brought in line with its plan. If its day is gone, a begun session keeps going on
+// its own and an untouched one simply ends.
+export function reconcileActive() {
   const saved = getActive();
-  const free = planId == null;
-  if (saved && (free ? saved.planId == null : saved.planId === planId && saved.dayId === dayId)) {
-    if (!saved.detached) {
-      const day = findPlan(planId)?.days.find((d) => d.id === dayId);
-      if (day && syncSessionWithDay(saved, day)) saveActive(saved);
-    }
+  if (!saved || saved.detached) return saved;
+  const day = findPlan(saved.planId)?.days.find((d) => d.id === saved.dayId);
+  if (day) {
+    if (syncSessionWithDay(saved, day)) saveActive(saved);
     return saved;
   }
+  if (!sessionStarted(saved)) {
+    clearActive();
+    return null;
+  }
+  saved.exercises = saved.entries.map(exerciseFromEntry);
+  saved.detached = true;
+  saveActive(saved);
+  return saved;
+}
+
+// `planId` null means the free workout. A running workout is never replaced implicitly: a stale history entry or
+// shortcut lands in it. Discarding it first is the only way to start another one.
+export function activeSession(planId, dayId) {
+  const saved = reconcileActive();
+  const free = planId == null;
+  if (
+    saved &&
+    (sessionStarted(saved) ||
+      (free ? saved.planId == null : saved.planId === planId && saved.dayId === dayId))
+  )
+    return saved;
   const fresh = free ? freshFreeSession() : freshSession(planId, dayId);
   if (fresh) saveActive(fresh);
   return fresh;
@@ -132,11 +236,13 @@ export function detachSession(session) {
 }
 export function addSessionExercise(session, ex) {
   detachSession(session);
+  touchSession(session);
   session.exercises.push(ex);
   session.entries.push(entryFor(ex));
 }
 export function removeSessionExercise(session, index) {
   detachSession(session);
+  touchSession(session);
   const [ex] = session.exercises.splice(index, 1);
   const [entry] = session.entries.splice(index, 1);
   return { ex, entry };
@@ -155,6 +261,7 @@ export function moveSessionExercise(session, from, to) {
 // The replacement keeps the slot's targets (sets, range, rest, superset) and starts with fresh sets.
 export function replaceSessionExercise(session, index, ex) {
   detachSession(session);
+  touchSession(session);
   const old = session.exercises[index];
   const next = { ...ex, sets: old.sets, range: old.range, rest: old.rest };
   if (old.supersetId) next.supersetId = old.supersetId;
@@ -167,7 +274,15 @@ export function mutateSession(planId, dayId, fn) {
   saveActive(session);
   return session;
 }
-export const sessionStarted = (session) => doneSets(session) > 0;
+// Something would be lost if this session went away: a ticked set, typed values or a changed exercise list.
+export const sessionStarted = (session) =>
+  !!session?.entries?.length && (!!session.begun || session.entries.some((e) => e.sets.some((s) => s.done)));
+// Leftovers of a workout that ended: the running rest and open note fields must not reach the next one.
+export function resetWorkoutUi() {
+  state.restUntil = 0;
+  saveRestUntil(0);
+  state.openNotes = null;
+}
 
 // Progressive overload for weight × reps exercises: every working set hit the top of the range (with at least
 // one rep in reserve when RIR was logged) -> add the increment; otherwise repeat the weight and add reps.
@@ -177,26 +292,29 @@ export function recentEntries(ex, limit = 3, history = getHistory()) {
   const rows = [];
   for (const session of history) {
     const entry = session.entries?.find((e) => exerciseKey(e) === key);
-    if (entry) rows.push(entry);
+    if (entry && loggedSets(entry).length) rows.push(entry);
     if (rows.length >= limit) break;
   }
   return rows;
 }
 const bestScoreOf = (entry) => Math.max(0, ...entry.sets.map((s) => setScore(s, entryTrackType(entry))));
 
-// Three sessions in a row without a better estimated 1RM: time for a lighter week.
+// Three sessions in a row without a better estimated 1RM, close to the all-time best: time for a lighter week.
+// Sessions already well below the best are that lighter week, so the advice cannot spiral downwards.
 export function stalled(ex, history = getHistory()) {
-  const recent = recentEntries(ex, 3, history).map(bestScoreOf);
+  const all = recentEntries(ex, Infinity, history).map(bestScoreOf);
+  const recent = all.slice(0, 3);
   if (recent.length < 3 || recent.some((v) => !v)) return false;
   const [newest, middle, oldest] = recent;
-  return newest <= oldest && middle <= oldest;
+  return newest <= oldest && middle <= oldest && newest >= Math.max(...all) * 0.95;
 }
 
 export function suggestion(ex, history = getHistory()) {
   if (trackTypeOf(ex) !== 'weight_reps') return { kind: 'start', weight: null };
   const previous = recentEntries(ex, 1, history)[0];
   if (!previous) return { kind: 'start', weight: null };
-  const work = previous.sets.filter((s) => isWorkSet(s) && s.done);
+  // A drop set is meant to be lighter and shorter: it says nothing about the working weight.
+  const work = previous.sets.filter((s) => isWorkSet(s) && s.done && setType(s) !== 'drop');
   const max = rangeMax(ex.range);
   const best = Math.max(...work.map((s) => number(s.weight)), 0);
   const hasRir = work.some((s) => s.rir !== '' && s.rir !== undefined);
@@ -208,7 +326,7 @@ export function suggestion(ex, history = getHistory()) {
   const heavy = lib
     ? /squat|deadlift|leg press/.test(lib.sourceName)
     : /squat|deadlift|leg press|kniebeuge|kreuzheben|beinpresse/i.test(ex.name || '');
-  const inc = number(ex.increment) || (heavy ? Math.max(5, base) : base);
+  const inc = number(ex.increment) || (heavy ? Math.max(plateStep() * 2, base) : base);
   if (ready) return { kind: 'progress', weight: best + inc };
   if (stalled(ex, history)) return { kind: 'stall', weight: roundToStep(best * 0.9) };
   return { kind: 'confirm', weight: best };
@@ -234,13 +352,46 @@ export function warmupSets(target) {
 export const newSet = (trackType, overrides) => newSetFor(trackType, overrides);
 export { carry as carryFromSet };
 
-export function finishSession(session) {
-  session.finishedAt = new Date().toISOString();
+const typedOpen = (set, trackType) => !set.done && set.touched && setReady(set, trackType);
+// What finishing would do with the working sets: done ones, typed but unticked ones, and the rest that drops out.
+export function finishCounts(session) {
+  const counts = { done: 0, typed: 0, open: 0 };
+  for (const entry of session.entries) {
+    const trackType = entryTrackType(entry);
+    for (const set of workSets(entry)) {
+      if (set.done) counts.done++;
+      else if (typedOpen(set, trackType)) counts.typed++;
+      else counts.open++;
+    }
+  }
+  return counts;
+}
+
+// Stores the workout: typed sets count as done, everything else drops out. Returns the stored session, or null
+// when storage is full; the running workout then stays exactly as it was.
+export function finishSession(running) {
+  const session = clone(running);
+  for (const entry of session.entries) {
+    const trackType = entryTrackType(entry);
+    entry.sets.forEach((set) => {
+      if (typedOpen(set, trackType)) set.done = true;
+      delete set.touched;
+    });
+    entry.sets = entry.sets.filter((set) => set.done);
+  }
+  session.entries = session.entries.filter((entry) => entry.sets.length);
+  // A workout left open ends with its last set, not whenever the app was opened again.
+  const now = Date.now();
+  const lastSet = session.lastSetAt ? new Date(session.lastSetAt).getTime() : now;
+  const end = now - lastSet > HOUR ? lastSet : now;
+  session.finishedAt = new Date(end).toISOString();
   session.day = dayKey(session.finishedAt);
-  session.duration = Math.max(
-    60,
-    Math.round((new Date(session.finishedAt) - new Date(session.startedAt)) / 1000)
+  session.duration = Math.round(
+    Math.min(MAX_DURATION, Math.max(60000, end - new Date(session.startedAt).getTime())) / 1000
   );
+  delete session.begun;
+  delete session.lastSetAt;
+  delete session.lastActivityAt;
   session.totalSets = doneSets(session);
   session.volume = volumeOf(session);
   session.entries.forEach((e) =>
@@ -252,7 +403,7 @@ export function finishSession(session) {
   // Final record flags against everything stored before this session (the live toast only looked at done sets).
   annotatePrs(session, history);
   history.unshift(session);
-  saveHistory(history);
+  if (!saveHistory(history)) return null;
   clearActive();
   return session;
 }
@@ -278,12 +429,13 @@ export function bestBefore(key, { excludeSessionId } = {}) {
 }
 
 // A set is a personal record when its score (estimated 1RM, reps, time or distance) beats every other
-// completed set of the exercise, in the history and in the current session.
+// completed set of the exercise, in the history and in the current session. The first time has nothing to beat.
 export function isRecord(ex, set, entry) {
   const type = entry.trackType || trackTypeOf(ex);
   const value = setScore(set, type);
   if (!value) return false;
   const previous = bestBefore(exerciseKey(ex)).score;
+  if (!previous) return false;
   const inSession = Math.max(0, ...entry.sets.filter((s) => s !== set).map((s) => setScore(s, type)));
   return value > previous && value > inSession;
 }
@@ -301,6 +453,7 @@ export function exerciseHistory(key, limit = 5) {
       day: session.day || dayKey(session.finishedAt),
       dayName: session.dayName,
       trackType: type,
+      bestSet: sets.reduce((top, s) => (setScore(s, type) > setScore(top, type) ? s : top)),
       sets: sets.map((s) => ({
         weight: number(s.weight),
         reps: number(s.reps),
@@ -317,6 +470,11 @@ export function exerciseHistory(key, limit = 5) {
 
 // Recomputes the derived fields of a finished session after editing and stores it.
 export function saveEditedSession(session) {
+  session.entries.forEach((e) =>
+    e.sets.forEach((x) => {
+      if (x.done && !setReady(x, entryTrackType(e))) x.done = false;
+    })
+  );
   session.totalSets = doneSets(session);
   session.volume = volumeOf(session);
   session.entries.forEach((e) =>
@@ -327,8 +485,9 @@ export function saveEditedSession(session) {
   const history = getHistory();
   const index = history.findIndex((h) => h.id === session.id);
   if (index < 0) return false;
-  annotatePrs(session, history);
   history[index] = session;
+  // Other sessions' record flags depend on this one, so all of them are recomputed.
+  annotateAll(history);
   saveHistory(history);
   return true;
 }
@@ -337,11 +496,13 @@ export function deleteSession(id) {
   const index = history.findIndex((h) => h.id === id);
   if (index < 0) return null;
   const [removed] = history.splice(index, 1);
+  annotateAll(history);
   saveHistory(history);
   return { removed, index };
 }
 export function restoreSession(session, index) {
   const history = getHistory();
   history.splice(Math.min(index, history.length), 0, session);
+  annotateAll(history);
   saveHistory(history);
 }

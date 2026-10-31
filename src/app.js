@@ -17,6 +17,7 @@ import { applyTheme } from './theme.js';
 import { toast } from './ui.js';
 import { initGestures } from './gestures.js';
 import { watchInset } from './viewport.js';
+import { reconcileActive, sessionStarted } from './workout.js';
 
 // The language comes first: migrations may seed the default plan in it.
 setLanguage(getSettings().language);
@@ -82,8 +83,11 @@ initGestures();
 if (!firstRun && new URLSearchParams(location.search).get('action') === 'start') {
   history.replaceState(history.state, '', location.pathname);
   const plan = activePlan();
+  const running = reconcileActive();
   const { day } = nextSession(plan, getHistory());
-  if (day?.exercises.length) navigate('workout', { planId: plan.id, dayId: day.id });
+  if (running && sessionStarted(running))
+    navigate('workout', { planId: running.planId, dayId: running.dayId });
+  else if (day?.exercises.length) navigate('workout', { planId: plan.id, dayId: day.id });
 }
 migratePhotos().then((migrated) => {
   if (migrated && state.view === 'body') render();

@@ -5,9 +5,9 @@ import { exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
 import { planExerciseFromLibrary, supersetLetters, supersetPosition } from '../plans.js';
 import { navigate, render } from '../render.js';
-import { SET_TYPES, describeSet, parseDuration, setScore, setSetType } from '../sets.js';
+import { SET_TYPES, describeSet, missingField, parseDuration, setScore, setSetType } from '../sets.js';
 import { state } from '../state.js';
-import { getSettings, saveRestUntil, saveSettings } from '../storage.js';
+import { clearActive, getSettings, saveActive, saveRestUntil, saveSettings } from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
 import { fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
 import { esc, isWorkSet, number } from '../util.js';
@@ -17,26 +17,30 @@ import {
   carryFromSet,
   entryComplete,
   entryTrackType,
+  finishCounts,
   finishSession,
   isRecord,
   moveSessionExercise,
   mutateSession,
   newSet,
-  previousEntry,
+  previousWork,
   removeSessionExercise,
   repsAtPercent,
   replaceSessionExercise,
+  resetWorkoutUi,
   restoreSessionExercise,
   sessionExercises,
-  sessionStarted,
+  setReference,
   suggestion,
+  toggleSet,
+  touchSession,
   warmupSets,
   workSets,
 } from '../workout.js';
 import { openExerciseSheet } from './exercise.js';
 import * as home from './home.js';
 import { openPicker } from './picker.js';
-import { setHead, setRow } from './setRow.js';
+import { placeholderFor, setHead, setRow } from './setRow.js';
 
 const suggestionText = (s) =>
   s.kind === 'progress'
@@ -48,15 +52,14 @@ const suggestionText = (s) =>
 function exerciseSection(ex, index, entry, exercises, letters, showRir) {
   const complete = entryComplete(entry);
   const suggest = suggestion(ex);
-  const prevWork = previousEntry(ex);
-  const prevSets = prevWork ? workSets(prevWork) : [];
+  const prevSets = previousWork(ex);
   const name = exerciseName(ex);
   const trackType = entryTrackType(entry);
   const position = supersetPosition(exercises, index);
   const superset = ex.supersetId
     ? ` · <span class="superset-tag">${esc(t('workout.superset', { letter: letters[ex.supersetId] }))}</span>`
     : '';
-  // Values from the last session appear as placeholders, so an empty field already tells what was done before.
+  // An empty field shows in grey what a tick would take over: the last session's value, or the set before.
   const rows = entry.sets
     .map((set, i) =>
       setRow({
@@ -65,7 +68,7 @@ function exerciseSection(ex, index, entry, exercises, letters, showRir) {
         exerciseIndex: index,
         trackType,
         workNumber: entry.sets.slice(0, i).filter(isWorkSet).length + 1,
-        last: prevSets[i],
+        last: setReference(entry, i, prevSets),
         showRir,
       })
     )
@@ -81,13 +84,14 @@ function exerciseSection(ex, index, entry, exercises, letters, showRir) {
     null
   );
   const last = best ? ` · ${esc(t('workout.last', { set: describeSet(best, trackType) }))}` : '';
-  const done = entry.sets.filter((s) => s.done).length;
+  const work = workSets(entry);
+  const done = work.filter((s) => s.done).length;
   return `<section class="workout-exercise ${complete ? 'complete' : ''} ${position === 'single' ? '' : `superset-${position}`}" id="exercise-${index}">
-      <div class="workout-exercise-head">${tile}<div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${esc(ex.sets)} × ${esc(ex.range)}${last}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}${superset}</p></div><span class="exercise-count ${complete ? 'complete' : ''}">${complete ? icon('check') : `${done}/${entry.sets.length}`}</span></div>
+      <div class="workout-exercise-head">${tile}<div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${work.length} × ${esc(ex.range)}${last}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}${superset}</p></div><span class="exercise-count ${complete ? 'complete' : ''}">${complete ? icon('check') : `${done}/${work.length}`}</span></div>
       ${suggest.weight ? `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${icon('trend')}<span>${esc(suggestionText(suggest))}</span><small>${t('workout.apply')}</small></button>` : ''}
       <div class="set-table ${showRir ? '' : 'no-rir'}">${setHead(trackType, showRir)}<div class="set-list">${rows}</div></div>
       <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">${t('workout.addSet')}</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="${esc(t('exercise.more', { name }))}">${icon('more')}</button></div>
-      ${entry.note || state.openNotes?.has(index) ? `<label class="exercise-note"><span>${t('workout.note')}</span><textarea data-exercise-note="${index}" placeholder="${t('workout.notePlaceholder')}">${esc(entry.note || '')}</textarea></label>` : ''}
+      ${entry.note || state.openNotes?.has(entry.exerciseId) ? `<label class="exercise-note"><span>${t('workout.note')}</span><textarea data-exercise-note="${index}" placeholder="${t('workout.notePlaceholder')}">${esc(entry.note || '')}</textarea></label>` : ''}
     </section>`;
 }
 
@@ -203,6 +207,22 @@ function openOneRm(entry) {
 }
 const fieldDisplayWeight = (kg) => (kg === '' || kg == null ? '' : String(toDisplay(kg)));
 
+// The grey values of the following sets follow what is being typed.
+function refreshHints(exerciseIndex) {
+  const session = current();
+  const entry = session.entries[exerciseIndex];
+  const last = previousWork(sessionExercises(session)[exerciseIndex]);
+  document.querySelectorAll(`[data-set-field][data-exercise="${exerciseIndex}"]`).forEach((input) => {
+    if (input.dataset.setField === 'rir') return;
+    input.placeholder = placeholderFor(
+      input.dataset.setField,
+      setReference(entry, number(input.dataset.index), last)
+    );
+    const sizer = input.previousElementSibling;
+    if (!input.value && sizer?.classList.contains('set-sizer')) sizer.textContent = input.placeholder;
+  });
+}
+
 // Picker for adding exercises to the running session; it stays open for several picks.
 function addExercises() {
   openPicker({
@@ -239,21 +259,29 @@ export function bind() {
         const name = x.dataset.setField;
         set[name] =
           name === 'weight' ? fromDisplay(x.value) : name === 'time' ? parseDuration(x.value) : x.value;
+        set.touched = true;
+        touchSession(s);
       });
+      refreshHints(number(x.dataset.exercise));
     };
   });
   document.querySelectorAll('[data-set-done]').forEach((b) => {
     b.onclick = () => {
       const exerciseIndex = number(b.dataset.exercise);
+      const setIndex = number(b.dataset.setDone);
       let record = null;
       let recordType = 'weight_reps';
+      let empty = null;
       primeAudio();
       mutate((s) => {
         const entry = s.entries[exerciseIndex];
-        const set = entry.sets[number(b.dataset.setDone)];
-        set.done = !set.done;
+        const set = entry.sets[setIndex];
         const exercises = sessionExercises(s);
         const ex = exercises[exerciseIndex];
+        if (!toggleSet(s, exerciseIndex, setIndex, previousWork(ex))) {
+          empty = missingField(set, entryTrackType(entry));
+          return;
+        }
         set.pr = set.done && isRecord(ex, set, entry);
         if (!set.done) return;
         if (set.pr) {
@@ -270,6 +298,15 @@ export function bind() {
         }
         buzz(40);
       }, true);
+      if (empty) {
+        toast(t('workout.enterValues'));
+        document
+          .querySelector(
+            `[data-set-field="${empty}"][data-exercise="${exerciseIndex}"][data-index="${setIndex}"]`
+          )
+          ?.focus();
+        return;
+      }
       if (record) toast(t('workout.record', { set: describeSet(record, recordType) }), { duration: 4000 });
     };
   });
@@ -384,7 +421,7 @@ export function bind() {
         {
           label: entry.note ? t('workout.editNote') : t('workout.addNote'),
           onClick: () => {
-            (state.openNotes ||= new Set()).add(index);
+            (state.openNotes ||= new Set()).add(entry.exerciseId);
             render();
             document.querySelector(`[data-exercise-note="${index}"]`)?.focus();
           },
@@ -440,16 +477,46 @@ export function bind() {
       toast(t('workout.emptyText'));
       return;
     }
-    if (
-      !sessionStarted(session) &&
-      !(await confirmDialog({
+    const { done, typed, open } = finishCounts(session);
+    if (!done && !typed) {
+      const discard = await confirmDialog({
         title: t('workout.noSetsTitle'),
         text: t('workout.noSetsText'),
-        confirmLabel: t('common.save'),
-      }))
-    )
+        confirmLabel: t('workout.discardConfirm'),
+        cancelLabel: t('workout.keepGoing'),
+        danger: true,
+      });
+      if (!discard) return;
+      clearActive();
+      resetWorkoutUi();
+      armRestNotification();
+      navigate('home', {}, { replace: true });
+      undoToast(t('home.discarded', { name: session.dayName }), () => {
+        saveActive(session);
+        render();
+      });
       return;
+    }
+    if (typed || open) {
+      const text = [
+        typed ? plural(typed, 'workout.finishTyped') : '',
+        open ? plural(open, 'workout.finishOpen') : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const finish = await confirmDialog({
+        title: t('workout.finishTitle'),
+        text,
+        confirmLabel: t('workout.finish'),
+        cancelLabel: t('workout.keepGoing'),
+      });
+      if (!finish) return;
+    }
+    // A full storage reports itself; the workout stays open and nothing is lost.
     const saved = finishSession(session);
+    if (!saved) return;
+    resetWorkoutUi();
+    armRestNotification();
     navigate('summary', { sessionId: saved.id }, { replace: true });
     toast(t('workout.saved'));
   };
@@ -500,7 +567,7 @@ function armRestNotification() {
     return;
   notifyTimer = setTimeout(
     () => {
-      if (document.visibilityState === 'visible') return;
+      if (document.visibilityState === 'visible' || !state.restUntil) return;
       const options = {
         body: t('rest.notifyBody'),
         tag: 'volumora-rest',

@@ -9,7 +9,7 @@ const { createServer } = require('./serve.js');
 const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 let server, browser, baseURL, context, page, errors;
-const SCHEMA = 7;
+const SCHEMA = 8;
 const BACKUP_VERSION = 5;
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
@@ -65,6 +65,7 @@ test('an unfinished workout survives editing the plan day', async () => {
   await page.waitForSelector('.workout-exercise');
   const before = await page.locator('.workout-exercise').count();
   await page.fill('.workout-exercise:nth-child(2) input[data-set-field="weight"][data-index="0"]', '42');
+  await page.fill('.workout-exercise:nth-child(2) input[data-set-field="reps"][data-index="0"]', '8');
   await page.click('.workout-exercise:nth-child(2) [data-set-done="0"]');
   await page.click('#exitWorkout');
   await page.waitForSelector('.next-card.resume-card');
@@ -326,6 +327,8 @@ test('deleting a set can be undone and open details survive a re-render', async 
   await page.waitForSelector('.workout-exercise');
   const first = page.locator('.workout-exercise').first();
   await page.click('#session-status summary');
+  await first.locator('input[data-set-field="weight"][data-index="1"]').fill('40');
+  await first.locator('input[data-set-field="reps"][data-index="1"]').fill('8');
   await first.locator('[data-set-done="1"]').click();
   assert.equal(
     await page.locator('#session-status').getAttribute('open'),
@@ -547,6 +550,7 @@ test('units: pounds are shown everywhere and stored as kilograms; the plate calc
   await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
   await page.click('#exitWorkout');
   await page.click('[data-start="legs"]');
+  await page.click('.sheet-backdrop.show [data-ok]');
   await page.waitForSelector('.workout-exercise');
   const squat = page.locator('.workout-exercise').first();
   await squat.locator('input[data-set-field="weight"][data-index="0"]').fill('135');
@@ -767,9 +771,7 @@ test('bodyweight and timed exercises: reps-only sets count, set types can be cha
   assert.equal(await pushup.locator('.set-head span').nth(1).textContent(), '+kg');
   await pushup.locator('input[data-set-field="reps"][data-index="0"]').fill('12');
   await pushup.locator('[data-set-done="0"]').click();
-  // The plank's record toast may still be showing; wait for the push-up's.
-  await page.waitForFunction(() => document.querySelector('.toast')?.textContent.includes('12 Wdh.'));
-  assert.match(await page.textContent('.toast'), /Neuer Bestwert: 12 Wdh\./);
+  assert.equal(await page.locator('.toast').count(), 0, 'the first time has nothing to beat');
   await pushup.locator('[data-set-type="1"]').click();
   await page.getByRole('button', { name: 'Dropsatz' }).click();
   assert.equal(await pushup.locator('[data-set-type="1"] b').textContent(), 'D');
@@ -780,6 +782,7 @@ test('bodyweight and timed exercises: reps-only sets count, set types can be cha
   assert.equal(active.entries[1].trackType, 'reps');
   assert.equal(active.entries[1].sets[1].type, 'drop');
   await page.click('#finishWorkout');
+  await page.click('.sheet-backdrop.show [data-ok]');
   await page.waitForSelector('.summary');
   await page.click('#summaryDone');
   await page.waitForSelector('.next-card');
@@ -812,6 +815,7 @@ test('finishing a workout shows the summary with records and sharing; the record
   await first.locator('input[data-set-field="reps"][data-index="0"]').fill('8');
   await first.locator('[data-set-done="0"]').click();
   await page.click('#finishWorkout');
+  await page.click('.sheet-backdrop.show [data-ok]');
   await page.waitForSelector('.summary');
   assert.match(await page.textContent('.summary .list'), /Brustpresse/);
   assert.match(await page.textContent('.summary .list'), /60 kg × 8/);
@@ -861,6 +865,7 @@ test('free workout: add, reorder, remove and undo exercises, then save it as a p
   await page.click('#startFree');
   await page.waitForSelector('.workout-exercise');
   await page.click('#finishWorkout');
+  await page.click('.sheet-backdrop.show [data-ok]');
   await page.waitForSelector('#summarySaveDay');
   await page.click('#summarySaveDay');
   await page.waitForSelector('.toast.show');
@@ -943,7 +948,7 @@ test('custom exercises: promoted from old plans, created in the picker, managed 
   assert.equal(migrated.custom, undefined);
   await page.click('[data-nav="plans"]');
   await page.click('[data-edit-plan]');
-  assert.match(await page.textContent('.plan-exercise-row:last-child h3'), /Seilspringen/);
+  assert.match(await page.textContent('.plan-exercise-row:last-child h2'), /Seilspringen/);
   await page.click('[data-add-exercise="0"]');
   await page.waitForSelector('.exercise-library');
   await page.click('#addCustomExercise');
@@ -980,13 +985,13 @@ test('editor: drag to reorder, duplicate a day, move an exercise to another day'
   await page.click('[data-nav="plans"]');
   await page.click('[data-edit-plan]');
   await page.waitForSelector('.plan-exercise-row');
-  const names = () => page.locator('.plan-exercise-row h3').allTextContents();
+  const names = () => page.locator('.plan-exercise-row h2').allTextContents();
   const before = await names();
   await page.locator('[data-drag="0"]').dragTo(page.locator('.plan-exercise-row[data-ex-index="2"]'), {
     targetPosition: { x: 10, y: 50 },
   });
   await page.waitForFunction(
-    (first) => document.querySelector('.plan-exercise-row h3')?.textContent !== first,
+    (first) => document.querySelector('.plan-exercise-row h2')?.textContent !== first,
     before[0]
   );
   const after = await names();
@@ -1105,4 +1110,90 @@ test('a Hevy export merges into the history and unknown exercises become custom 
   await page.click('[data-nav="customExercises"]');
   await page.waitForSelector('[data-custom-exercise]');
   assert.match(await page.textContent('[data-custom-exercise]'), /Banded Face Pull Special/);
+});
+
+test('a tick takes over the grey values; an empty set cannot be ticked', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  const first = page.locator('.workout-exercise').first();
+  const weight = (i) => first.locator(`input[data-set-field="weight"][data-index="${i}"]`);
+  const reps = (i) => first.locator(`input[data-set-field="reps"][data-index="${i}"]`);
+  const tick = (i) => first.locator(`[data-set-done="${i}"]`);
+  await tick(0).click();
+  assert.equal(await tick(0).getAttribute('aria-pressed'), 'false', 'nothing to log yet');
+  assert.match(await page.textContent('.toast'), /Trag zuerst die Werte/);
+  await weight(0).fill('60');
+  await reps(0).fill('10');
+  assert.equal(await reps(1).getAttribute('placeholder'), '10', 'the next set shows the typed value in grey');
+  await tick(0).click();
+  await tick(1).click();
+  assert.equal(await tick(1).getAttribute('aria-pressed'), 'true');
+  const active = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-active-v2')));
+  assert.deepEqual(
+    [active.entries[0].sets[1].weight, active.entries[0].sets[1].reps],
+    ['60', '10'],
+    'the set before is taken over'
+  );
+});
+
+test('finishing asks about open sets, saves typed ones and refuses an empty workout', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  await page.click('#finishWorkout');
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.sheet'), /ohne Sätze wird nicht gespeichert/);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+  const first = page.locator('.workout-exercise').first();
+  await first.locator('input[data-set-field="weight"][data-index="0"]').fill('60');
+  await first.locator('input[data-set-field="reps"][data-index="0"]').fill('10');
+  await page.click('#finishWorkout');
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.sheet'), /1 eingetragener Satz ohne Haken wird mitgespeichert/);
+  await page.click('.sheet-backdrop.show [data-ok]');
+  await page.waitForSelector('.summary');
+  const [saved] = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
+  assert.equal(saved.totalSets, 1);
+  assert.equal(saved.entries.length, 1, 'untouched exercises drop out');
+  assert.equal(saved.volume, 600);
+});
+
+test('a running workout survives a deleted day, a stale history entry and starts on reload', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  const first = page.locator('.workout-exercise').first();
+  await first.locator('input[data-set-field="weight"][data-index="0"]').fill('60');
+  await page.click('#exitWorkout');
+  await page.waitForSelector('.resume-card');
+  assert.match(await page.textContent('.resume-card p'), /Werte eingetragen/);
+  await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('volumora-plans-v2'));
+    data.items[0].days.shift();
+    localStorage.setItem('volumora-plans-v2', JSON.stringify(data));
+  });
+  await page.reload();
+  await page.waitForSelector('.resume-card');
+  assert.match(await page.textContent('.resume-card h2'), /Push/);
+  await page.click('.resume-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  assert.equal(await first.locator('input[data-set-field="weight"][data-index="0"]').inputValue(), '60');
+  await page.click('#exitWorkout');
+  await page.waitForSelector('.resume-card');
+  await page.goBack();
+  await page.waitForSelector('.workout-exercise');
+  assert.equal(await first.locator('input[data-set-field="weight"][data-index="0"]').inputValue(), '60');
+});
+
+test('an action that navigates from a sheet leaves the history in order', async () => {
+  await page.click('[data-nav="plans"]');
+  await page.click('[data-edit-plan]');
+  await page.waitForSelector('#planMenu');
+  await page.fill('#planName', 'Getippt');
+  await page.click('#planMenu');
+  await page.getByRole('button', { name: 'Duplizieren' }).click();
+  await page.waitForFunction(() => document.querySelector('#planName')?.value.includes('Kopie'));
+  await page.goBack();
+  await page.waitForFunction(() => document.querySelector('#planName')?.value === 'Getippt');
+  await page.goBack();
+  await page.waitForSelector('[data-edit-plan]');
 });

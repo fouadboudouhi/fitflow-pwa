@@ -3,7 +3,8 @@ import { icon } from '../icons.js';
 import { state } from '../state.js';
 import { activePlan, getHistory } from '../storage.js';
 import { navigate } from '../render.js';
-import { dayKey, esc, fmtMonth, number, weekdayIndex } from '../util.js';
+import { actionSheet } from '../ui.js';
+import { dayKey, esc, fmtLong, fmtMonth, number, weekdayIndex } from '../util.js';
 import { empty, parentRow } from './shell.js';
 
 export function view() {
@@ -29,7 +30,7 @@ export function view() {
     const key = dayKey(d);
     const done = sessions.get(key) || [];
     if (done.length)
-      return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-session="${esc(done[0].id)}" aria-label="${esc(t('calendar.open', { day: d.getDate() }))}"><span>${d.getDate()}</span><b>${esc(done[0].dayName || t('session.title'))}</b></button>`;
+      return `<button type="button" class="calendar-day completed ${key === todayKey ? 'today' : ''}" data-sessions="${esc(done.map((s) => s.id).join(' '))}" aria-label="${esc(t('calendar.open', { day: d.getDate() }))}"><span>${d.getDate()}</span><b>${esc(done[0].dayName || t('session.title'))}</b></button>`;
     return `<div class="calendar-day ${key === todayKey ? 'today' : ''}"><span>${d.getDate()}</span></div>`;
   });
   const upcoming =
@@ -43,8 +44,20 @@ export function view() {
 }
 
 export function bind() {
-  document.querySelectorAll('[data-session]').forEach((b) => {
-    b.onclick = () => navigate('session', { sessionFrom: 'calendar', sessionId: b.dataset.session });
+  const open = (sessionId) => navigate('session', { sessionFrom: 'calendar', sessionId });
+  document.querySelectorAll('[data-sessions]').forEach((b) => {
+    b.onclick = () => {
+      const ids = b.dataset.sessions.split(' ');
+      if (ids.length === 1) return open(ids[0]);
+      const history = getHistory();
+      actionSheet(
+        fmtLong(history.find((h) => h.id === ids[0])?.day),
+        ids.map((id) => ({
+          label: history.find((h) => h.id === id)?.dayName || t('session.title'),
+          onClick: () => open(id),
+        }))
+      );
+    };
   });
   document.querySelectorAll('[data-calendar-shift]').forEach((b) => {
     b.onclick = () => {

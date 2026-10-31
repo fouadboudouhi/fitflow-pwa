@@ -2,9 +2,9 @@
 import { t } from './i18n.js';
 import { DEFAULT_PLAN_ID, GROUPS, defaultPlan, normalizeLegacyExercise, setCustomSource } from './library.js';
 import { annotateAll } from './records.js';
-import { trackTypeOf } from './sets.js';
+import { setReady, trackTypeOf } from './sets.js';
 import { toast } from './ui.js';
-import { dayKey, exerciseKey, uid, volumeOf } from './util.js';
+import { dayKey, doneSets, exerciseKey, uid, volumeOf } from './util.js';
 
 export const LS = {
   schema: 'volumora-schema-version',
@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS = {
   rest: 90,
   increment: 2.5,
   showRir: false,
-  restTimer: false,
+  restTimer: true,
   restNotify: false,
   unit: 'kg',
   weeklyGoal: 0,
@@ -272,6 +272,25 @@ const MIGRATIONS = [
   // 7: custom exercises get their own store and plan exercises link to them by id.
   () => {
     promoteCustomExercises();
+  },
+  // 8: ticks without values no longer count as sets, warm-ups leave the set totals, runaway durations are capped,
+  // record flags follow the rule that a first session has nothing to beat, and the rest timer is on by default.
+  () => {
+    const history = getHistory();
+    history.forEach((s) => {
+      s.entries?.forEach((e) => {
+        const type = e.trackType || trackTypeOf(e);
+        e.sets?.forEach((x) => {
+          if (x.done && !setReady(x, type)) x.done = false;
+        });
+      });
+      s.totalSets = doneSets(s);
+      s.volume = volumeOf(s);
+      if (!s.imported && Number(s.duration) > 21600) s.duration = 21600;
+    });
+    annotateAll(history);
+    saveHistory(history);
+    saveSettings({ ...getSettings(), restTimer: true });
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;

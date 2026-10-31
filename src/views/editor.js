@@ -19,7 +19,7 @@ import { state } from '../state.js';
 import { allPlans, persistPlan, savePlans } from '../storage.js';
 import { actionSheet, toast, undoToast } from '../ui.js';
 import { fieldValue, fromDisplay, unit } from '../units.js';
-import { esc, number } from '../util.js';
+import { esc, normalizeRange, number, setsCount } from '../util.js';
 import { openPicker } from './picker.js';
 import { empty } from './shell.js';
 import * as plansView from './plans.js';
@@ -30,10 +30,10 @@ const exerciseRow = (ex, di, ei, letters) =>
   `<article class="plan-exercise-row" data-ex-index="${ei}"><button type="button" class="drag-handle" data-drag="${ei}" aria-label="${esc(t('editor.dragHandle', { name: exerciseName(ex) }))}">${icon('drag')}</button>${ex.gif ? `<img class="exercise-gif" src="${esc(ex.gif)}" alt="" loading="lazy" decoding="async">` : `<div class="custom-exercise-icon">${icon('dumbbell')}</div>`}<div class="plan-exercise-main">${
     ex.custom
       ? `<input class="custom-name" data-prop="name" value="${esc(ex.name)}" aria-label="${t('editor.customName')}">`
-      : `<h3>${esc(exerciseName(ex))}</h3>`
+      : `<h2>${esc(exerciseName(ex))}</h2>`
   }${ex.supersetId ? `<span class="superset-tag">${esc(t('editor.supersetTag'))} ${esc(letters[ex.supersetId] || '')}</span>` : ''}<div class="quick-fields"><label><span>${t('editor.sets')}</span><input data-prop="sets" type="number" min="1" max="12" value="${esc(ex.sets)}"></label><label><span>${t('editor.reps')}</span><input data-prop="range" value="${esc(ex.range)}"></label></div>${
     detailsOpen(di, ei) || ex.rest || ex.trackType || ex.increment || (ex.note && ex.custom)
-      ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.increment')}</span><div class="unit-input"><input data-prop="increment" type="number" min="0" step="0.25" value="${esc(fieldValue(ex.increment))}" placeholder="${t('editor.restDefault')}"><i>${unit()}</i></div></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label><label><span>${t('editor.trackType')}</span><select data-prop="trackType"><option value="">${t('editor.trackDefault')}</option>${TRACK_TYPES.map((type) => `<option value="${type}" ${ex.trackType === type ? 'selected' : ''}>${esc(trackTypeLabel(type))}</option>`).join('')}</select></label></div>`
+      ? `<div class="detail-fields"><label><span>${t('editor.rest')}</span><input data-prop="rest" type="number" min="0" max="600" value="${esc(ex.rest || '')}" placeholder="${t('editor.restDefault')}"></label><label><span>${t('editor.increment')}</span><div class="unit-input"><input data-prop="increment" type="number" min="0" step="any" value="${esc(fieldValue(ex.increment))}" placeholder="${t('editor.restDefault')}"><i>${unit()}</i></div></label><label><span>${t('editor.note')}</span><input data-prop="note" value="${esc(ex.note || '')}"></label><label><span>${t('editor.trackType')}</span><select data-prop="trackType"><option value="">${t('editor.trackDefault')}</option>${TRACK_TYPES.map((type) => `<option value="${type}" ${ex.trackType === type ? 'selected' : ''}>${esc(trackTypeLabel(type))}</option>`).join('')}</select></label></div>`
       : ''
   }</div><button type="button" class="icon-btn quiet" data-exercise-menu="${di}:${ei}" aria-label="${esc(t('exercise.more', { name: exerciseName(ex) }))}">${icon('more')}</button></article>`;
 
@@ -77,10 +77,19 @@ function collectPlan() {
           if (input.value) ex.trackType = input.value;
           else delete ex.trackType;
         } else if (prop === 'increment') {
-          const kg = number(fromDisplay(input.value));
+          // A field that still shows the stored value stays untouched, so converting units cannot shift it.
+          if (input.value === fieldValue(ex.increment ?? '')) return;
+          const kg = Math.max(0, number(fromDisplay(input.value)));
           if (kg) ex.increment = kg;
           else delete ex.increment;
-        } else ex[prop] = prop === 'sets' || prop === 'rest' ? number(input.value) : input.value.trim();
+        } else if (prop === 'sets') {
+          // Mid-typing an empty field keeps the stored count.
+          if (input.value.trim()) ex.sets = setsCount(input.value);
+        } else if (prop === 'rest') {
+          ex.rest = Math.min(600, Math.max(0, Math.round(number(input.value))));
+        } else if (prop === 'range') {
+          ex.range = normalizeRange(input.value, ex.range);
+        } else ex[prop] = input.value.trim();
       });
     });
   });
@@ -135,8 +144,9 @@ function bindPlanMenu() {
       {
         label: t('editor.duplicate'),
         onClick: () => {
-          const d = allPlans();
+          // Typed edits first, so both the original and the copy hold them.
           const copy = duplicatePlan(collectPlan());
+          const d = allPlans();
           d.items.push(copy);
           savePlans(d);
           navigate('planEditor', { editPlanId: copy.id, editorDayIndex: 0 });
@@ -331,6 +341,18 @@ function bindDrag() {
 }
 
 export function bind() {
+  // Everything typed is stored right away, so no way of leaving the screen can lose it. When a field is done,
+  // it shows the value that was actually kept.
+  const editor = document.querySelector('.simple-editor');
+  editor?.addEventListener('input', collectPlan);
+  editor?.addEventListener('change', (e) => {
+    const input = e.target;
+    if (!['sets', 'range', 'rest'].includes(input.dataset?.prop)) return;
+    const di = number(input.closest('.editor-day')?.dataset.dayIndex);
+    const ei = number(input.closest('.plan-exercise-row')?.dataset.exIndex);
+    const value = collectPlan().days[di]?.exercises[ei]?.[input.dataset.prop];
+    input.value = value || '';
+  });
   document.querySelectorAll('[data-editor-day]').forEach((b) => {
     b.onclick = () => {
       collectPlan();
