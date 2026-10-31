@@ -4,9 +4,8 @@ import { icon } from '../icons.js';
 import { defaultPlan, exerciseName } from '../library.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { getSettings, markOnboarded, savePlans, saveSettings } from '../storage.js';
+import { getSettings, markOnboarded, queueInstallTip, savePlans, saveSettings } from '../storage.js';
 import { EQUIPMENT_CHOICES, pickTemplate, planFromTemplate } from '../templates.js';
-import { infoDialog, toast } from '../ui.js';
 import { LB_PER_KG } from '../units.js';
 import { esc, number } from '../util.js';
 import { importBackupFile } from './more.js';
@@ -20,6 +19,7 @@ const draft = () =>
     level: 'beginner',
     equipment: 'gym',
     days: 3,
+    restTimer: true,
   });
 
 const progress = (step) =>
@@ -51,7 +51,7 @@ function step3(d) {
 }
 function step4(d) {
   return `${hero(t('onboarding.daysTitle'), t('onboarding.daysText'))}${form(
-    `<fieldset>${EQUIPMENT_CHOICES.map((key) => card('equipment', key, t(`equipmentChoice.${key}`), t(`equipmentChoice.${key}Hint`), d.equipment === key)).join('')}</fieldset><label class="days-choice"><span>${t('wizard.daysPerWeek')}</span><select name="days">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${number(d.days) === n ? 'selected' : ''}>${t('trainingDays.other', { n })}</option>`).join('')}</select></label>`,
+    `<fieldset>${EQUIPMENT_CHOICES.map((key) => card('equipment', key, t(`equipmentChoice.${key}`), t(`equipmentChoice.${key}Hint`), d.equipment === key)).join('')}</fieldset><label class="days-choice"><span>${t('wizard.daysPerWeek')}</span><select name="days">${[2, 3, 4, 5, 6].map((n) => `<option value="${n}" ${number(d.days) === n ? 'selected' : ''}>${t('trainingDays.other', { n })}</option>`).join('')}</select></label><label class="toggle-setting"><input name="restTimer" type="checkbox" ${d.restTimer !== false ? 'checked' : ''}><span><b>${t('settings.restTimer')}</b><small>${t('settings.restTimerHint')}</small></span></label>`,
     t('wizard.preview')
   )}`;
 }
@@ -89,6 +89,7 @@ function finish(plan, customize = false) {
   const d = draft();
   const settings = getSettings();
   settings.language = d.language;
+  settings.restTimer = d.restTimer !== false;
   if (d.unit !== settings.unit) {
     settings.unit = d.unit;
     // Sensible defaults for the other unit: 5 lb steps and a 45 lb bar.
@@ -106,18 +107,8 @@ function finish(plan, customize = false) {
 function leave([view, patch]) {
   markOnboarded();
   Object.assign(state, { onboardingStep: 1, onboardingDraft: null, onboardingPreview: null });
+  queueInstallTip();
   navigate(view, patch, { replace: true });
-  if (!matchMedia('(display-mode: standalone)').matches)
-    toast(t('onboarding.installTip'), {
-      action: {
-        label: t('onboarding.installHow'),
-        onClick: () =>
-          state.installPrompt
-            ? state.installPrompt.prompt()
-            : infoDialog(t('more.install'), t('more.installText')),
-      },
-      duration: 8000,
-    });
 }
 
 export function bind() {
@@ -126,7 +117,10 @@ export function bind() {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     for (const key of ['language', 'unit', 'goal', 'level', 'equipment']) if (f.has(key)) d[key] = f.get(key);
-    if (f.has('days')) d.days = number(f.get('days'));
+    if (f.has('days')) {
+      d.days = number(f.get('days'));
+      d.restTimer = f.get('restTimer') === 'on';
+    }
     go((state.onboardingStep || 1) + 1);
   });
   document.querySelectorAll('input[name="language"]').forEach((x) => {

@@ -7,10 +7,11 @@ import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { activePlan, getLastBackup, getSettings, markBackup, photos, saveSettings } from '../storage.js';
 import { applyTheme } from '../theme.js';
-import { confirmDialog, infoDialog, toast } from '../ui.js';
+import { confirmDialog, infoDialog, toast, undoToast } from '../ui.js';
 import { LB_PER_KG, fieldValue, fromDisplay, unit } from '../units.js';
 import { esc, fmtDate, normalizeRange, number, setsCount } from '../util.js';
 import { viewportReport } from '../viewport.js';
+import { emptySessionCount, removeEmptySessions, restoreHistory } from '../workout.js';
 import { mediaCredit, parentRow } from './shell.js';
 
 const menuRow = (attrs, ic, title, text, chevron = true) =>
@@ -48,6 +49,11 @@ function settingsView() {
     <label><span>${t('settings.language')}</span><select name="language">${option('auto', t('language.auto'), s.language)}${LANGUAGES.map((code) => option(code, languageLabel(code), s.language)).join('')}</select></label>
     <label><span>${t('settings.theme')}</span><select name="theme">${option('auto', t('theme.auto'), s.theme)}${option('light', t('theme.light'), s.theme)}${option('dark', t('theme.dark'), s.theme)}</select></label>
     <h2>${t('settings.data')}</h2>
+    ${
+      emptySessionCount()
+        ? `<button type="button" class="secondary full" id="cleanEmpty">${plural(emptySessionCount(), 'settings.cleanEmpty')}</button><p class="muted settings-hint">${t('settings.cleanEmptyHint')}</p>`
+        : ''
+    }
     <button type="button" class="secondary danger full" id="deleteAll">${t('settings.deleteAll')}</button>
     <p class="muted settings-hint">${t('settings.deleteAllHint')}</p>
     </form><p class="muted settings-hint diag"><b>${t('settings.diagnostics')}</b><br><span id="viewportDiag"></span></p></main>`;
@@ -214,6 +220,15 @@ export function bind() {
     form.addEventListener('submit', (e) => e.preventDefault());
     form.addEventListener('change', () => saveForm(form));
   }
+  document.querySelector('#cleanEmpty')?.addEventListener('click', () => {
+    const count = emptySessionCount();
+    const before = removeEmptySessions();
+    render();
+    undoToast(plural(count, 'settings.cleanedEmpty'), () => {
+      restoreHistory(before);
+      render();
+    });
+  });
   document.querySelector('#deleteAll')?.addEventListener('click', async () => {
     const ok = await confirmDialog({
       title: t('settings.deleteAllTitle'),

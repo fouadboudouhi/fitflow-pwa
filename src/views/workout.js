@@ -125,8 +125,7 @@ export function view() {
   const list = exercises
     .map((ex, index) => exerciseSection(ex, index, session.entries[index], exercises, letters, showRir))
     .join('');
-  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="${t('workout.exit')}">${icon('chevron-left')}</button><div><h1>${esc(session.dayName)}</h1><b>${t('workout.progress', { done: completed, total })}<span id="workoutClock">${clockText(session)}</span></b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">${t('workout.finish')}</button></div></div>
-    <div class="progress-line" role="progressbar" aria-label="${t('workout.progressAria', { done: completed, total })}" aria-valuenow="${completed}" aria-valuemax="${Math.max(1, total)}"><i style="width:${total ? (completed / total) * 100 : 0}%"></i></div>
+  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="${t('workout.exit')}">${icon('chevron-left')}</button><div><h1>${esc(session.dayName)}</h1><b>${t('workout.progress', { done: completed, total })}<span id="workoutClock">${clockText(session)}</span></b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">${t('workout.finish')}</button></div><div class="progress-line" role="progressbar" aria-label="${t('workout.progressAria', { done: completed, total })}" aria-valuenow="${completed}" aria-valuemax="${Math.max(1, total)}"><i style="width:${total ? (completed / total) * 100 : 0}%"></i></div></div>
     <div class="workout-exercise-list">${list || `<div class="empty"><strong>${t('workout.emptyTitle')}</strong><p>${t('workout.emptyText')}</p></div>`}</div>
     <button type="button" class="choose-exercise" id="addSessionExercise">${icon('plus')}<b>${t('workout.addExercise')}</b></button>
     <details class="session-status" id="session-status" ${Object.values(session.markers).some(Boolean) ? 'open' : ''}><summary>${t('workout.status')}</summary><div class="marker-row"><label><input type="checkbox" data-marker="deload" ${session.markers.deload ? 'checked' : ''}> ${t('marker.deload')}</label><label><input type="checkbox" data-marker="ill" ${session.markers.ill ? 'checked' : ''}> ${t('marker.ill')}</label><label><input type="checkbox" data-marker="pain" ${session.markers.pain ? 'checked' : ''}> ${t('marker.pain')}</label></div></details>
@@ -562,27 +561,29 @@ export function bind() {
   });
 }
 
-export function startRestTicker() {
-  updateRest();
-  state.restTimer = setInterval(updateRest, 1000);
-}
-function updateRest() {
+// Runs for the whole app: the rest may end while another screen is open. Only the pill belongs to this view.
+export function updateRest() {
   const clock = document.querySelector('#workoutClock');
   if (clock) {
     const running = getActive();
     clock.textContent = running ? clockText(running) : '';
   }
+  const left = Math.max(0, Math.ceil((state.restUntil - Date.now()) / 1000));
   const box = document.querySelector('#restTimer');
   const count = document.querySelector('#restCount');
-  if (!box || !count) return;
-  const left = Math.max(0, Math.ceil((state.restUntil - Date.now()) / 1000));
-  box.classList.toggle('show', left > 0);
-  count.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  if (box && count) {
+    box.classList.toggle('show', left > 0);
+    count.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  }
   if (left === 0 && state.restUntil) {
-    buzz([100, 80, 100]);
-    beep();
+    // A rest that ended long ago, while the app was closed, is no news any more.
+    const fresh = Date.now() - state.restUntil < 60000;
     state.restUntil = 0;
     saveRestUntil(0);
+    if (!fresh) return;
+    buzz([100, 80, 100]);
+    beep();
+    if (!box) toast(t('rest.notifyTitle'));
   }
 }
 

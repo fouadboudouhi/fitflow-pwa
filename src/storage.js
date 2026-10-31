@@ -19,6 +19,7 @@ export const LS = {
   customExercises: 'volumora-custom-exercises-v1',
   lastBackup: 'volumora-last-backup',
   backupSnooze: 'volumora-backup-snooze',
+  installTip: 'volumora-install-tip',
 };
 export const DEFAULT_SETTINGS = {
   language: 'auto',
@@ -31,7 +32,7 @@ export const DEFAULT_SETTINGS = {
   unit: 'kg',
   weeklyGoal: 0,
   barWeight: 20,
-  restSound: false,
+  restSound: true,
   restVibrate: true,
   defaultSets: 3,
   defaultRange: '8–12',
@@ -156,6 +157,13 @@ export function backupDue(history = getHistory(), now = Date.now()) {
   if (!last) return true;
   return now - new Date(last).getTime() >= 30 * DAY && history.some((h) => h.finishedAt > last);
 }
+// The install tip waits on Heute after the first-run flow until it is dismissed or the app is installed.
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+export const queueInstallTip = () => {
+  if (!installed()) localStorage.setItem(LS.installTip, '1');
+};
+export const installTipDue = () => !!localStorage.getItem(LS.installTip) && !installed();
+export const dismissInstallTip = () => localStorage.removeItem(LS.installTip);
 export const getActive = () => read(LS.active, null);
 export const saveActive = (session) => write(LS.active, session);
 export const clearActive = () => localStorage.removeItem(LS.active);
@@ -305,6 +313,10 @@ const MIGRATIONS = [
     annotateAll(history);
     saveHistory(history);
     saveSettings({ ...getSettings(), restTimer: true });
+  },
+  // 9: iPhones cannot vibrate from a web app, so without the tone the end of a rest would pass unnoticed.
+  () => {
+    saveSettings({ ...getSettings(), restSound: true });
   },
 ];
 export const SCHEMA_VERSION = MIGRATIONS.length;
