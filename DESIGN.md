@@ -15,19 +15,19 @@ Quiet, private workout companion. One obvious next action per screen, no explana
 
 Tokens live in `styles.css` on `:root` and `html[data-theme=dark]`. The last section of the file holds the current values; earlier sections are history.
 
-| Token | Light | Dark | Role |
-| --- | --- | --- | --- |
-| `--paper` | `#F2F2F7` | `#000000` | canvas |
-| `--surface` | `#FFFFFF` | `#111113` | lists, cards, sheets |
-| `--cloud` | `#ECECF1` | `#19191C` | fields, tracks, secondary buttons, picture tiles |
-| `--line` | `#E2E2E7` | `#222226` | hairlines between rows |
-| `--ink` | `#1C1C1E` | `#F2F2F3` | text |
-| `--muted` | `#66666D` | `#86868E` | secondary text (4.5:1 on every surface) |
-| `--green` | `#34C759` | `#30D158` | fills: primary button, switches, progress, done check |
-| `--on-green` | `#0B1A10` | `#0B1A10` | text on green fills |
-| `--green-ink` | `#176D30` | `#30D158` | green text, links, active tab |
-| `--danger` | `#D70015` | `#FF6961` | destructive only |
-| `--blue`, `--orange` | | | second and third chart series only |
+| Token                | Light     | Dark      | Role                                                  |
+| -------------------- | --------- | --------- | ----------------------------------------------------- |
+| `--paper`            | `#F2F2F7` | `#000000` | canvas                                                |
+| `--surface`          | `#FFFFFF` | `#111113` | lists, cards, sheets                                  |
+| `--cloud`            | `#ECECF1` | `#19191C` | fields, tracks, secondary buttons, picture tiles      |
+| `--line`             | `#E2E2E7` | `#222226` | hairlines between rows                                |
+| `--ink`              | `#1C1C1E` | `#F2F2F3` | text                                                  |
+| `--muted`            | `#66666D` | `#86868E` | secondary text (4.5:1 on every surface)               |
+| `--green`            | `#34C759` | `#30D158` | fills: primary button, switches, progress, done check |
+| `--on-green`         | `#0B1A10` | `#0B1A10` | text on green fills                                   |
+| `--green-ink`        | `#176D30` | `#30D158` | green text, links, active tab                         |
+| `--danger`           | `#D70015` | `#FF6961` | destructive only                                      |
+| `--blue`, `--orange` |           |           | second and third chart series only                    |
 
 Rules: text never wears a fill color; red is destructive only; amber is caution only; never rely on color alone for state. Tints (green at 14–18 % over a surface) mark positive state on chips, icons and trained calendar days.
 
@@ -53,6 +53,8 @@ Rules: text never wears a fill color; red is destructive only; amber is caution 
 - **Fields and selects**: `--cloud` fill, no border, 12px radius, 44px tall, 16px text, no number spinners.
 - **Exercise head**: 44px picture tile with 13px radius (a dumbbell icon stands in), 16px name, one fact line with the last result, done count on the right.
 - **Set table**: no card and no field boxes. Uppercase captions, one hairline per row, values set like text left-aligned under their caption (a hidden `.set-sizer` makes the input exactly as wide as its number, so the unit follows it), last session's values as muted placeholders, a 2px green underline while typing, a 28px ring on the right margin that fills green with a pop when the set lands.
+- **Finished workout** (`.session-edit`): same hairline rows as the training, values in bold, open sets muted, a 28px ring on the right; Löschen and Speichern at the end of the page, never floating over content.
+- **Tagesform** (`.marker-row`): 44px pills, green tint when on.
 - **Plan editor**: the plan name reads as the page title and the day as a plain heading, both without a field box. Day pills like the picker chips. Exercises are hairline rows: drag handle, 44px picture tile, name, then sets and reps set like text with a muted caption. A 2px green underline marks the field in use. The optional details (rest, step, hint, type) open as ordinary fields under the row.
 - **Calendar**: plain muted numbers without cells; trained days get a green tint, a bold number and the session name.
 - **Picker**: same scale, hairline rows, a green plus on a `--cloud` circle, green fill once added.

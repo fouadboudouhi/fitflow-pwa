@@ -530,7 +530,7 @@ test('units: pounds are shown everywhere and stored as kilograms; the plate calc
   assert.equal(await first.locator('.set-row u').first().textContent(), 'lbs');
   assert.equal(
     await first.locator('input[data-set-field="weight"][data-index="0"]').inputValue(),
-    '110.2',
+    '110,2',
     '50 kg shown as pounds'
   );
   await first.locator('input[data-set-field="weight"][data-index="0"]').fill('135');
@@ -1172,10 +1172,9 @@ test('a running workout survives a deleted day, a stale history entry and starts
     localStorage.setItem('volumora-plans-v2', JSON.stringify(data));
   });
   await page.reload();
-  await page.waitForSelector('.resume-card');
-  assert.match(await page.textContent('.resume-card h2'), /Push/);
-  await page.click('.resume-card [data-start]');
   await page.waitForSelector('.workout-exercise');
+  assert.match(await page.textContent('.workout-top h1'), /Push/, 'a reload lands back in the workout');
+  assert.match(await page.textContent('#workoutClock'), /0:0\d/);
   assert.equal(await first.locator('input[data-set-field="weight"][data-index="0"]').inputValue(), '60');
   await page.click('#exitWorkout');
   await page.waitForSelector('.resume-card');
@@ -1196,4 +1195,55 @@ test('an action that navigates from a sheet leaves the history in order', async 
   await page.waitForFunction(() => document.querySelector('#planName')?.value === 'Getippt');
   await page.goBack();
   await page.waitForSelector('[data-edit-plan]');
+});
+
+test('the reminder asks for a backup after five workouts, and "later" keeps it quiet', async () => {
+  await page.evaluate(() => {
+    const day = (i) => `2026-0${i + 1}-10`;
+    const history = [0, 1, 2, 3, 4].map((i) => ({
+      id: `s${i}`,
+      planId: 'x',
+      dayName: 'A',
+      day: day(i),
+      finishedAt: `${day(i)}T10:00:00.000Z`,
+      startedAt: `${day(i)}T09:00:00.000Z`,
+      duration: 3600,
+      totalSets: 0,
+      volume: 0,
+      entries: [],
+    }));
+    localStorage.setItem('volumora-history-v2', JSON.stringify(history));
+  });
+  await page.reload();
+  await page.waitForSelector('#backupNow');
+  await page.click('#backupLater');
+  await page.waitForSelector('#backupNow', { state: 'detached' });
+  await page.evaluate(() => localStorage.removeItem('volumora-backup-snooze'));
+  await page.reload();
+  await page.click('#backupNow');
+  await page.waitForSelector('#exportJson');
+  assert.match(await page.textContent('#lastBackup'), /Noch keine Sicherung/);
+});
+
+test('a decimal typed with a comma stays a decimal and a saved weight can be corrected', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  const first = page.locator('.workout-exercise').first();
+  const weight = first.locator('input[data-set-field="weight"][data-index="0"]');
+  await weight.fill('61,25');
+  await first.locator('input[data-set-field="reps"][data-index="0"]').fill('8');
+  await first.locator('[data-set-done="0"]').click();
+  assert.equal(await weight.inputValue(), '61,25');
+  await page.click('#finishWorkout');
+  await page.click('.sheet-backdrop.show [data-ok]');
+  await page.waitForSelector('.summary');
+  const [saved] = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')));
+  assert.equal(saved.volume, 490);
+  await page.click('#summaryView');
+  await page.waitForSelector('#sessionForm');
+  await page.fill('[data-edit="reps"][data-e="0"][data-s="0"]', '10');
+  await page.click('#sessionForm button[type="submit"]');
+  await page.waitForFunction(
+    () => JSON.parse(localStorage.getItem('volumora-history-v2'))[0].volume === 612.5
+  );
 });

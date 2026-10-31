@@ -36,6 +36,8 @@ export function plural(count, key) {
   return interpolate(text, { n: fmtNumber(n) });
 }
 
+// A decimal typed or shown in a field follows the language: 62,5 in German, 62.5 in English.
+export const localDecimal = (value) => String(value ?? '').replace('.', fmtNumber(1.5).charAt(1));
 export const fmtNumber = (value, options) => Number(value).toLocaleString(intlLocale(), options);
 export const weekdayShort = (index) => t('weekdays.short').split('|')[index] || '';
 

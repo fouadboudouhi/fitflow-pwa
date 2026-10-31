@@ -19,7 +19,22 @@ export function calibrateInset() {
   document.documentElement.style.setProperty('--status-gap', `${gap}px`);
 }
 
+// iOS moves the whole layout up to make room for the keyboard. --keyboard-shift lets the workout header stay.
+function watchKeyboardShift() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const sync = () =>
+    document.documentElement.style.setProperty(
+      '--keyboard-shift',
+      `${Math.max(0, Math.round(vv.offsetTop))}px`
+    );
+  vv.addEventListener('resize', sync);
+  vv.addEventListener('scroll', sync);
+  sync();
+}
+
 export function watchInset() {
+  watchKeyboardShift();
   calibrateInset();
   window.addEventListener('resize', calibrateInset);
   window.addEventListener('orientationchange', () => setTimeout(calibrateInset, 300));

@@ -88,6 +88,14 @@ if (!firstRun && new URLSearchParams(location.search).get('action') === 'start')
   if (running && sessionStarted(running))
     navigate('workout', { planId: running.planId, dayId: running.dayId });
   else if (day?.exercises.length) navigate('workout', { planId: plan.id, dayId: day.id });
+} else if (!firstRun) {
+  // The app was closed mid-workout: back to it, as long as it was in use during the last twelve hours.
+  const running = reconcileActive();
+  const lastUse = new Date(running?.lastActivityAt || 0).getTime();
+  if (running && sessionStarted(running) && Date.now() - lastUse < 12 * 3600000) {
+    navigate('workout', { planId: running.planId, dayId: running.dayId });
+    document.querySelector('main')?.classList.remove('view-enter', 'view-modal');
+  }
 }
 migratePhotos().then((migrated) => {
   if (migrated && state.view === 'body') render();
