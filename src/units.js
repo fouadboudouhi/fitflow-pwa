@@ -12,7 +12,7 @@ export const toDisplay = (kg) => (unit() === 'lbs' ? round(number(kg) * LB, 1) :
 // Typed value in the display unit -> kilograms (kept as the user typed it when the unit is kg).
 export const fromDisplay = (value) => {
   if (value === '' || value == null) return '';
-  if (unit() === 'kg') return String(value);
+  if (unit() === 'kg') return String(value).replace(',', '.');
   const n = number(value);
   return n ? String(round(n / LB, 3)) : '';
 };

@@ -17,6 +17,8 @@ export const LS = {
   rest: 'volumora-rest-until',
   onboarded: 'volumora-onboarded',
   customExercises: 'volumora-custom-exercises-v1',
+  lastBackup: 'volumora-last-backup',
+  backupSnooze: 'volumora-backup-snooze',
 };
 export const DEFAULT_SETTINGS = {
   language: 'auto',
@@ -141,6 +143,18 @@ export function promoteCustomExercises() {
   saveCustomExercises(customs);
   savePlans(data);
   return true;
+}
+// Everything lives on this device only, so the app asks for a backup: after five workouts without one, then when
+// the last one is a month old and newer workouts exist. "Later" keeps it quiet for two weeks.
+const DAY = 86400000;
+export const getLastBackup = () => read(LS.lastBackup, null);
+export const markBackup = () => write(LS.lastBackup, new Date().toISOString());
+export const snoozeBackup = (now = Date.now()) => write(LS.backupSnooze, now + 14 * DAY);
+export function backupDue(history = getHistory(), now = Date.now()) {
+  if (history.length < 5 || read(LS.backupSnooze, 0) > now) return false;
+  const last = getLastBackup();
+  if (!last) return true;
+  return now - new Date(last).getTime() >= 30 * DAY && history.some((h) => h.finishedAt > last);
 }
 export const getActive = () => read(LS.active, null);
 export const saveActive = (session) => write(LS.active, session);

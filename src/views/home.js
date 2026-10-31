@@ -2,7 +2,16 @@ import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
 import { navigate, render } from '../render.js';
-import { activePlan, clearActive, getActive, getHistory, getSettings, saveActive } from '../storage.js';
+import {
+  activePlan,
+  backupDue,
+  clearActive,
+  getActive,
+  getHistory,
+  getSettings,
+  saveActive,
+  snoozeBackup,
+} from '../storage.js';
 import { startOfWeek } from '../stats.js';
 import { confirmDialog, undoToast } from '../ui.js';
 import { toDisplay, unit } from '../units.js';
@@ -76,6 +85,11 @@ export function view() {
     <section class="home-intro"><h1>${t('home.title')}</h1><p>${fmtLong(today)}${plan ? ` · ${esc(plan.name)}` : ''}</p></section>
     ${nextCard}
     ${weekStrip}
+    ${
+      backupDue(history)
+        ? `<section class="list-section"><div class="list"><div class="row backup-row"><button type="button" class="backup-main" id="backupNow"><span class="row-icon">${icon('backup')}</span><span class="row-main"><b>${t('home.backupTitle')}</b><small>${t('home.backupText')}</small></span></button><button type="button" class="text-btn" id="backupLater">${t('home.backupLater')}</button></div></div></section>`
+        : ''
+    }
     <section class="list-section">${others.length ? `<h2>${t('home.otherSessions')}</h2>` : ''}<div class="list">${others.map((d) => dayRow(plan, d)).join('')}${freeRow}</div></section>
   </main>`;
 }
@@ -99,6 +113,11 @@ async function start(planId, dayId) {
 }
 
 export function bind() {
+  document.querySelector('#backupNow')?.addEventListener('click', () => navigate('backup'));
+  document.querySelector('#backupLater')?.addEventListener('click', () => {
+    snoozeBackup();
+    render();
+  });
   document.querySelector('#editActivePlan')?.addEventListener('click', () =>
     navigate('planEditor', {
       editPlanId: activePlan().id,

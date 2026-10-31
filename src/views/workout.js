@@ -5,9 +5,17 @@ import { exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
 import { planExerciseFromLibrary, supersetLetters, supersetPosition } from '../plans.js';
 import { navigate, render } from '../render.js';
-import { SET_TYPES, describeSet, missingField, parseDuration, setScore, setSetType } from '../sets.js';
+import {
+  SET_TYPES,
+  describeSet,
+  fmtDuration,
+  missingField,
+  parseDuration,
+  setScore,
+  setSetType,
+} from '../sets.js';
 import { state } from '../state.js';
-import { clearActive, getSettings, saveActive, saveRestUntil, saveSettings } from '../storage.js';
+import { clearActive, getActive, getSettings, saveActive, saveRestUntil, saveSettings } from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
 import { fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
 import { esc, isWorkSet, number } from '../util.js';
@@ -30,6 +38,7 @@ import {
   resetWorkoutUi,
   restoreSessionExercise,
   sessionExercises,
+  sessionStarted,
   setReference,
   suggestion,
   toggleSet,
@@ -41,6 +50,12 @@ import { openExerciseSheet } from './exercise.js';
 import * as home from './home.js';
 import { openPicker } from './picker.js';
 import { placeholderFor, setHead, setRow } from './setRow.js';
+
+// Time since the first logged value, once there is one.
+const clockText = (session) =>
+  sessionStarted(session)
+    ? ` · ${fmtDuration((Date.now() - new Date(session.startedAt).getTime()) / 1000)}`
+    : '';
 
 const suggestionText = (s) =>
   s.kind === 'progress'
@@ -103,13 +118,14 @@ export function view() {
     return home.view();
   }
   const showRir = !!getSettings().showRir;
-  const completed = session.entries.filter(entryComplete).length;
-  const total = exercises.length;
+  const work = session.entries.flatMap(workSets);
+  const completed = work.filter((s) => s.done).length;
+  const total = work.length;
   const letters = supersetLetters(exercises);
   const list = exercises
     .map((ex, index) => exerciseSection(ex, index, session.entries[index], exercises, letters, showRir))
     .join('');
-  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="${t('workout.exit')}">${icon('chevron-left')}</button><div><h1>${esc(session.dayName)}</h1><b>${t('workout.progress', { done: completed, total })}</b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">${t('workout.finish')}</button></div></div>
+  return `<main class="workout-shell" id="swipeArea"><div class="workout-top"><button class="back" id="exitWorkout" aria-label="${t('workout.exit')}">${icon('chevron-left')}</button><div><h1>${esc(session.dayName)}</h1><b>${t('workout.progress', { done: completed, total })}<span id="workoutClock">${clockText(session)}</span></b></div><div class="workout-top-actions"><button class="text-btn" id="finishWorkout">${t('workout.finish')}</button></div></div>
     <div class="progress-line" role="progressbar" aria-label="${t('workout.progressAria', { done: completed, total })}" aria-valuenow="${completed}" aria-valuemax="${Math.max(1, total)}"><i style="width:${total ? (completed / total) * 100 : 0}%"></i></div>
     <div class="workout-exercise-list">${list || `<div class="empty"><strong>${t('workout.emptyTitle')}</strong><p>${t('workout.emptyText')}</p></div>`}</div>
     <button type="button" class="choose-exercise" id="addSessionExercise">${icon('plus')}<b>${t('workout.addExercise')}</b></button>
@@ -252,13 +268,24 @@ export function bind() {
   });
   document.querySelectorAll('[data-set-field]').forEach((x) => {
     x.oninput = () => {
+      const field = x.dataset.setField;
+      if (field === 'weight' || field === 'distance') {
+        const clean = x.value.replace(/[^\d.,]/g, '');
+        if (clean !== x.value) x.value = clean;
+      }
       const sizer = x.previousElementSibling;
       if (sizer?.classList.contains('set-sizer')) sizer.textContent = x.value || x.placeholder;
       mutate((s) => {
         const set = s.entries[number(x.dataset.exercise)].sets[number(x.dataset.index)];
         const name = x.dataset.setField;
         set[name] =
-          name === 'weight' ? fromDisplay(x.value) : name === 'time' ? parseDuration(x.value) : x.value;
+          name === 'weight'
+            ? fromDisplay(x.value)
+            : name === 'time'
+              ? parseDuration(x.value)
+              : name === 'distance'
+                ? x.value.replace(',', '.')
+                : x.value;
         set.touched = true;
         touchSession(s);
       });
@@ -540,6 +567,11 @@ export function startRestTicker() {
   state.restTimer = setInterval(updateRest, 1000);
 }
 function updateRest() {
+  const clock = document.querySelector('#workoutClock');
+  if (clock) {
+    const running = getActive();
+    clock.textContent = running ? clockText(running) : '';
+  }
   const box = document.querySelector('#restTimer');
   const count = document.querySelector('#restCount');
   if (!box || !count) return;

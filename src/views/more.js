@@ -5,7 +5,7 @@ import { importParsed, parseImport } from '../importers.js';
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { activePlan, getSettings, photos, saveSettings } from '../storage.js';
+import { activePlan, getLastBackup, getSettings, markBackup, photos, saveSettings } from '../storage.js';
 import { applyTheme } from '../theme.js';
 import { confirmDialog, infoDialog, toast } from '../ui.js';
 import { LB_PER_KG, fieldValue, fromDisplay, unit } from '../units.js';
@@ -20,7 +20,7 @@ const moreView = () =>
   `<main class="shell"><section class="page-head"><h1>${t('more.title')}</h1></section><div class="list">${menuRow('data-nav="body"', 'person', t('more.body'), t('more.bodyHint'))}${menuRow('data-nav="backup"', 'backup', t('more.backup'), t('more.backupHint'))}${menuRow('data-nav="customExercises"', 'dumbbell', t('more.customExercises'), t('more.customExercisesHint'))}${menuRow('data-nav="settings"', 'settings', t('more.settings'), t('more.settingsHint'))}${menuRow('id="installRow"', 'install', t('more.install'), state.installPrompt ? t('more.installApp') : t('more.installHint'), false)}${menuRow('data-nav="legal"', 'shield', t('more.legal'), t('more.legalHint'))}</div><p class="about">${t('more.about')}</p>${mediaCredit()}</main>`;
 
 const backupView = () =>
-  `<main class="shell narrow">${parentRow('more')}<section class="page-head compact"><h1>${t('backup.title')}</h1></section><div class="list">${menuRow('id="exportJson"', 'share', t('backup.export'), t('backup.exportHint'), false)}${menuRow('id="exportCsv"', 'chart', t('backup.csv'), t('backup.csvHint'), false)}<label class="row" for="importJson"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.import')}</b><small>${t('backup.importHint')}</small></span><input type="file" id="importJson" accept="application/json,.json" hidden></label><label class="row" for="importCsv"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.csvImport')}</b><small>${t('backup.csvImportHint')}</small></span><input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></div></main>`;
+  `<main class="shell narrow">${parentRow('more')}<section class="page-head compact"><h1>${t('backup.title')}</h1></section><div class="list">${menuRow('id="exportJson"', 'share', t('backup.export'), t('backup.exportHint'), false)}${menuRow('id="exportCsv"', 'chart', t('backup.csv'), t('backup.csvHint'), false)}<label class="row" for="importJson"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.import')}</b><small>${t('backup.importHint')}</small></span><input type="file" id="importJson" accept="application/json,.json" hidden></label><label class="row" for="importCsv"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.csvImport')}</b><small>${t('backup.csvImportHint')}</small></span><input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></div><p class="muted settings-hint" id="lastBackup">${getLastBackup() ? t('backup.lastDone', { date: fmtDate(getLastBackup()) }) : t('backup.never')}</p></main>`;
 
 function settingsView() {
   const s = getSettings();
@@ -200,6 +200,10 @@ export function bind() {
   if (diag) diag.textContent = viewportReport();
   document.querySelector('#exportJson')?.addEventListener('click', async () => {
     await exportBackup();
+    markBackup();
+    document.querySelector('#lastBackup').textContent = t('backup.lastDone', {
+      date: fmtDate(getLastBackup()),
+    });
     toast(t('backup.exported'));
   });
   document.querySelector('#exportCsv')?.addEventListener('click', exportCsv);

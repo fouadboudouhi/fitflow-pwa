@@ -10,11 +10,11 @@ import { fmtVolume, fromDisplay } from '../units.js';
 import { clone, esc, fmtLong, isWorkSet, number } from '../util.js';
 import { deleteSession, entryTrackType, restoreSession, saveEditedSession } from '../workout.js';
 import * as analytics from './analytics.js';
-import { fieldDisplay, setColumns } from './setRow.js';
+import { fieldDisplay, inputType, setColumns } from './setRow.js';
 import { parentRow } from './shell.js';
 
 const input = (name, label, attrs, set, ei, si) =>
-  `<input type="${name === 'time' ? 'text' : 'number'}" ${attrs} aria-label="${esc(label)}" data-edit="${name}" data-e="${ei}" data-s="${si}" value="${esc(fieldDisplay(name, set))}">`;
+  `<input type="${inputType(name)}" autocomplete="off" ${attrs} aria-label="${esc(label)}" data-edit="${name}" data-e="${ei}" data-s="${si}" value="${esc(fieldDisplay(name, set))}">`;
 
 const setRow = (set, si, ei, showRir, trackType, workNumber) => {
   const type = setType(set);
@@ -24,7 +24,7 @@ const setRow = (set, si, ei, showRir, trackType, workNumber) => {
     .map(([name, label, attrs]) => input(name, label, attrs, set, ei, si))
     .join(
       ''
-    )}${showRir ? input('rir', t('workout.rir'), 'inputmode="numeric" min="0" max="10"', set, ei, si) : ''}<label class="edit-done"><input type="checkbox" data-edit="done" data-e="${ei}" data-s="${si}" ${set.done ? 'checked' : ''}><span>${t('session.done')}</span></label></div>`;
+    )}${showRir ? input('rir', t('workout.rir'), 'inputmode="numeric" min="0" max="10"', set, ei, si) : ''}<label class="edit-done"><input type="checkbox" data-edit="done" data-e="${ei}" data-s="${si}" aria-label="${t('session.done')}" ${set.done ? 'checked' : ''}></label></div>`;
 };
 
 export function view() {
@@ -44,13 +44,16 @@ export function view() {
     <section class="page-head compact"><div><h1>${esc(session.dayName || t('session.title'))}</h1><p>${fmtLong(session.day || session.finishedAt)} · ${esc(session.planName || '')}</p></div></section>
     <div class="stat-row"><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div></div>
     ${markers.length || records ? `<div class="chip-row">${markers.map((m) => `<span class="chip">${m}</span>`).join('')}${records ? `<span class="chip chip-green">${plural(records, 'records')}</span>` : ''}</div>` : ''}
-    <form id="sessionForm" class="session-edit" novalidate>${session.entries
+    <form id="sessionForm" class="session-edit" novalidate style="--set-columns:${showRir ? 3 : 2}">${session.entries
       .map((e, ei) => {
         const trackType = entryTrackType(e);
         return `<section class="edit-exercise"><h2>${esc(exerciseName(e))}</h2><div class="edit-head"><span>${t('workout.set')}</span>${setColumns(
           trackType
         )
-          .map(([, label]) => `<span>${esc(label)}</span>`)
+          .map(
+            ([, label, , suffix]) =>
+              `<span>${esc(suffix && !label.includes(suffix) ? `${label} · ${suffix}` : label)}</span>`
+          )
           .join('')}${showRir ? `<span>${t('workout.rir')}</span>` : ''}<span></span></div>${e.sets
           .map((s, si) =>
             setRow(s, si, ei, showRir, trackType, e.sets.slice(0, si).filter(isWorkSet).length + 1)
