@@ -10,6 +10,7 @@ import { applyTheme } from '../theme.js';
 import { confirmDialog, infoDialog, toast } from '../ui.js';
 import { fieldValue, fromDisplay, unit } from '../units.js';
 import { esc, fmtDate, number } from '../util.js';
+import { viewportReport } from '../viewport.js';
 import { mediaCredit, parentRow } from './shell.js';
 
 const menuRow = (attrs, ic, title, text, chevron = true) =>
@@ -49,7 +50,7 @@ function settingsView() {
     <h2>${t('settings.data')}</h2>
     <button type="button" class="secondary danger full" id="deleteAll">${t('settings.deleteAll')}</button>
     <p class="muted settings-hint">${t('settings.deleteAllHint')}</p>
-    </form></main>`;
+    </form><p class="muted settings-hint diag"><b>${t('settings.diagnostics')}</b><br><span id="viewportDiag"></span></p></main>`;
 }
 
 export function view() {
@@ -174,6 +175,8 @@ export async function importCsvFile(input) {
 }
 
 export function bind() {
+  const diag = document.querySelector('#viewportDiag');
+  if (diag) diag.textContent = viewportReport();
   document.querySelector('#exportJson')?.addEventListener('click', async () => {
     await exportBackup();
     toast(t('backup.exported'));
