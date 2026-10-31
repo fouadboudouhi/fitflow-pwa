@@ -345,7 +345,7 @@ const ui = {
     'iPhone und iPad: In Safari „Teilen“ und dann „Zum Home-Bildschirm“ wählen. Android: Im Browser-Menü „App installieren“ oder „Zum Startbildschirm hinzufügen“.',
   'more.about': 'Volumora speichert alles nur auf diesem Gerät. Kein Konto, kein Server.',
   'more.legal': 'Datenschutz & Lizenzen',
-  'more.legalHint': 'Datenschutz, Impressum, Quellen',
+  'more.legalHint': 'Datenschutz, Quellen',
   'backup.title': 'Backup',
   'backup.export': 'Backup exportieren',
   'backup.exportHint': 'Pläne, Trainings, Einstellungen, Fotos als JSON',
@@ -417,8 +417,6 @@ const ui = {
   'legal.privacy': 'Datenschutz',
   'legal.privacyText':
     'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) ausschließlich auf deinem Gerät im Speicher des Browsers. Es gibt kein Konto, keinen Server und keine Übertragung an uns.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
-  'legal.imprint': 'Impressum',
-  'legal.imprintText': 'Verantwortlich für diese App: Fouad Boudouhi. Kontakt über die Webseite.',
   'legal.licenses': 'Quellen und Lizenzen',
   'legal.licensesText':
     'Der Quellcode von Volumora steht unter der MIT-Lizenz.\nÜbungsdaten und Animationen stammen aus dem öffentlichen Datensatz „Exercises Dataset“ (YaKohen, nur für Bildungs- und nicht-kommerzielle Zwecke) sowie von ExerciseDB (nicht-kommerzielle Nutzung). Volumora ist kostenlos und werbefrei; die Medien werden nur verlinkt.',

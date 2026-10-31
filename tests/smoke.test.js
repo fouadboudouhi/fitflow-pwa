@@ -1041,7 +1041,7 @@ test('legal page in both languages, then deleting all data returns to the first-
   await page.click('[data-nav="legal"]');
   await page.waitForSelector('.legal');
   assert.match(await page.textContent('.legal'), /GitHub Pages/);
-  assert.match(await page.textContent('.legal'), /Impressum/);
+  assert.doesNotMatch(await page.textContent('.legal'), /Impressum/);
   await axeCheck('legal');
   await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('volumora-settings-v2')) || {};
