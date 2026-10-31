@@ -1,77 +1,133 @@
-// Touch gestures: a swipe from the left edge goes back (the screen follows the finger), a downward drag
-// dismisses a sheet. Both end in the same actions the buttons trigger, so nothing is reachable only by swiping.
-const EDGE = 28;
-const TRIGGER = 90;
-const EASE = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+// Touch gestures the way the platform does them: a drag from the left edge pulls the current screen aside while
+// the screen it returns to slides in underneath; a drag down dismisses a sheet. Distance or speed decides; the
+// result is the same action the back control or the sheet's close would trigger.
+import { previewHtml } from './render.js';
+import { state } from './state.js';
 
+const EDGE = 22;
+const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 let drag = null;
 
-function target(touch, element) {
+const backDestination = (back) => {
+  if (back.dataset.nav) return back.dataset.nav;
+  if (back.id === 'editorBack') return state.editorReturn || 'plans';
+  if (back.id === 'exitWorkout') return 'home';
+  if (back.id === 'templatesBack') return 'templates';
+  return null;
+};
+
+function sheetTarget(element) {
   const sheet = element.closest?.('.sheet');
-  if (sheet) return { kind: 'sheet', el: sheet, close: () => sheet.closest('.sheet-backdrop')?.click() };
-  if (touch.clientX > EDGE) return null;
-  const picker = document.querySelector('.library-backdrop .exercise-library');
-  if (picker)
-    return { kind: 'back', el: picker, close: () => picker.querySelector('#closeLibrary')?.click() };
-  const main = document.querySelector('#app > main');
-  const back = main?.querySelector('.back');
-  return main && back ? { kind: 'back', el: main, close: () => back.click() } : null;
+  if (!sheet || sheet.scrollTop > 0) return null;
+  const backdrop = sheet.closest('.sheet-backdrop');
+  return { kind: 'sheet', el: sheet, dim: backdrop, finish: () => backdrop?.click() };
 }
 
-function onStart(e) {
-  if (e.touches.length !== 1) return;
-  const touch = e.touches[0];
-  const found = target(touch, e.target);
-  if (found) drag = { ...found, x: touch.clientX, y: touch.clientY, active: false, distance: 0 };
+function backTarget() {
+  const picker = document.querySelector('.library-backdrop .exercise-library');
+  if (picker)
+    return { kind: 'back', el: picker, finish: () => picker.querySelector('#closeLibrary')?.click() };
+  const main = document.querySelector('#app > main');
+  const back = main?.querySelector('.back');
+  if (!main || !back) return null;
+  const destination = backDestination(back);
+  return {
+    kind: 'back',
+    el: main,
+    under: destination ? previewHtml(destination) : '',
+    finish: () => {
+      state.skipViewAnimation = true;
+      back.click();
+    },
+  };
+}
+
+function mountUnderlay(target) {
+  if (target.kind !== 'back' || !target.under) return;
+  const under = document.createElement('div');
+  under.className = 'gesture-underlay';
+  under.innerHTML = target.under;
+  under.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(under);
+  target.underEl = under;
+  target.el.classList.add('gesture-dragging');
+}
+
+function paint(target, progress) {
+  const px = progress * (target.kind === 'back' ? window.innerWidth : window.innerHeight);
+  target.el.style.transform = target.kind === 'back' ? `translateX(${px}px)` : `translateY(${px}px)`;
+  if (target.underEl) target.underEl.style.transform = `translateX(${-30 * (1 - progress)}%)`;
+  if (target.underEl) target.underEl.style.setProperty('--dim', String(0.45 * (1 - progress)));
+  if (target.dim) target.dim.style.opacity = String(1 - progress * 0.9);
+}
+
+function settle(target, done, duration) {
+  const t = `${duration}ms ${EASE}`;
+  target.el.style.transition = `transform ${t}`;
+  if (target.underEl) target.underEl.style.transition = `transform ${t}`;
+  if (target.dim) target.dim.style.transition = `opacity ${t}`;
+  requestAnimationFrame(() => paint(target, done ? 1 : 0));
+  setTimeout(() => {
+    if (done) target.finish();
+    target.el.style.transform = '';
+    target.el.style.transition = '';
+    target.el.classList.remove('gesture-dragging');
+    if (target.dim) {
+      target.dim.style.opacity = '';
+      target.dim.style.transition = '';
+    }
+    target.underEl?.remove();
+  }, duration + 20);
+}
+
+function onDown(e) {
+  if (!e.isPrimary || e.pointerType === 'mouse') return;
+  const target = sheetTarget(e.target) || (e.clientX <= EDGE ? backTarget() : null);
+  if (!target) return;
+  drag = { target, x: e.clientX, y: e.clientY, t: e.timeStamp, active: false, progress: 0, samples: [] };
 }
 
 function onMove(e) {
-  if (!drag) return;
-  const touch = e.touches[0];
-  const dx = touch.clientX - drag.x;
-  const dy = touch.clientY - drag.y;
+  if (!drag || !e.isPrimary) return;
+  const dx = e.clientX - drag.x;
+  const dy = e.clientY - drag.y;
+  const { target } = drag;
+  const along = target.kind === 'back' ? dx : dy;
+  const across = target.kind === 'back' ? Math.abs(dy) : Math.abs(dx);
   if (!drag.active) {
-    const along = drag.kind === 'back' ? dx : dy;
-    const across = drag.kind === 'back' ? Math.abs(dy) : Math.abs(dx);
-    if (across > 10 && across > along) {
+    if (across > 8 && across > along) {
       drag = null;
       return;
     }
-    if (drag.kind === 'sheet' && drag.el.scrollTop > 0) {
-      drag = null;
-      return;
-    }
-    if (along < 10) return;
+    if (along < 8) return;
     drag.active = true;
-    drag.el.style.transition = 'none';
+    mountUnderlay(target);
+    target.el.style.transition = 'none';
+    if (target.underEl) target.underEl.style.transition = 'none';
+    if (target.dim) target.dim.style.transition = 'none';
   }
-  drag.distance = Math.max(0, drag.kind === 'back' ? dx : dy);
-  drag.el.style.transform =
-    drag.kind === 'back' ? `translateX(${drag.distance}px)` : `translateY(${drag.distance}px)`;
+  const size = target.kind === 'back' ? window.innerWidth : window.innerHeight;
+  drag.progress = Math.min(1, Math.max(0, along) / size);
+  drag.samples.push([e.timeStamp, along]);
+  if (drag.samples.length > 6) drag.samples.shift();
+  paint(target, drag.progress);
 }
 
-function onEnd() {
+function onUp(e) {
   if (!drag) return;
   const d = drag;
   drag = null;
   if (!d.active) return;
-  d.el.style.transition = EASE;
-  if (d.distance > TRIGGER) {
-    d.el.style.transform = d.kind === 'back' ? 'translateX(100%)' : 'translateY(100%)';
-    setTimeout(() => {
-      d.close();
-      d.el.style.transform = '';
-      d.el.style.transition = '';
-    }, 180);
-  } else {
-    d.el.style.transform = '';
-    setTimeout(() => (d.el.style.transition = ''), 320);
-  }
+  const [t0, p0] = d.samples[0];
+  const [t1, p1] = d.samples[d.samples.length - 1];
+  const velocity = t1 > t0 ? (p1 - p0) / (t1 - t0) : 0;
+  const done = e.type !== 'pointercancel' && (d.progress > 0.35 || velocity > 0.55);
+  settle(d.target, done, done ? 240 : 320);
 }
 
 export function initGestures() {
-  document.addEventListener('touchstart', onStart, { passive: true });
-  document.addEventListener('touchmove', onMove, { passive: true });
-  document.addEventListener('touchend', onEnd, { passive: true });
-  document.addEventListener('touchcancel', onEnd, { passive: true });
+  document.addEventListener('pointerdown', onDown, { passive: true });
+  document.addEventListener('pointermove', onMove, { passive: true });
+  document.addEventListener('pointerup', onUp, { passive: true });
+  document.addEventListener('pointercancel', onUp, { passive: true });
 }

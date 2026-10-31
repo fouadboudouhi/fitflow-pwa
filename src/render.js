@@ -63,6 +63,22 @@ const transitionClass = (from, to) => {
   return 'view-fade';
 };
 
+// Static markup of a view (with its tab bar) for the screen that peeks out during a swipe back.
+export function previewHtml(view) {
+  const module = VIEWS[view];
+  if (!module) return '';
+  const saved = state.view;
+  state.view = view;
+  let html = '';
+  try {
+    html = module.view() + (BARE.includes(view) ? '' : nav(NAV_FOR[view] || view));
+  } catch {
+    html = '';
+  }
+  state.view = saved;
+  return html;
+}
+
 export function navigate(view, patch = {}, { replace = false } = {}) {
   Object.assign(state, patch);
   state.view = view;
