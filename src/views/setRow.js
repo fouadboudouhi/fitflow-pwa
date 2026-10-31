@@ -6,21 +6,21 @@ import { fmtDuration, setType, setTypeMark } from '../sets.js';
 import { fieldValue, toDisplay, unit } from '../units.js';
 import { esc } from '../util.js';
 
-// [field, column label, input attributes] for the two value columns of an exercise type.
+// [field, column label, input attributes, unit shown after the value] for the two value columns of an exercise type.
 export function setColumns(trackType) {
   const u = unit();
-  const weight = (label) => ['weight', label, 'inputmode="decimal" step="0.5" min="0"'];
-  const reps = ['reps', t('workout.reps'), 'inputmode="numeric" min="0"'];
-  const time = ['time', t('workout.time'), 'inputmode="numeric" placeholder="0:00"'];
+  const weight = (label) => ['weight', label, 'inputmode="decimal" step="0.5" min="0"', u];
+  const reps = ['reps', t('workout.reps'), 'inputmode="numeric" min="0"', ''];
+  const time = ['time', t('workout.time'), 'inputmode="numeric"', ''];
   switch (trackType) {
     case 'reps':
       return [weight(`+${u}`), reps];
     case 'time':
       return [time, weight(`+${u}`)];
     case 'distance_time':
-      return [['distance', 'km', 'inputmode="decimal" step="0.01" min="0"'], time];
+      return [['distance', t('workout.distance'), 'inputmode="decimal" step="0.01" min="0"', 'km'], time];
     default:
-      return [weight(u), reps];
+      return [weight(t('workout.weight')), reps];
   }
 }
 export const setHead = (trackType, showRir) =>
@@ -42,8 +42,13 @@ const placeholderFor = (name, last) => {
   if (name === 'time') return last.time ? fmtDuration(last.time) : '';
   return last[name] ? String(last[name]) : '';
 };
-const field = (name, label, attrs, set, index, exerciseIndex, workNumber, last) =>
-  `<label><span>${esc(label)}</span><input aria-label="${esc(t('workout.fieldAria', { field: label, n: workNumber }))}" type="${name === 'time' ? 'text' : 'number'}" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${index}" value="${esc(fieldDisplay(name, set))}" placeholder="${esc(placeholderFor(name, last))}"></label>`;
+// The input sits on a hidden twin of its text, so the field is exactly as wide as the number and the unit
+// follows it like typeset text. The twin is kept in sync while typing (views/workout.js).
+const field = (name, label, attrs, set, index, exerciseIndex, workNumber, last, suffix = '') => {
+  const value = fieldDisplay(name, set);
+  const placeholder = placeholderFor(name, last) || (name === 'time' ? '0:00' : '–');
+  return `<label><span>${esc(label)}</span><span class="set-value"><span class="set-num"><i class="set-sizer" aria-hidden="true">${esc(value || placeholder)}</i><input aria-label="${esc(t('workout.fieldAria', { field: label, n: workNumber }))}" type="${name === 'time' ? 'text' : 'number'}" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${index}" value="${esc(value)}" placeholder="${esc(placeholder)}"></span>${suffix ? `<u>${esc(suffix)}</u>` : ''}</span></label>`;
+};
 
 export function setRow({ set, index, exerciseIndex, trackType, workNumber, last, showRir }) {
   const type = setType(set);
@@ -52,8 +57,8 @@ export function setRow({ set, index, exerciseIndex, trackType, workNumber, last,
   return `<div class="set-row"><button class="set-delete" data-delete-set="${index}" data-exercise="${exerciseIndex}" aria-label="${t('workout.deleteSet')}">${t('common.delete')}</button><div class="set-card ${set.done ? 'complete' : ''} ${type !== 'normal' ? type : ''}" data-set="${index}"><button type="button" class="set-label" data-set-type="${index}" data-exercise="${exerciseIndex}" aria-label="${esc(t('workout.setTypeAria', { n: label }))}"><b>${label}</b><span class="${set.pr ? 'pr' : ''}">${tag}</span></button>${setColumns(
     trackType
   )
-    .map(([name, columnLabel, attrs]) =>
-      field(name, columnLabel, attrs, set, index, exerciseIndex, workNumber, last)
+    .map(([name, columnLabel, attrs, suffix]) =>
+      field(name, columnLabel, attrs, set, index, exerciseIndex, workNumber, last, suffix)
     )
     .join(
       ''

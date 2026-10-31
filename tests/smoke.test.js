@@ -523,7 +523,8 @@ test('units: pounds are shown everywhere and stored as kilograms; the plate calc
   await page.click('[data-start="push"]');
   await page.waitForSelector('.workout-exercise');
   const first = page.locator('.workout-exercise').first();
-  assert.equal(await first.locator('.set-head span').nth(1).textContent(), 'lbs');
+  assert.equal(await first.locator('.set-head span').nth(1).textContent(), 'Gewicht');
+  assert.equal(await first.locator('.set-row u').first().textContent(), 'lbs');
   assert.equal(
     await first.locator('input[data-set-field="weight"][data-index="0"]').inputValue(),
     '110.2',

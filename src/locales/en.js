@@ -982,4 +982,13 @@ export default {
   'plans.activate': 'Activate',
   'backup.exported': 'Backup saved',
   'settings.diagnostics': 'Display diagnostics',
+
+  // Look (October 2026): set captions, last-session hint, week line
+  'workout.weight': 'Weight',
+  'workout.distance': 'Distance',
+  'workout.last': 'last {set}',
+  'home.thisWeek': 'This week',
+  'home.kpiVolume': 'Volume',
+  'home.kpiRecords': 'Records',
+  'home.kpiSessions': 'Sessions',
 };

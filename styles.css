@@ -5087,3 +5087,949 @@ body {
     padding-top: 16px;
   }
 }
+
+/* ==========================================================================
+   Volumora look (October 2026): Satoshi, a smaller scale, a hero with the week ring and a line of
+   three numbers, sets as hairline rows without boxes. Later rules win; this layer states only differences.
+   ========================================================================== */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('assets/fonts/satoshi-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('assets/fonts/satoshi-700.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --r-lg: 20px;
+  --r-xl: 20px;
+  font-family:
+    Satoshi,
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    Inter,
+    system-ui,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+html[data-theme='dark'] {
+  --paper: #000000;
+  --surface: #111113;
+  --cloud: #19191c;
+  --line: #222226;
+  --ink: #f2f2f3;
+  --muted: #86868e;
+}
+body {
+  font-size: 14px;
+  line-height: 1.4;
+}
+/* Two faces only: medium for text, bold for anything emphasised */
+b,
+strong,
+.row-main b,
+.row-value b,
+.text-btn,
+.primary,
+.secondary,
+.nav-btn,
+.chip {
+  font-weight: 700;
+}
+.tn,
+.kpi b,
+.set-card input,
+.set-sizer,
+.exercise-count,
+.rest-timer b,
+.stat-row b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shell and titles */
+.shell,
+.workout-shell {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+@media (max-width: 760px) {
+  .shell {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+.page-head h1,
+.home-intro h1,
+.calendar-head h1,
+.hero h1 {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.page-head p,
+.home-intro p,
+.assistant-hero p {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0 0;
+}
+.home-intro {
+  display: block;
+  margin: 6px 0 0;
+}
+.page-head {
+  margin-bottom: 24px;
+}
+.week h2,
+.list-section h2,
+.chart-card h2,
+.section-head h2,
+.chart-section h2,
+.week-head {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0;
+  margin: 30px 0 10px;
+}
+.list-section {
+  margin-top: 0;
+}
+.list-section h2 {
+  margin: 30px 0 10px;
+}
+.backrow span {
+  font-size: 15px;
+}
+
+/* Hero: label, ring, title, one fact line, a pill button */
+.next-card,
+.resume-card {
+  position: relative;
+  display: block;
+  margin-top: 28px;
+  padding: 20px 20px 18px;
+  border-radius: 20px;
+}
+.next-label {
+  display: block;
+  color: var(--green-ink);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.next-card h2 {
+  margin: 10px 60px 4px 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+.next-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.next-card .primary.start-main {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  min-height: 44px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.next-card .discard-btn {
+  display: block;
+  margin: 8px auto 0;
+  font-size: 13px;
+}
+.week-ring {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  width: 44px;
+  height: 44px;
+}
+.week-ring text {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The week in three numbers */
+.week {
+  display: block;
+  margin: 0;
+}
+.week h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.week h2 em,
+.week-line em {
+  margin: 0;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-ink);
+}
+.kpis {
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+}
+.kpi {
+  flex: 1;
+  min-width: 0;
+}
+.kpi + .kpi {
+  border-left: 1px solid var(--line);
+  padding-left: 14px;
+}
+.kpi b {
+  display: block;
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.kpi b u {
+  text-decoration: none;
+  margin-left: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.kpi span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* Lists */
+.list {
+  border-radius: 20px;
+}
+.row {
+  min-height: 50px;
+  padding: 12px 16px;
+  gap: 12px;
+}
+.row-main b,
+.row-value b {
+  font-size: 14.5px;
+}
+.row-main small,
+.row-value small {
+  font-size: 12.5px;
+}
+.row-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.row-icon .icon {
+  width: 17px;
+  height: 17px;
+}
+
+/* Buttons and tabs */
+.primary,
+.secondary {
+  min-height: 44px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+.text-btn {
+  font-size: 14px;
+}
+.nav-btn {
+  font-size: 10px;
+  gap: 4px;
+  min-height: 44px;
+}
+.nav-btn .icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* Workout header: back tile, centred title, Beenden */
+.workout-top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 52px;
+  padding-bottom: 6px;
+}
+.workout-top .back {
+  position: relative;
+  width: 44px;
+  margin-left: -4px;
+  background: transparent;
+  border-radius: 0;
+}
+.workout-top .back::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 11px;
+  background: var(--cloud);
+}
+.workout-top .back .icon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+.workout-top > div {
+  display: grid;
+  gap: 1px;
+  text-align: center;
+}
+.workout-top h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+.workout-top > div > b {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.workout-top-actions {
+  justify-self: end;
+}
+.workout-top .text-btn {
+  padding: 8px 0 8px 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.progress-line {
+  height: 2px;
+  margin: 0 0 2px;
+}
+
+/* Exercise head: picture, name, one fact line, done count */
+.workout-exercise {
+  padding: 26px 0 10px;
+  border-bottom: 0;
+}
+.workout-exercise-head {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.exercise-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--cloud);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+.exercise-thumb.placeholder .icon {
+  width: 22px;
+  height: 22px;
+}
+.workout-exercise-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.workout-exercise-head p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.exercise-title .icon {
+  display: none;
+}
+.exercise-count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 28px;
+  text-align: right;
+  display: inline-grid;
+  place-items: center;
+  justify-items: end;
+}
+.exercise-count.complete {
+  color: var(--green-ink);
+}
+.exercise-count .icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+}
+.suggest-row {
+  padding: 4px 0 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.suggest-row small {
+  color: var(--green-ink);
+  font-weight: 700;
+}
+
+/* Sets: hairline rows, numbers set like text, a ring that fills when the set lands */
+.set-table,
+.set-table.no-rir {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.set-head,
+.set-card,
+.set-table.no-rir .set-head,
+.set-table.no-rir .set-card {
+  grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr) 44px;
+  gap: 10px;
+}
+.set-table:not(.no-rir) .set-head,
+.set-table:not(.no-rir) .set-card {
+  grid-template-columns: 32px repeat(3, minmax(0, 1fr)) 44px;
+}
+.set-head {
+  min-height: 0;
+  padding: 0 0 4px;
+  background: transparent;
+  border-bottom: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  align-items: end;
+}
+.set-head span {
+  text-align: left;
+}
+.set-row,
+.set-row + .set-row {
+  background: transparent;
+  border-top: 0;
+  border-radius: 0;
+}
+.set-row .set-card,
+.set-table .set-row:first-child .set-card,
+.set-row .set-card.complete,
+.set-row .set-card.warmup,
+.set-row .set-card.drop,
+.set-row .set-card.failure {
+  padding: 2px 0;
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--paper);
+}
+.set-card .set-label {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 0;
+  width: 100%;
+  min-height: 44px;
+  color: var(--muted);
+}
+.set-card .set-label b {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.set-card .set-label span {
+  font-size: 9px;
+  line-height: 1.1;
+}
+.set-card > label {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+}
+/* The field label stays visually hidden; the value span beside it must not inherit that */
+.set-card > label > span.set-value {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+}
+.set-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  max-width: 100%;
+}
+.set-num {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.set-sizer {
+  display: block;
+  visibility: hidden;
+  white-space: pre;
+  min-width: 1.5ch;
+  height: 44px;
+  line-height: 44px;
+  padding: 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: -0.01em;
+}
+.set-card input[type='number'],
+.set-card input[type='text'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  text-align: left;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: none;
+}
+.set-card input::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+  opacity: 1;
+}
+.set-card input[type='number']:focus,
+.set-card input[type='text']:focus,
+.set-card input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+}
+.set-num:focus-within::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--green);
+}
+.set-value u {
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.set-check,
+.set-card.complete .set-check {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  justify-self: end;
+  display: grid;
+  place-items: center end;
+  color: #04210f;
+}
+.set-check::before,
+.set-check:empty::before {
+  content: '';
+  grid-area: 1 / 1;
+  display: block;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border: 1.6px solid var(--muted);
+  border-radius: 50%;
+  opacity: 0.7;
+  transition:
+    background-color 0.2s var(--ease),
+    border-color 0.2s var(--ease),
+    opacity 0.2s var(--ease);
+}
+.set-card.complete .set-check::before {
+  background: var(--green);
+  border-color: var(--green);
+  opacity: 1;
+  animation: checkPop 0.4s var(--ease-spring);
+}
+.set-card.complete .set-check {
+  animation: none;
+}
+.set-check .icon {
+  grid-area: 1 / 1;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  margin: 0 7px 0 0;
+  stroke-width: 2.8;
+}
+.set-delete {
+  font-size: 11px;
+  font-weight: 700;
+}
+.exercise-tools {
+  margin: 0;
+  align-items: center;
+}
+.exercise-tools .text-btn {
+  padding: 10px 0;
+  font-size: 13px;
+}
+.exercise-tools .icon-btn.quiet {
+  background: transparent;
+  color: var(--muted);
+}
+
+/* Rest pill: parked well below the edge while hidden (the pill is lower than before, so 140 % no longer clears it) */
+.rest-timer {
+  transform: translate(-50%, calc(100% + 80px));
+  width: min(520px, calc(100% - 48px));
+  min-height: 54px;
+  padding: 0 8px 0 16px;
+  gap: 8px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cloud) 97%, transparent);
+  color: var(--ink);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+.rest-timer div {
+  display: grid;
+  gap: 3px;
+}
+.rest-timer span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.rest-timer b {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--ink);
+}
+.rest-timer button {
+  min-height: 36px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.rest-timer button:first-of-type {
+  margin-left: auto;
+}
+.rest-timer.show {
+  transform: translate(-50%, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .set-card.complete .set-check::before {
+    animation: none;
+  }
+}
+
+/* Number fields carry no spinners: on desktop browsers they take up room even when invisible */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* The set label: number first, its tag underneath */
+.set-card .set-label {
+  grid-column: auto;
+  grid-template-columns: auto;
+  overflow: visible;
+}
+.set-card .set-label span {
+  white-space: nowrap;
+}
+.set-card .set-label span:empty {
+  display: none;
+}
+
+/* Selects look like every other field */
+select,
+.library-filter select,
+.settings-form select,
+.body-form select,
+.days-choice select,
+.chart-card select,
+.chart-section select,
+.plates-inputs select,
+.exercise-fields select {
+  border: 0;
+  border-radius: 12px;
+  background-color: var(--cloud);
+}
+
+.bottom-nav {
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+}
+
+/* Calendar: a quiet month. Plain numbers, a green tint and the session name on trained days */
+.calendar-shell .calendar-head {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+.calendar-nav {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+}
+.calendar-nav .icon-btn {
+  background: transparent;
+  color: var(--muted);
+  min-width: 36px;
+  width: auto;
+  font-size: 13px;
+}
+.calendar-nav .icon-btn .icon {
+  width: 20px;
+  height: 20px;
+}
+.calendar-weekdays,
+.calendar-grid {
+  gap: 4px;
+}
+.calendar-weekdays span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.calendar-day,
+.calendar-day.blank,
+.calendar-day.completed {
+  min-height: 52px;
+  padding: 7px 2px 6px;
+  gap: 2px;
+  align-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  overflow: hidden;
+}
+.calendar-day > span {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--muted);
+}
+.calendar-day.completed {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.calendar-day.completed > span {
+  font-weight: 700;
+  color: var(--ink);
+}
+.calendar-day b {
+  max-width: 100%;
+  margin-top: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.calendar-day.today > span {
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--ink);
+  color: var(--paper);
+}
+.calendar-plan {
+  margin-top: 26px;
+}
+
+/* Exercise picker: the same scale and hairline rows as the training */
+.exercise-library {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+.library-head {
+  align-items: center;
+  margin-bottom: 14px;
+}
+.library-head h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.library-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.library-search,
+.library-search:has(input:focus-visible) {
+  border: 0;
+  border-radius: 12px;
+  outline: 0;
+  box-shadow: none;
+  background: var(--cloud);
+}
+.library-search input,
+.library-search input:focus {
+  min-height: 42px;
+  font-size: 16px;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.category-chips {
+  gap: 6px;
+  margin: 12px -24px 12px 0;
+  padding-right: 24px;
+}
+.category-chips button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cloud);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+.category-chips button.active {
+  background: var(--green);
+  color: var(--on-green);
+  font-weight: 700;
+}
+.library-filter {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.library-filter select {
+  min-height: 40px;
+  font-size: 14px;
+}
+.library-list {
+  gap: 0;
+}
+.library-item {
+  padding: 8px 0;
+  gap: 8px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.library-item .library-info {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+.library-item img,
+.library-info .custom-exercise-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+}
+.library-info h3,
+.library-item h3 {
+  margin: 0 0 2px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.library-info span,
+.library-item span {
+  font-size: 12.5px;
+}
+.library-actions {
+  gap: 0;
+}
+.library-actions button,
+.library-item button:not(.library-info) {
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  background-clip: content-box;
+  color: var(--muted);
+}
+.library-actions .star.active {
+  color: var(--green-ink);
+  background: transparent;
+}
+.library-actions button[data-pick-exercise] {
+  background-color: var(--cloud);
+  color: var(--green-ink);
+}
+.library-actions button[data-pick-exercise].added {
+  background-color: var(--green);
+  color: var(--on-green);
+}
+.library-actions button .icon,
+.library-actions button[data-pick-exercise] .icon {
+  width: 16px;
+  height: 16px;
+}
+.custom-exercise-button {
+  font-size: 14px;
+}
+.library-done {
+  min-height: 44px;
+}
+
+/* The one accent also colours the text cursor */
+input,
+textarea {
+  caret-color: var(--green);
+}

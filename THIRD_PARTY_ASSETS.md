@@ -27,3 +27,11 @@ stores file names and dataset keys.
 Replace both media sources with owned media or media under an explicit commercial licence, regenerate the
 catalogue, and update the attribution shown in the app. The data pipeline keeps this to `assets/data/*` and
 `tools/*`.
+
+## Satoshi (interface typeface)
+
+- Source: Fontshare, https://www.fontshare.com/fonts/satoshi (Indian Type Foundry).
+- Licence: Fontshare / ITF Free Font Licence, free for personal and commercial use, web embedding included;
+  the font files may not be sold or redistributed on their own, and no derivative fonts may be made.
+- What Volumora ships: `assets/fonts/satoshi-500.woff2` and `assets/fonts/satoshi-700.woff2` (Medium and Bold,
+  Latin subset as served by the Fontshare CDN), precached by the service worker.
