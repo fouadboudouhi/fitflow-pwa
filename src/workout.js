@@ -500,6 +500,27 @@ export function deleteSession(id) {
   saveHistory(history);
   return { removed, index };
 }
+// Old workouts saved without a single logged value. They still count as training until they are removed.
+const holdsNothing = (session) =>
+  !(session.entries || []).some((entry) =>
+    (entry.sets || []).some(
+      (s) => s.done || number(s.reps) > 0 || number(s.time) > 0 || number(s.distance) > 0
+    )
+  );
+export const emptySessionCount = (history = getHistory()) => history.filter(holdsNothing).length;
+// Removes them and returns the history as it was, so the step can be undone.
+export function removeEmptySessions() {
+  const history = getHistory();
+  const before = clone(history);
+  const kept = history.filter((session) => !holdsNothing(session));
+  annotateAll(kept);
+  saveHistory(kept);
+  return before;
+}
+export function restoreHistory(history) {
+  annotateAll(history);
+  saveHistory(history);
+}
 export function restoreSession(session, index) {
   const history = getHistory();
   history.splice(Math.min(index, history.length), 0, session);

@@ -9,7 +9,7 @@ const { createServer } = require('./serve.js');
 const AXE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
 let server, browser, baseURL, context, page, errors;
-const SCHEMA = 8;
+const SCHEMA = 9;
 const BACKUP_VERSION = 5;
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
@@ -1246,4 +1246,82 @@ test('a decimal typed with a comma stays a decimal and a saved weight can be cor
   await page.waitForFunction(
     () => JSON.parse(localStorage.getItem('volumora-history-v2'))[0].volume === 612.5
   );
+});
+
+test('a rest that ends on another screen still says so', async () => {
+  await page.evaluate(() => localStorage.setItem('volumora-rest-until', String(Date.now() + 1500)));
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  await page.waitForFunction(() => document.querySelector('.toast')?.textContent.includes('Pause vorbei'));
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-rest-until')), null);
+});
+
+test('a rest that ended long ago stays silent', async () => {
+  await page.evaluate(() => localStorage.setItem('volumora-rest-until', String(Date.now() - 600000)));
+  await page.reload();
+  await page.waitForFunction(() => localStorage.getItem('volumora-rest-until') === null);
+  assert.equal(await page.locator('.toast').count(), 0);
+});
+
+test('empty old workouts can be removed in one step and the step undone', async () => {
+  await page.evaluate(() => {
+    const session = (id, sets) => ({
+      id,
+      planId: 'x',
+      dayName: id,
+      day: '2026-01-10',
+      finishedAt: '2026-01-10T10:00:00.000Z',
+      startedAt: '2026-01-10T09:00:00.000Z',
+      duration: 3600,
+      totalSets: 0,
+      volume: 0,
+      entries: [{ exerciseId: 'chest-press', trackType: 'weight_reps', sets }],
+    });
+    const history = [
+      session('empty', [{ weight: '50', reps: '', done: false, type: 'normal' }]),
+      session('typed', [{ weight: '50', reps: '8', done: false, type: 'normal' }]),
+      session('real', [{ weight: '50', reps: '8', done: true, type: 'normal' }]),
+    ];
+    localStorage.setItem('volumora-history-v2', JSON.stringify(history));
+  });
+  const ids = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('volumora-history-v2')).map((h) => h.id));
+  await page.reload();
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="settings"]');
+  assert.match(await page.textContent('#cleanEmpty'), /1 leeres Training entfernen/);
+  await page.click('#cleanEmpty');
+  await page.waitForSelector('#cleanEmpty', { state: 'detached' });
+  assert.deepEqual(await ids(), ['typed', 'real'], 'a set with typed reps is kept');
+  await page.click('.toast-action');
+  await page.waitForSelector('#cleanEmpty');
+  assert.deepEqual(await ids(), ['empty', 'typed', 'real']);
+});
+
+test('the progress line stays in the header while the sets scroll', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  assert.equal(await page.locator('.workout-top .progress-line').count(), 1);
+});
+
+test('first run: the rest timer can be turned off, and the install tip waits on Heute', async () => {
+  await page.evaluate(() => localStorage.clear());
+  await context.clearCookies();
+  const fresh = await context.newPage();
+  await fresh.addInitScript(() => localStorage.removeItem('volumora-onboarded'));
+  await fresh.goto(baseURL + '/');
+  await fresh.waitForSelector('#onboardingForm');
+  for (let step = 0; step < 3; step++) {
+    await fresh.click('#onboardingForm button[type="submit"]');
+  }
+  await fresh.waitForSelector('input[name="restTimer"]');
+  await fresh.uncheck('input[name="restTimer"]', { force: true });
+  await fresh.click('#onboardingForm button[type="submit"]');
+  await fresh.click('#onboardingUse');
+  await fresh.waitForSelector('#installNow');
+  const settings = await fresh.evaluate(() => JSON.parse(localStorage.getItem('volumora-settings-v2')));
+  assert.equal(settings.restTimer, false);
+  await fresh.click('#installLater');
+  await fresh.waitForSelector('#installNow', { state: 'detached' });
+  await fresh.close();
 });

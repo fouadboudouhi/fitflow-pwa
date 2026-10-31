@@ -6543,3 +6543,29 @@ body {
   height: var(--keyboard-shift, 0px);
   background: var(--paper);
 }
+
+/* The progress line lives in the header, so it stays visible while the sets scroll */
+.workout-top {
+  padding-bottom: 0;
+}
+.workout-top > .progress-line {
+  display: block;
+  grid-column: 1 / -1;
+  height: 2px;
+  margin: 6px 0 0;
+}
+
+/* Onboarding: the rest timer choice below the training days */
+.assistant-form .toggle-setting {
+  margin-top: 4px;
+}
+
+/* A reminder on Heute keeps its distance from the week line */
+.list-section:has(.backup-row) {
+  margin-top: 20px;
+}
+
+/* The delete button behind a set only exists once the row is swiped; otherwise a sliver could show between rows */
+.set-row:not(.swiped) .set-delete {
+  visibility: hidden;
+}

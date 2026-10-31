@@ -17,6 +17,7 @@ import { applyTheme } from './theme.js';
 import { toast } from './ui.js';
 import { initGestures } from './gestures.js';
 import { watchInset } from './viewport.js';
+import { updateRest } from './views/workout.js';
 import { reconcileActive, sessionStarted } from './workout.js';
 
 // The language comes first: migrations may seed the default plan in it.
@@ -77,6 +78,7 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.addEventListener('pageshow', scrollToTop);
 
 render();
+setInterval(updateRest, 1000);
 watchInset();
 initGestures();
 // Homescreen shortcut: jump straight into the next session.

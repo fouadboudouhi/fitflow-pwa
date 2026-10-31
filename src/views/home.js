@@ -2,18 +2,21 @@ import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
 import { navigate, render } from '../render.js';
+import { state } from '../state.js';
 import {
   activePlan,
   backupDue,
   clearActive,
+  dismissInstallTip,
   getActive,
   getHistory,
   getSettings,
+  installTipDue,
   saveActive,
   snoozeBackup,
 } from '../storage.js';
 import { startOfWeek } from '../stats.js';
-import { confirmDialog, undoToast } from '../ui.js';
+import { confirmDialog, infoDialog, undoToast } from '../ui.js';
 import { toDisplay, unit } from '../units.js';
 import { dayKey, doneSets, esc, fmtLong, number, volumeOf } from '../util.js';
 import { reconcileActive, resetWorkoutUi, sessionExercises, sessionStarted } from '../workout.js';
@@ -86,6 +89,11 @@ export function view() {
     ${nextCard}
     ${weekStrip}
     ${
+      installTipDue()
+        ? `<section class="list-section"><div class="list"><div class="row backup-row"><button type="button" class="backup-main" id="installNow"><span class="row-icon">${icon('install')}</span><span class="row-main"><b>${t('home.installTitle')}</b><small>${t('home.installText')}</small></span></button><button type="button" class="text-btn" id="installLater">${t('home.backupLater')}</button></div></div></section>`
+        : ''
+    }
+    ${
       backupDue(history)
         ? `<section class="list-section"><div class="list"><div class="row backup-row"><button type="button" class="backup-main" id="backupNow"><span class="row-icon">${icon('backup')}</span><span class="row-main"><b>${t('home.backupTitle')}</b><small>${t('home.backupText')}</small></span></button><button type="button" class="text-btn" id="backupLater">${t('home.backupLater')}</button></div></div></section>`
         : ''
@@ -113,6 +121,17 @@ async function start(planId, dayId) {
 }
 
 export function bind() {
+  document
+    .querySelector('#installNow')
+    ?.addEventListener('click', () =>
+      state.installPrompt
+        ? state.installPrompt.prompt()
+        : infoDialog(t('more.install'), t('more.installText'))
+    );
+  document.querySelector('#installLater')?.addEventListener('click', () => {
+    dismissInstallTip();
+    render();
+  });
   document.querySelector('#backupNow')?.addEventListener('click', () => navigate('backup'));
   document.querySelector('#backupLater')?.addEventListener('click', () => {
     snoozeBackup();

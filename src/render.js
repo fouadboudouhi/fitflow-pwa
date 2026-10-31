@@ -104,7 +104,6 @@ export function redrawCharts() {
 }
 
 export function render() {
-  clearInterval(state.restTimer);
   const previous = state.lastRenderedView;
   const viewChanged = previous !== state.view;
   state.lastRenderedView = state.view;
@@ -134,5 +133,5 @@ export function render() {
   (VIEWS[state.view] || more).bind();
   if (viewChanged) requestAnimationFrame(scrollToTop);
   requestAnimationFrame(redrawCharts);
-  if (state.view === 'workout') workout.startRestTicker();
+  if (state.view === 'workout') workout.updateRest();
 }

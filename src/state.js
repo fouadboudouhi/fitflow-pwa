@@ -23,5 +23,4 @@ export const state = {
   onboardingPreview: null,
   installPrompt: null,
   restUntil: 0,
-  restTimer: null,
 };
