@@ -5033,3 +5033,17 @@ body {
   touch-action: pan-y;
   will-change: transform;
 }
+
+/* Installed on iOS: the workout bar pads once (the body already keeps the status bar clear) and page titles
+   start below the system's status-bar blur zone */
+@media (display-mode: standalone) {
+  .workout-top {
+    padding-top: 8px;
+  }
+  .shell {
+    padding-top: 36px;
+  }
+  .page-head.compact {
+    margin-top: 0;
+  }
+}

@@ -35,14 +35,14 @@ export function view() {
   const groups = setsByGroup(session);
   const max = groups[0]?.sets || 1;
   return `<main class="shell narrow summary"><section class="page-head compact"><div><span class="next-label">${t('summary.title')}</span><h1>${esc(session.dayName)}</h1></div></section>
-    <div class="stat-row"><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div></div>
+    <div class="stat-row"><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div></div>
     <section class="list-section"><h2>${t('summary.newRecords')}</h2>${
       records.length
         ? `<div class="list">${records.map((r) => `<div class="row"><span class="row-main"><b>${esc(exerciseName(r.item))}</b><small>${esc(describeSet(r.set, r.trackType))}</small></span><span class="chip chip-green">${t('workout.pr')}</span></div>`).join('')}</div>`
         : `<p class="muted">${t('summary.noRecords')}</p>`
     }</section>
     ${groups.length ? `<section class="chart-section"><h2>${t('summary.muscles')}</h2><div class="bar-list">${groups.map((g) => `<div class="bar-row"><span>${esc(groupLabel(g.group))}</span><div class="bar-track"><i style="width:${Math.max(4, (g.sets / max) * 100)}%"></i></div><b>${plural(g.sets, 'sets')}</b></div>`).join('')}</div></section>` : ''}
-    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button type="button" class="text-btn" id="summaryView">${t('summary.view')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button>${session.detached && session.exercises?.length && !savedAsDay.has(session.id) ? `<button class="secondary" id="summarySaveDay">${t('summary.saveDay')}</button>` : ''}</div></main>`;
+    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button><button type="button" class="text-btn" id="summaryView">${t('summary.view')}</button>${session.detached && session.exercises?.length && !savedAsDay.has(session.id) ? `<button class="secondary" id="summarySaveDay">${t('summary.saveDay')}</button>` : ''}</div></main>`;
 }
 
 // Sessions already turned into a plan day during this visit, so the button does not offer it twice.

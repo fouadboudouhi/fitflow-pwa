@@ -29,8 +29,10 @@ export function lineChart(
   const pad = { l: 46, r: secondary ? 46 : 14, t: 18, b: 28 };
   const vals = points.map((p) => p.value);
   const min = Math.min(...vals);
-  const max = Math.max(...vals);
-  const span = max - min || Math.max(1, max * 0.1);
+  const low = Math.max(...vals);
+  // A flat series (e.g. one session, or all zeros) spans upwards instead of producing negative ticks.
+  const max = low === min ? low + Math.max(1, Math.abs(low) * 0.1) : low;
+  const span = max - min;
   const x = (i) => pad.l + (i / Math.max(1, points.length - 1)) * (w - pad.l - pad.r);
   const y = (v) => pad.t + (1 - (v - min) / span) * (h - pad.t - pad.b);
   const surface = token('--surface') || '#fff';
