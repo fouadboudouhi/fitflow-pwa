@@ -342,7 +342,7 @@ const ui = {
     'iPhone and iPad: in Safari tap “Share”, then “Add to Home Screen”. Android: in the browser menu choose “Install app” or “Add to Home screen”.',
   'more.about': 'Volumora keeps everything on this device only. No account, no server.',
   'more.legal': 'Privacy & licences',
-  'more.legalHint': 'Privacy, imprint, sources',
+  'more.legalHint': 'Privacy, sources',
   'backup.title': 'Backup',
   'backup.export': 'Export backup',
   'backup.exportHint': 'Plans, workouts, settings and photos as JSON',
@@ -414,8 +414,6 @@ const ui = {
   'legal.privacy': 'Privacy',
   'legal.privacyText':
     'Volumora stores all data (plans, workouts, body data, photos, settings) only on your device, in the browser storage. There is no account, no server and nothing is sent to us.\nExercise animations are loaded from third parties when shown: GitHub (raw.githubusercontent.com) and ExerciseDB (static.exercisedb.dev). The provider technically receives your IP address. Without a connection the image areas stay empty; the app keeps working.\nThe app is served by GitHub Pages. GitHub may process access data such as the IP address in server logs; GitHub’s privacy statement applies.\nVolumora uses no analytics, no advertising and no cookies. Rest-timer notifications are created locally by your device.\nBackups are files you export and keep yourself. “Delete all data” in Settings removes everything from this device.',
-  'legal.imprint': 'Imprint',
-  'legal.imprintText': 'Responsible for this app: Fouad Boudouhi. Contact via the website.',
   'legal.licenses': 'Sources and licences',
   'legal.licensesText':
     'Volumora’s source code is MIT-licensed.\nExercise data and animations come from the public “Exercises Dataset” (YaKohen, educational and non-commercial use only) and from ExerciseDB (non-commercial use). Volumora is free and ad-free; the media is linked, not copied.',

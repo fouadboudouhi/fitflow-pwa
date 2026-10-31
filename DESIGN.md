@@ -53,6 +53,7 @@ Rules: text never wears a fill color; red is destructive only; amber is caution 
 - **Fields and selects**: `--cloud` fill, no border, 12px radius, 44px tall, 16px text, no number spinners.
 - **Exercise head**: 44px picture tile with 13px radius (a dumbbell icon stands in), 16px name, one fact line with the last result, done count on the right.
 - **Set table**: no card and no field boxes. Uppercase captions, one hairline per row, values set like text left-aligned under their caption (a hidden `.set-sizer` makes the input exactly as wide as its number, so the unit follows it), last session's values as muted placeholders, a 2px green underline while typing, a 28px ring on the right margin that fills green with a pop when the set lands.
+- **Plan editor**: the plan name reads as the page title and the day as a plain heading, both without a field box. Day pills like the picker chips. Exercises are hairline rows: drag handle, 44px picture tile, name, then sets and reps set like text with a muted caption. A 2px green underline marks the field in use. The optional details (rest, step, hint, type) open as ordinary fields under the row.
 - **Calendar**: plain muted numbers without cells; trained days get a green tint, a bold number and the session name.
 - **Picker**: same scale, hairline rows, a green plus on a `--cloud` circle, green fill once added.
 - **Chips**: pill for neutral state, green tint with green-ink text for positive state (Aktiv, Bestwert, PR).

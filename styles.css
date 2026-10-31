@@ -4616,18 +4616,6 @@ html[data-theme='dark'] .schedule-mode label:has(input:checked) {
 .schedule-days {
   margin-top: 14px;
 }
-.quick-fields label {
-  flex: none !important;
-  width: auto !important;
-}
-.quick-fields input {
-  width: 52px !important;
-  padding: 0 2px !important;
-}
-.quick-fields input[data-prop='range'] {
-  width: 64px !important;
-}
-
 /* Exercise row: name beside the picture, the set and rep fields on one line underneath both */
 .plan-exercise-row {
   grid-template-columns: 24px 52px minmax(0, 1fr) 40px;
@@ -6032,4 +6020,304 @@ select,
 input,
 textarea {
   caret-color: var(--green);
+}
+
+/* Plan editor: the same language as the training. The plan name reads as the page title, the day as a plain
+   heading, exercises as hairline rows with their numbers set like text; a green underline marks the field in use */
+.simple-plan-head {
+  margin: 4px 0 0;
+}
+.simple-plan-head label > span {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.simple-plan-head input,
+.simple-plan-head input:focus {
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.simple-plan-head input:focus,
+.day-name:focus,
+.editor-day input.day-name:focus,
+.plan-exercise-main > .custom-name:focus {
+  outline: 0;
+  box-shadow: 0 2px 0 var(--green);
+}
+.editor-day-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 16px -24px 0 0;
+  padding: 0 24px 2px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.editor-day-tabs::-webkit-scrollbar {
+  display: none;
+}
+.editor-day-tabs button,
+.editor-day-tabs .add-day {
+  flex: none;
+  min-height: 34px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.editor-day-tabs button.active {
+  background: var(--green);
+  color: var(--on-green);
+  font-weight: 700;
+}
+.editor-day-tabs .add-day {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.editor-day-tabs .add-day .icon {
+  width: 16px;
+  height: 16px;
+}
+.editor-days {
+  margin-top: 18px;
+}
+.editor-day {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.simple-day-head {
+  margin: 0 0 4px;
+  gap: 4px;
+  align-items: center;
+}
+.day-name,
+.editor-day input.day-name {
+  min-height: 40px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.plan-exercise-row {
+  grid-template-columns: 16px 44px minmax(0, 1fr) 36px;
+  grid-template-areas:
+    'handle thumb name menu'
+    'handle thumb tag menu'
+    'handle thumb fields menu'
+    'details details details details';
+  gap: 0 10px;
+  padding: 10px 0 6px;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-top: 1px solid var(--line);
+}
+.plan-exercise-row:first-child {
+  border-top: 1px solid var(--line);
+}
+.plan-exercise-row > .drag-handle {
+  align-self: stretch;
+  width: 16px;
+  min-width: 16px;
+  height: auto;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+}
+.plan-exercise-row > .drag-handle .icon {
+  width: 16px;
+  height: 16px;
+}
+.plan-exercise-row > img,
+.plan-exercise-row > .custom-exercise-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+}
+.plan-exercise-main > h3,
+.plan-exercise-main h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+.plan-exercise-main > .custom-name {
+  width: 100%;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 700;
+}
+.plan-exercise-main > .quick-fields {
+  grid-area: fields;
+  gap: 16px;
+  margin-top: -2px;
+  flex-wrap: nowrap;
+}
+.quick-fields label {
+  flex: none;
+  width: auto;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.quick-fields label span {
+  font-size: 12.5px;
+}
+.quick-fields input,
+.quick-fields input[data-prop='sets'] {
+  width: 2.2ch;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 16px;
+  font-weight: 700;
+}
+.quick-fields input[data-prop='range'] {
+  width: 7ch;
+}
+@supports (field-sizing: content) {
+  .quick-fields input,
+  .quick-fields input[data-prop='sets'],
+  .quick-fields input[data-prop='range'] {
+    field-sizing: content;
+    width: auto;
+    min-width: 1.5ch;
+    max-width: 12ch;
+  }
+}
+.quick-fields label:has(input:focus-visible) {
+  box-shadow: none;
+}
+.quick-fields input:focus,
+.quick-fields input:focus-visible {
+  outline: 0;
+  box-shadow: 0 2px 0 var(--green);
+}
+.plan-exercise-row > .icon-btn,
+.plan-exercise-row .icon-btn.quiet,
+.simple-day-head .icon-btn.quiet {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center end;
+}
+.plan-exercise-main > .superset-tag {
+  margin: 1px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--green-ink);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.plan-exercise-main > .quick-fields + .detail-fields,
+.plan-exercise-main > .detail-fields {
+  grid-area: details;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 6px 0 8px 26px;
+}
+.detail-fields label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.detail-fields span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.detail-fields input,
+.detail-fields select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background-color: var(--cloud);
+  font-size: 16px;
+  font-weight: 500;
+}
+.choose-exercise {
+  width: 100%;
+  min-height: 46px;
+  margin: 0;
+  padding: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--green-ink);
+  font-size: 14px;
+}
+.choose-exercise b {
+  font-weight: 700;
+}
+.choose-exercise .icon {
+  width: 16px;
+  height: 16px;
+}
+.workout-exercise-list + .choose-exercise {
+  margin-top: 14px;
+}
+.editor-footer {
+  bottom: calc(10px + var(--inset-bottom));
+  margin-top: 20px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.editor-footer > span {
+  display: none;
+}
+.editor-footer .primary {
+  flex: 1;
+}
+
+/* Hint and exercise type get a full line each, so a note can be read */
+.detail-fields label:nth-child(n + 3) {
+  grid-column: 1 / -1;
+}
+
+/* overflow-x: hidden on body turns it into a scroll container that never scrolls, and sticky bars would stick to it
+   instead of the screen; clip keeps the page from widening without that side effect */
+html,
+body {
+  overflow-x: clip;
 }

@@ -48,7 +48,7 @@ export function view() {
   const d = p.days[di];
   return `<main class="shell simple-editor"><div class="backrow"><button class="back" id="editorBack" data-nav="plans" aria-label="${t('common.back')}">${icon('chevron-left')}</button><h1>${t('editor.title')}</h1><button type="button" class="icon-btn quiet backrow-action" id="planMenu" aria-label="${t('editor.planMenu')}">${icon('more')}</button></div>
     <section class="simple-plan-head"><label><span>${t('editor.planName')}</span><input id="planName" value="${esc(p.name)}" maxlength="60"></label><input id="planDescription" type="hidden" value="${esc(p.description || '')}"></section>
-    <div class="editor-day-tabs">${p.days.map((day, i) => `<button class="${i === di ? 'active' : ''}" data-editor-day="${i}" aria-pressed="${i === di}"><span>${i + 1}</span>${esc(day.name)}</button>`).join('')}<button type="button" class="add-day" id="addDay" aria-label="${t('editor.newDay')}">${icon('plus')}</button></div>
+    <div class="editor-day-tabs">${p.days.map((day, i) => `<button class="${i === di ? 'active' : ''}" data-editor-day="${i}" aria-pressed="${i === di}">${esc(day.name)}</button>`).join('')}<button type="button" class="add-day" id="addDay" aria-label="${t('editor.newDay')}">${icon('plus')}</button></div>
     ${
       d
         ? `<div class="editor-days"><section class="editor-day" data-day-index="${di}"><div class="simple-day-head"><input class="day-name" value="${esc(d.name)}" aria-label="${t('editor.dayName')}"><button type="button" class="icon-btn quiet" data-day-menu="${di}" aria-label="${t('editor.dayMenu')}">${icon('more')}</button></div>
