@@ -6027,3 +6027,9 @@ select,
 .library-done {
   min-height: 44px;
 }
+
+/* The one accent also colours the text cursor */
+input,
+textarea {
+  caret-color: var(--green);
+}
