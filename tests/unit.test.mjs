@@ -409,7 +409,7 @@ test('records: bests per kind, record flags in chronological order, session diff
   assert.equal(headlineKind('reps'), 'maxReps');
   annotateAll(history);
   const flags = (id) => history.find((h) => h.id === id).entries[0].sets.map((s) => !!s.pr);
-  assert.deepEqual(flags('old'), [false, true, false], 'first session: first working set is a record');
+  assert.deepEqual(flags('old'), [false, false, false], 'first session: nothing to beat yet');
   assert.deepEqual(flags('mid'), [false, true, false]);
   assert.deepEqual(flags('new'), [false, true, false], '60×8 beats the 1RM of 55×10');
   const diff = sessionRecords(
@@ -656,7 +656,7 @@ test('Hevy export: sessions, set types, tracking per exercise, unknown names', (
     parsed.sessions.map((s) => [s.day, s.dayName, s.volume, s.totalSets, s.duration]),
     [
       ['2024-10-14', 'Pull Day', 550, 4, 4200],
-      ['2024-10-12', 'Push Day', 1500, 7, 4320],
+      ['2024-10-12', 'Push Day', 1500, 6, 4320],
     ]
   );
   const push = parsed.sessions[1];
@@ -700,7 +700,7 @@ test('Strong export: pounds become kilograms, timer and note rows are skipped, w
   assert.equal(parsed.unitAssumed, false);
   assert.deepEqual(parsed.unknown, []);
   const push = parsed.sessions[1];
-  assert.deepEqual([push.dayName, push.duration, push.totalSets], ['Push Day', 4320, 4]);
+  assert.deepEqual([push.dayName, push.duration, push.totalSets], ['Push Day', 4320, 3]);
   assert.deepEqual(
     push.entries.map((e) => [e.libraryId, e.sets.map((x) => `${x.type}:${x.weight}x${x.reps}`).join(' ')]),
     [
@@ -734,7 +734,10 @@ test('merging an import skips sessions already there and creates each unknown ex
   );
   const custom = once.history[1].entries[3];
   assert.equal(custom.libraryId, once.customs[0].id, 'the entry links to the custom exercise');
-  assert.ok(once.history[1].entries[0].sets[1].pr, 'record flags are computed over the merged history');
+  assert.ok(
+    once.history.every((h) => h.entries.every((e) => e.sets.every((x) => x.pr === false))),
+    'record flags are computed over the merged history: first sessions set the baseline'
+  );
   const twice = mergeImport(once.history, once.customs, parseImport(text));
   assert.deepEqual([twice.added, twice.skipped, twice.created, twice.history.length], [0, 2, 0, 2]);
   const backup = validateBackup({
@@ -762,4 +765,117 @@ test('exercise names from other apps land on the catalogue entry', () => {
     ].map(matchExercise),
     ['0025', '0043', '0198', '0861', '0575', '0200', '0652', null]
   );
+});
+
+test('logging: a tick adopts the grey values, an empty set is refused, the clock starts with it', async () => {
+  const { setReference, toggleSet, sessionStarted, finishCounts } = await import('../src/workout.js');
+  const blank = () => ({ weight: '', reps: '', rir: '', done: false, type: 'normal' });
+  const session = {
+    startedAt: '2020-01-01T00:00:00.000Z',
+    entries: [{ exerciseId: 'x', trackType: 'weight_reps', sets: [blank(), blank(), blank()] }],
+  };
+  const entry = session.entries[0];
+  assert.equal(sessionStarted(session), false);
+  assert.equal(toggleSet(session, 0, 0, []), false, 'nothing to log');
+  assert.equal(entry.sets[0].done, false);
+  assert.equal(sessionStarted(session), false);
+  assert.equal(toggleSet(session, 0, 0, [{ weight: '50', reps: '8' }]), true, 'last session fills it');
+  assert.deepEqual([entry.sets[0].weight, entry.sets[0].reps, entry.sets[0].done], ['50', '8', true]);
+  assert.equal(sessionStarted(session), true);
+  assert.notEqual(session.startedAt, '2020-01-01T00:00:00.000Z', 'the clock starts with the first set');
+  assert.deepEqual(setReference(entry, 1, []), entry.sets[0], 'without a last session: the set before');
+  assert.equal(toggleSet(session, 0, 0, []), true, 'unticking always works');
+  assert.equal(entry.sets[0].done, false);
+  toggleSet(session, 0, 0, []);
+  entry.sets[1].reps = '10';
+  entry.sets[1].weight = '50';
+  entry.sets[1].touched = true;
+  assert.deepEqual(finishCounts(session), { done: 1, typed: 1, open: 1 });
+});
+
+test('finishing: open sets drop out, duration ends with the last set and has a cap', async () => {
+  const store = new Map();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k) => store.get(k) ?? null,
+      setItem: (k, v) => store.set(k, v),
+      removeItem: (k) => store.delete(k),
+    },
+  });
+  const { finishSession } = await import('../src/workout.js');
+  const { getHistory, saveHistory, clearActive } = await import('../src/storage.js');
+  saveHistory([]);
+  clearActive();
+  const hours = (n) => new Date(Date.now() - n * 3600000).toISOString();
+  const set = (done, extra = {}) => ({ weight: '50', reps: '8', rir: '', done, type: 'normal', ...extra });
+  const saved = finishSession({
+    id: 's',
+    startedAt: hours(72),
+    lastSetAt: hours(71),
+    markers: {},
+    entries: [
+      {
+        exerciseId: 'a',
+        trackType: 'weight_reps',
+        sets: [set(true), set(false), set(false, { touched: true })],
+      },
+      { exerciseId: 'b', trackType: 'weight_reps', sets: [set(false)] },
+    ],
+  });
+  assert.equal(saved.entries.length, 1, 'an exercise without sets drops out');
+  assert.equal(saved.entries[0].sets.length, 2, 'typed set stays, open set goes');
+  assert.equal(saved.totalSets, 2);
+  assert.equal(saved.duration, 3600, 'three days open, but the last set came after an hour');
+  assert.equal(saved.finishedAt, new Date(saved.finishedAt).toISOString());
+  assert.equal(getHistory().length, 1);
+  saveHistory([]);
+});
+
+test('plans: the rotation skips empty days and copies keep their history link', async () => {
+  const { duplicatePlan } = await import('../src/plans.js');
+  const ex = { id: 'chest-press', name: 'Brustpresse', sets: 3, range: '8–12' };
+  const plan = {
+    id: 'p',
+    name: 'P',
+    days: [
+      { id: 'a', name: 'A', exercises: [ex] },
+      { id: 'b', name: 'B', exercises: [] },
+      { id: 'c', name: 'C', exercises: [{ ...ex, id: 'y' }] },
+    ],
+  };
+  const after = (dayId) => nextSession(plan, [{ planId: 'p', dayId }]).day.id;
+  assert.equal(after('a'), 'c');
+  assert.equal(after('c'), 'a');
+  const copy = duplicatePlan(plan);
+  assert.notEqual(copy.days[0].exercises[0].id, 'chest-press');
+  assert.equal(copy.days[0].exercises[0].libraryId, 'chest-press');
+});
+
+test('progression: advice cannot spiral down, drop sets do not block, values are cleaned', async () => {
+  const { suggestion } = await import('../src/workout.js');
+  const { normalizeRange, setsCount } = await import('../src/util.js');
+  const ex = { id: 'x', libraryId: '0025', range: '8–12' };
+  const row = (weight, reps, sets = []) => ({
+    entries: [
+      {
+        exerciseId: 'x',
+        libraryId: '0025',
+        trackType: 'weight_reps',
+        sets: [{ weight: String(weight), reps: String(reps), done: true, type: 'normal' }, ...sets],
+      },
+    ],
+  });
+  const flat = [row(100, 10), row(100, 10), row(100, 10)];
+  assert.equal(suggestion(ex, flat).kind, 'stall');
+  const lighter = [row(90, 10), row(90, 10), row(90, 10), ...flat];
+  assert.equal(suggestion(ex, lighter).kind, 'confirm', 'already the lighter weeks: no second cut');
+  const drop = { weight: '40', reps: '6', done: true, type: 'drop' };
+  assert.equal(suggestion(ex, [row(60, 12, [drop])]).kind, 'progress');
+  assert.equal(normalizeRange('8-12'), '8–12');
+  assert.equal(normalizeRange('12 - 8'), '8–12');
+  assert.equal(normalizeRange('10'), '10');
+  assert.equal(normalizeRange('', '6–8'), '6–8');
+  assert.equal(normalizeRange('30 s'), '30 s');
+  assert.deepEqual([-1, 0, '', 2.5, 999, 4].map(setsCount), [3, 3, 3, 3, 12, 4]);
 });

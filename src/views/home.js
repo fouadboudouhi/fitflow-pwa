@@ -2,20 +2,12 @@ import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
 import { navigate, render } from '../render.js';
-import {
-  activePlan,
-  clearActive,
-  findPlan,
-  getActive,
-  getHistory,
-  getSettings,
-  saveActive,
-} from '../storage.js';
+import { activePlan, clearActive, getActive, getHistory, getSettings, saveActive } from '../storage.js';
 import { startOfWeek } from '../stats.js';
 import { confirmDialog, undoToast } from '../ui.js';
 import { toDisplay, unit } from '../units.js';
 import { dayKey, doneSets, esc, fmtLong, number, volumeOf } from '../util.js';
-import { sessionStarted } from '../workout.js';
+import { reconcileActive, resetWorkoutUi, sessionExercises, sessionStarted } from '../workout.js';
 import { empty } from './shell.js';
 
 // The week ring in the hero: sessions done against the weekly goal.
@@ -43,23 +35,25 @@ export function view() {
   );
 
   let { day: next, label: nextLabel } = nextSession(plan, history, today);
-  const active = getActive();
-  const activeDay =
-    active && active.planId != null ? findPlan(active.planId)?.days.find((d) => d.id === active.dayId) : null;
-  const freeActive = !!(active && active.planId == null && sessionStarted(active));
-  const resume = freeActive || !!(activeDay?.exercises.length && sessionStarted(active));
-  if (freeActive) next = { id: '', name: active.dayName, exercises: active.exercises || [] };
-  else if (resume) next = activeDay;
-  if (resume) nextLabel = t('home.resumeLabel');
+  // A running workout leads the screen, whatever became of its plan day in the meantime.
+  const active = reconcileActive();
+  const resume = !!(active && sessionStarted(active));
+  const freeActive = resume && active.planId == null;
+  if (resume) {
+    next = { id: active.dayId || '', name: active.dayName, exercises: sessionExercises(active) };
+    nextLabel = t('home.resumeLabel');
+  }
   const startAttr = freeActive
     ? 'id="startFree"'
     : next?.exercises.length
-      ? `data-start="${next.id}" data-plan="${resume && !freeActive ? active.planId : plan.id}"`
+      ? `data-start="${next.id}" data-plan="${resume ? active.planId : plan.id}"`
       : 'id="editActivePlan"';
   const nextCard = next
     ? `<section class="next-card ${resume ? 'resume-card' : ''} ${next.exercises.length ? '' : 'empty-plan-card'}"><span class="next-label">${esc(next.exercises.length ? nextLabel : t('home.completePlan'))}</span>${readyDays.length ? weekRing(stats.thisWeek, goal) : ''}<h2>${esc(next.name)}</h2><p>${
         resume
-          ? plural(doneSets(active), 'home.setsDone')
+          ? doneSets(active)
+            ? plural(doneSets(active), 'home.setsDone')
+            : t('home.valuesTyped')
           : next.exercises.length
             ? `${plural(next.exercises.length, 'exercises')} · ${plural(setCount(next), 'sets')}`
             : t('home.pickExercises')
@@ -98,6 +92,8 @@ async function start(planId, dayId) {
       danger: true,
     });
     if (!ok) return;
+    clearActive();
+    resetWorkoutUi();
   }
   navigate('workout', { planId, dayId });
 }
@@ -116,6 +112,7 @@ export function bind() {
   document.querySelector('#discardSession')?.addEventListener('click', () => {
     const session = getActive();
     clearActive();
+    resetWorkoutUi();
     render();
     undoToast(t('home.discarded', { name: session?.dayName || '' }), () => {
       saveActive(session);

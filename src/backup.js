@@ -242,7 +242,7 @@ export function validateBackup(data) {
     rest: asNum(s.rest, 90, 0, 600),
     increment: asNum(s.increment, 2.5, 0.25, 50),
     showRir: !!s.showRir,
-    restTimer: !!s.restTimer,
+    restTimer: s.restTimer !== false,
     restNotify: !!s.restNotify,
     unit: s.unit === 'lbs' ? 'lbs' : 'kg',
     weeklyGoal: asNum(s.weeklyGoal, 0, 0, 14),
@@ -282,23 +282,35 @@ export function validateBackup(data) {
 }
 
 // Replaces all local data with the validated backup. Returns the number of photos that could not be stored.
+// Throws when local storage is full; the existing data then stays as it was.
 export async function importBackup(backup) {
+  const keys = [LS.plans, LS.history, LS.body, LS.settings, LS.exercisePrefs, LS.customExercises];
+  const before = keys.map((key) => localStorage.getItem(key));
+  const body = backup.body.map(({ photo, ...rest }) => ({ ...rest, hasPhoto: !!photo }));
+  const stored = [
+    savePlans(backup.plans),
+    saveHistory(backup.history),
+    saveBody(body),
+    saveSettings(backup.settings),
+    savePrefs(backup.exercisePrefs),
+    saveCustomExercises(backup.customExercises || []),
+  ].every(Boolean);
+  if (!stored) {
+    keys.forEach((key, i) =>
+      before[i] === null ? localStorage.removeItem(key) : localStorage.setItem(key, before[i])
+    );
+    throw new Error('storage');
+  }
   let failed = 0;
   await photos.clear().catch(() => {});
   for (const entry of backup.body) {
     if (!entry.photo) continue;
     await photos.set(entry.id, entry.photo).catch(() => {
       failed++;
-      entry.photo = '';
+      body.find((b) => b.id === entry.id).hasPhoto = false;
     });
   }
-  const body = backup.body.map(({ photo, ...rest }) => ({ ...rest, hasPhoto: !!photo }));
-  savePlans(backup.plans);
-  saveHistory(backup.history);
-  saveBody(body);
-  saveSettings(backup.settings);
-  savePrefs(backup.exercisePrefs);
-  saveCustomExercises(backup.customExercises || []);
+  if (failed) saveBody(body);
   // Older backups keep custom exercises inside plans; move them into the store like the migration does.
   promoteCustomExercises();
   clearActive();

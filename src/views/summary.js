@@ -4,6 +4,7 @@ import { exerciseName, groupLabel } from '../library.js';
 import { addDay, dayFromSession } from '../plans.js';
 import { headlineKind, sessionRecords } from '../records.js';
 import { navigate, render } from '../render.js';
+import { previousView } from '../router.js';
 import { describeSet } from '../sets.js';
 import { shareText, summaryText } from '../share.js';
 import { state } from '../state.js';
@@ -11,7 +12,7 @@ import { setsByGroup } from '../stats.js';
 import { activePlan, getHistory, persistPlan } from '../storage.js';
 import { toast } from '../ui.js';
 import { fmtVolume } from '../units.js';
-import { esc, number } from '../util.js';
+import { esc, exerciseKey, number } from '../util.js';
 import * as home from './home.js';
 
 // Headline records of the session with the set that achieved them.
@@ -19,8 +20,10 @@ function newRecords(session) {
   return sessionRecords(session)
     .filter((r) => r.kind === headlineKind(r.trackType))
     .map((r) => {
-      const entry = session.entries.find((e) => (e.libraryId || e.exerciseId) === r.key);
-      const best = entry?.sets.find((s) => s.pr) || entry?.sets[entry.sets.length - 1] || {};
+      const entry = session.entries.find((e) => exerciseKey(e) === r.key);
+      // Each flagged set beat the one before it, so the last one is the best.
+      const flagged = entry?.sets.filter((s) => s.pr) || [];
+      const best = flagged[flagged.length - 1] || entry?.sets[entry.sets.length - 1] || {};
       return { ...r, set: best, headline: true };
     });
 }
@@ -49,9 +52,10 @@ export function view() {
 const savedAsDay = new Set();
 
 export function bind() {
-  document
-    .querySelector('#summaryDone')
-    ?.addEventListener('click', () => navigate('home', {}, { replace: true }));
+  document.querySelector('#summaryDone')?.addEventListener('click', () =>
+    // Straight back to where the workout started, without a second "Heute" in the history.
+    previousView() === 'home' ? history.back() : navigate('home', {}, { replace: true })
+  );
   document
     .querySelector('#summaryView')
     ?.addEventListener('click', () =>

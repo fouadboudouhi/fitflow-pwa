@@ -14,7 +14,7 @@ const historyRows = (rows) =>
     ? `<div class="history-rows">${rows
         .map(
           (r) =>
-            `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(shortSet(s, r.trackType))}${s.pr ? `<i class="pr-chip">${t('workout.pr')}</i>` : ''}`).join(' · ')}</b><small>${esc(describeBest(r.best, r.trackType))}</small></div>`
+            `<div class="history-row"><span>${fmtLong(r.day)}</span><b>${r.sets.map((s) => `${esc(shortSet(s, r.trackType))}${s.pr ? `<i class="pr-chip">${t('workout.pr')}</i>` : ''}`).join(' · ')}</b><small>${esc(describeBest(r.best, r.trackType, r.bestSet))}</small></div>`
         )
         .join('')}</div>`
     : `<p class="muted">${t('workout.noHistory')}</p>`;

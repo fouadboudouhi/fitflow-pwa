@@ -41,6 +41,44 @@ export const newSetFor = (trackType, overrides = {}) => ({
   ...overrides,
 });
 
+// The fields a set of this exercise type records, in column order.
+const FIELDS = {
+  weight_reps: ['weight', 'reps'],
+  reps: ['weight', 'reps'],
+  time: ['time', 'weight'],
+  distance_time: ['distance', 'time'],
+};
+const isEmpty = (value) => value === '' || value == null;
+// Empty fields take the value that is shown in grey: the last session's, or the set before.
+export function fillFromReference(set, reference, trackType) {
+  if (!reference) return set;
+  for (const field of FIELDS[trackType] || FIELDS.weight_reps)
+    if (isEmpty(set[field]) && number(reference[field]) > 0) set[field] = reference[field];
+  return set;
+}
+// Can this set be ticked? It needs what its type records; weight × reps accepts a typed 0 kg.
+export function setReady(set, trackType) {
+  switch (trackType) {
+    case 'reps':
+      return number(set?.reps) > 0;
+    case 'time':
+      return number(set?.time) > 0;
+    case 'distance_time':
+      return number(set?.distance) > 0 || number(set?.time) > 0;
+    default:
+      return number(set?.reps) > 0 && !isEmpty(set?.weight);
+  }
+}
+// The field to fill in first when a set cannot be ticked yet.
+export const missingField = (set, trackType) =>
+  trackType === 'weight_reps' && isEmpty(set?.weight)
+    ? 'weight'
+    : trackType === 'time'
+      ? 'time'
+      : trackType === 'distance_time'
+        ? 'distance'
+        : 'reps';
+
 // A completed working set counts (volume, records, history) once it holds what its type needs.
 export function setComplete(set, trackType) {
   if (!set?.done || !isWorkSet(set)) return false;
@@ -124,14 +162,16 @@ export function describeSet(set, trackType) {
   }
 }
 // Best value of a history row in words: estimated 1RM, reps, time or distance.
-export function describeBest(score, trackType) {
+export function describeBest(score, trackType, set) {
   switch (trackType) {
     case 'reps':
       return t('exercise.best', { value: plural(Math.floor(score), 'reps') });
     case 'time':
       return t('exercise.best', { value: fmtDuration(score) });
     case 'distance_time':
-      return t('exercise.best', { value: fmtDistance(score) });
+      return t('exercise.best', {
+        value: number(set?.distance) ? fmtDistance(set.distance) : fmtDuration(set?.time),
+      });
     default:
       return t('workout.e1rm', { weight: fmtWeight(score, 0) });
   }

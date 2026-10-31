@@ -745,7 +745,7 @@ a {
   color: var(--green-ink);
   font-size: 28px;
 }
-.plan-exercise-main h3 {
+.plan-exercise-main h2 {
   margin: 1px 0 3px;
   font-size: 17px;
 }
@@ -4527,7 +4527,7 @@ html[data-theme='dark'] .schedule-mode label:has(input:checked) {
 .plan-exercise-row > .custom-exercise-icon {
   background: var(--cloud);
 }
-.plan-exercise-main h3 {
+.plan-exercise-main h2 {
   font-size: 16px;
   font-weight: 600;
   line-height: 1.25;
@@ -4967,7 +4967,7 @@ body {
   font-size: 16px;
   min-height: 42px;
 }
-.plan-exercise-main h3 {
+.plan-exercise-main h2 {
   font-size: 15px;
 }
 .editor-day-tabs button {
@@ -6154,7 +6154,7 @@ textarea {
   border-radius: 13px;
 }
 .plan-exercise-main > h3,
-.plan-exercise-main h3 {
+.plan-exercise-main h2 {
   margin: 0;
   font-size: 14.5px;
   font-weight: 700;

@@ -42,12 +42,12 @@ const measures = (e) =>
     .map((x) => `${x[0]} ${esc(x[1])} cm`)
     .join(' · ') || t('body.noMeasures');
 const numberField = (name, label) =>
-  `<label><span>${esc(t('body.cm', { label }))}</span><input type="number" step="0.1" name="${name}"></label>`;
+  `<label><span>${esc(t('body.cm', { label }))}</span><input type="number" step="any" min="0" name="${name}"></label>`;
 
 export function view() {
   const entries = getBody();
   return `<main class="shell">${parentRow('more')}<section class="page-head compact"><h1>${t('body.title')}</h1></section>
-    <form class="body-form" id="bodyForm"><label><span>${t('body.date')}</span><input type="date" name="date" value="${dayKey()}" required></label><label><span>${t('body.weight', { unit: unit() })}</span><input type="number" step="0.1" name="weight"></label><details class="more-fields"><summary>${t('body.moreFields')}</summary><div class="more-fields-grid">${numberField('waist', t('body.waist'))}${numberField('chest', t('body.chest'))}${numberField('arm', t('body.arm'))}${numberField('thigh', t('body.thighLong'))}<label class="photo-field"><span>${t('body.photo')}</span><input type="file" name="photo" accept="image/*"></label></div></details><button class="primary" type="submit">${t('common.save')}</button></form>
+    <form class="body-form" id="bodyForm" novalidate><label><span>${t('body.date')}</span><input type="date" name="date" value="${dayKey()}" required></label><label><span>${t('body.weight', { unit: unit() })}</span><input type="number" step="any" min="0" name="weight"></label><details class="more-fields"><summary>${t('body.moreFields')}</summary><div class="more-fields-grid">${numberField('waist', t('body.waist'))}${numberField('chest', t('body.chest'))}${numberField('arm', t('body.arm'))}${numberField('thigh', t('body.thighLong'))}<label class="photo-field"><span>${t('body.photo')}</span><input type="file" name="photo" accept="image/*"></label></div></details><button class="primary" type="submit">${t('common.save')}</button></form>
     ${entries.some((x) => x.weight) ? `<section class="chart-card"><h2>${t('body.chart')}</h2><canvas id="bodyChart" height="210" role="img" aria-label="${t('body.chart')}"></canvas></section>` : ''}
     <section class="body-grid">${entries.map((e) => `<article class="body-entry">${photoMarkup(e)}<div><span class="entry-date">${fmtDate(e.day || e.date)}</span><h3>${e.weight ? fmtWeight(e.weight) : t('body.entry')}</h3><p>${measures(e)}</p></div><button class="icon-btn danger" data-delete-body="${e.id}" aria-label="${t('body.deleteEntry')}">${icon('close')}</button></article>`).join('')}</section></main>`;
 }
@@ -66,15 +66,20 @@ export function bind() {
     const f = new FormData(e.currentTarget);
     const file = f.get('photo');
     const day = dayKey(f.get('date')) || dayKey();
+    const positive = (name) => Math.max(0, number(f.get(name)));
+    if (!file?.size && !['weight', 'waist', 'chest', 'arm', 'thigh'].some(positive)) {
+      toast(t('body.emptyEntry'));
+      return;
+    }
     const entry = {
       id: uid(),
       date: new Date(`${day}T12:00:00`).toISOString(),
       day,
-      weight: number(fromDisplay(f.get('weight'))) || '',
-      waist: number(f.get('waist')) || '',
-      chest: number(f.get('chest')) || '',
-      arm: number(f.get('arm')) || '',
-      thigh: number(f.get('thigh')) || '',
+      weight: Math.max(0, number(fromDisplay(f.get('weight')))) || '',
+      waist: positive('waist') || '',
+      chest: positive('chest') || '',
+      arm: positive('arm') || '',
+      thigh: positive('thigh') || '',
       hasPhoto: false,
     };
     if (file?.size) {

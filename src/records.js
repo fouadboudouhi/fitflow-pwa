@@ -71,10 +71,12 @@ function mark(session, bests) {
     const trackType = entryTrackType(entry);
     const kind = headlineKind(trackType);
     let best = bests[key]?.[kind]?.value || 0;
+    // The first session of an exercise sets the baseline; it has nothing to beat yet.
+    const hasBaseline = best > 0;
     for (const set of entry.sets) {
       const value = setComplete(set, trackType) ? valueOf(kind, set) : 0;
-      set.pr = value > best;
-      if (set.pr) best = value;
+      set.pr = hasBaseline && value > best;
+      if (value > best) best = value;
     }
   }
 }
@@ -109,7 +111,7 @@ export function sessionRecords(session, history = getHistory()) {
     for (const kind of KINDS[record.trackType] || KINDS.weight_reps) {
       const value = record[kind]?.value || 0;
       const previous = earlier[record.key]?.[kind]?.value || 0;
-      if (value > previous)
+      if (previous && value > previous)
         result.push({
           key: record.key,
           item: record.item,

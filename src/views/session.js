@@ -44,7 +44,7 @@ export function view() {
     <section class="page-head compact"><div><h1>${esc(session.dayName || t('session.title'))}</h1><p>${fmtLong(session.day || session.finishedAt)} · ${esc(session.planName || '')}</p></div></section>
     <div class="stat-row"><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div></div>
     ${markers.length || records ? `<div class="chip-row">${markers.map((m) => `<span class="chip">${m}</span>`).join('')}${records ? `<span class="chip chip-green">${plural(records, 'records')}</span>` : ''}</div>` : ''}
-    <form id="sessionForm" class="session-edit">${session.entries
+    <form id="sessionForm" class="session-edit" novalidate>${session.entries
       .map((e, ei) => {
         const trackType = entryTrackType(e);
         return `<section class="edit-exercise"><h2>${esc(exerciseName(e))}</h2><div class="edit-head"><span>${t('workout.set')}</span>${setColumns(
@@ -70,14 +70,15 @@ export function bind() {
       const set = session.entries[number(field.dataset.e)]?.sets[number(field.dataset.s)];
       if (!set) return;
       const name = field.dataset.edit;
+      if (field.type === 'checkbox') {
+        set[name] = field.checked;
+        return;
+      }
+      // A field that still shows the stored value stays untouched, so converting units cannot shift it.
+      if (field.value === fieldDisplay(name, set)) return;
+      const value = field.value === '' ? '' : String(Math.max(0, number(field.value)));
       set[name] =
-        field.type === 'checkbox'
-          ? field.checked
-          : name === 'weight'
-            ? fromDisplay(field.value)
-            : name === 'time'
-              ? parseDuration(field.value)
-              : field.value;
+        name === 'weight' ? fromDisplay(value) : name === 'time' ? parseDuration(field.value) : value;
     });
     saveEditedSession(session);
     render();

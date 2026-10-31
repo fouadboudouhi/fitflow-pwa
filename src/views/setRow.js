@@ -4,12 +4,12 @@ import { t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { fmtDuration, setType, setTypeMark } from '../sets.js';
 import { fieldValue, toDisplay, unit } from '../units.js';
-import { esc } from '../util.js';
+import { esc, number } from '../util.js';
 
 // [field, column label, input attributes, unit shown after the value] for the two value columns of an exercise type.
 export function setColumns(trackType) {
   const u = unit();
-  const weight = (label) => ['weight', label, 'inputmode="decimal" step="0.5" min="0"', u];
+  const weight = (label) => ['weight', label, 'inputmode="decimal" step="any" min="0"', u];
   const reps = ['reps', t('workout.reps'), 'inputmode="numeric" min="0"', ''];
   const time = ['time', t('workout.time'), 'inputmode="numeric"', ''];
   switch (trackType) {
@@ -18,7 +18,7 @@ export function setColumns(trackType) {
     case 'time':
       return [time, weight(`+${u}`)];
     case 'distance_time':
-      return [['distance', t('workout.distance'), 'inputmode="decimal" step="0.01" min="0"', 'km'], time];
+      return [['distance', t('workout.distance'), 'inputmode="decimal" step="any" min="0"', 'km'], time];
     default:
       return [weight(t('workout.weight')), reps];
   }
@@ -36,17 +36,19 @@ export const fieldDisplay = (name, set) =>
         ? ''
         : fmtDuration(set.time)
       : (set[name] ?? '');
-const placeholderFor = (name, last) => {
+const lastValue = (name, last) => {
   if (!last) return '';
-  if (name === 'weight') return last.weight ? String(toDisplay(last.weight)) : '';
-  if (name === 'time') return last.time ? fmtDuration(last.time) : '';
-  return last[name] ? String(last[name]) : '';
+  if (name === 'weight') return number(last.weight) ? String(toDisplay(last.weight)) : '';
+  if (name === 'time') return number(last.time) ? fmtDuration(last.time) : '';
+  return number(last[name]) ? String(last[name]) : '';
 };
+// What an empty field shows in grey: the value a tick would take over.
+export const placeholderFor = (name, last) => lastValue(name, last) || (name === 'time' ? '0:00' : '–');
 // The input sits on a hidden twin of its text, so the field is exactly as wide as the number and the unit
 // follows it like typeset text. The twin is kept in sync while typing (views/workout.js).
 const field = (name, label, attrs, set, index, exerciseIndex, workNumber, last, suffix = '') => {
   const value = fieldDisplay(name, set);
-  const placeholder = placeholderFor(name, last) || (name === 'time' ? '0:00' : '–');
+  const placeholder = placeholderFor(name, last);
   return `<label><span>${esc(label)}</span><span class="set-value"><span class="set-num"><i class="set-sizer" aria-hidden="true">${esc(value || placeholder)}</i><input aria-label="${esc(t('workout.fieldAria', { field: label, n: workNumber }))}" type="${name === 'time' ? 'text' : 'number'}" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${index}" value="${esc(value)}" placeholder="${esc(placeholder)}"></span>${suffix ? `<u>${esc(suffix)}</u>` : ''}</span></label>`;
 };
 

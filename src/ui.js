@@ -157,6 +157,7 @@ export function actionSheet(title, actions) {
   const list = document.createElement('div');
   list.className = 'action-list';
   let close = () => {};
+  let used = false;
   actions.filter(Boolean).forEach((action) => {
     const button = document.createElement('button');
     button.type = 'button';
@@ -168,6 +169,9 @@ export function actionSheet(title, actions) {
       button.append(hint);
     }
     button.onclick = () => {
+      // A double click would otherwise run the action twice while the sheet fades out.
+      if (used) return;
+      used = true;
       close();
       action.onClick();
     };

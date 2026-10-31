@@ -1,7 +1,8 @@
-const VERSION = 'v48';
+const VERSION = 'v49';
 const CACHE = `volumora-${VERSION}`;
 // Cross-origin exercise GIFs get their own bounded cache so the app shell cache stays small and predictable.
-const MEDIA_CACHE = `volumora-media-${VERSION}`;
+// Its name stays the same across versions: an update must not throw the downloaded animations away.
+const MEDIA_CACHE = 'volumora-media-v1';
 const MEDIA_LIMIT = 120;
 const ASSETS = [
   './',
@@ -128,13 +129,16 @@ self.addEventListener('fetch', (e) => {
       (cached) =>
         cached ||
         fetch(e.request).then((res) => {
-          if (res.ok || res.type === 'opaque')
+          if (res.ok || res.type === 'opaque') {
+            // Cloned right here: once the page starts reading the response, it can no longer be cloned.
+            const copy = res.clone();
             e.waitUntil(
               caches
                 .open(MEDIA_CACHE)
-                .then((c) => c.put(e.request, res.clone()))
+                .then((c) => c.put(e.request, copy))
                 .then(trimMedia)
             );
+          }
           return res;
         })
     )

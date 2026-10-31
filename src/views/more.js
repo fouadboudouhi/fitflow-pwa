@@ -8,8 +8,8 @@ import { state } from '../state.js';
 import { activePlan, getSettings, photos, saveSettings } from '../storage.js';
 import { applyTheme } from '../theme.js';
 import { confirmDialog, infoDialog, toast } from '../ui.js';
-import { fieldValue, fromDisplay, unit } from '../units.js';
-import { esc, fmtDate, number } from '../util.js';
+import { LB_PER_KG, fieldValue, fromDisplay, unit } from '../units.js';
+import { esc, fmtDate, normalizeRange, number, setsCount } from '../util.js';
 import { viewportReport } from '../viewport.js';
 import { mediaCredit, parentRow } from './shell.js';
 
@@ -32,8 +32,8 @@ function settingsView() {
   return `<main class="shell narrow">${parentRow('more')}<section class="page-head compact"><h1>${t('settings.title')}</h1></section><form class="settings-form" id="settingsForm">
     <h2>${t('settings.training')}</h2>
     <label><span>${t('settings.unit')}</span><select name="unit">${option('kg', t('settings.kg'), s.unit)}${option('lbs', t('settings.lbs'), s.unit)}</select></label>
-    <label><span>${t('settings.increment')}</span><div class="unit-input"><input name="increment" type="number" min="0.25" step="0.25" value="${esc(fieldValue(s.increment))}"><i>${unit()}</i></div></label>
-    <label><span>${t('settings.barWeight')}</span><div class="unit-input"><input name="barWeight" type="number" min="0" step="0.5" value="${esc(fieldValue(s.barWeight))}"><i>${unit()}</i></div></label>
+    <label><span>${t('settings.increment')}</span><div class="unit-input"><input name="increment" type="number" min="0" step="any" value="${esc(fieldValue(s.increment))}"><i>${unit()}</i></div></label>
+    <label><span>${t('settings.barWeight')}</span><div class="unit-input"><input name="barWeight" type="number" min="0" step="any" value="${esc(fieldValue(s.barWeight))}"><i>${unit()}</i></div></label>
     <label><span>${t('settings.weeklyGoal')}</span><select name="weeklyGoal">${option('0', t('settings.likePlan', { n: planDays }), String(s.weeklyGoal))}${[1, 2, 3, 4, 5, 6, 7].map((n) => option(String(n), t('settings.perWeek', { n }), String(s.weeklyGoal))).join('')}</select></label>
     <label><span>${t('settings.defaultSets')}</span><select name="defaultSets">${[1, 2, 3, 4, 5, 6].map((n) => option(String(n), String(n), String(s.defaultSets))).join('')}</select></label>
     <label><span>${t('settings.defaultRange')}</span><input name="defaultRange" value="${esc(s.defaultRange)}" maxlength="20" placeholder="8–12"></label>
@@ -59,6 +59,17 @@ export function view() {
   return moreView();
 }
 
+// A weight field that still shows the stored value keeps it, so converting units cannot shift it.
+const typedWeight = (form, name, stored) =>
+  form.get(name) === fieldValue(stored) ? stored : Math.max(0, number(fromDisplay(form.get(name))));
+// The usual steps of a unit, swapped when the unit changes; values set by hand stay.
+const near = (a, b) => Math.abs(a - b) < 0.01;
+const inUnit = (value, unitName, kg, lbs) => {
+  if (unitName === 'lbs' && near(value, kg)) return lbs / LB_PER_KG;
+  if (unitName === 'kg' && near(value, lbs / LB_PER_KG)) return kg;
+  return value;
+};
+
 async function saveForm(form) {
   const f = new FormData(form);
   const current = getSettings();
@@ -81,21 +92,25 @@ async function saveForm(form) {
     ...current,
     language: f.get('language') || 'auto',
     theme: f.get('theme'),
-    rest: number(f.get('rest')),
-    increment: number(fromDisplay(f.get('increment'))) || current.increment,
-    barWeight: number(fromDisplay(f.get('barWeight'))),
+    rest: Math.min(600, Math.max(0, number(f.get('rest')))),
+    increment: typedWeight(f, 'increment', current.increment) || current.increment,
+    barWeight: typedWeight(f, 'barWeight', current.barWeight),
     showRir: f.get('showRir') === 'on',
     restTimer,
     restNotify,
     restSound: f.get('restSound') === 'on',
     restVibrate: f.get('restVibrate') === 'on',
     weeklyGoal: number(f.get('weeklyGoal')),
-    defaultSets: number(f.get('defaultSets')) || 3,
-    defaultRange: String(f.get('defaultRange') || '').trim() || '8–12',
+    defaultSets: setsCount(f.get('defaultSets')),
+    defaultRange: normalizeRange(f.get('defaultRange')),
   };
   const newUnit = f.get('unit') === 'lbs' ? 'lbs' : 'kg';
   const unitChanged = newUnit !== current.unit;
   next.unit = newUnit;
+  if (unitChanged) {
+    next.increment = inUnit(next.increment, newUnit, 2.5, 5);
+    next.barWeight = inUnit(next.barWeight, newUnit, 20, 45);
+  }
   saveSettings(next);
   if (!restTimer) state.restUntil = 0;
   applyTheme();
@@ -127,7 +142,13 @@ export async function importBackupFile(input, { replace = false } = {}) {
     input.value = '';
     return false;
   }
-  const failed = await importBackup(backup);
+  let failed = 0;
+  try {
+    failed = await importBackup(backup);
+  } catch {
+    input.value = '';
+    return false;
+  }
   setLanguage(getSettings().language);
   applyTheme();
   navigate('home', {}, { replace });
@@ -167,7 +188,7 @@ export async function importCsvFile(input) {
   toast(
     [
       plural(result.added, 'backup.csvImported'),
-      result.skipped ? t('backup.csvSkipped', { n: result.skipped }) : '',
+      result.skipped ? plural(result.skipped, 'backup.csvSkipped') : '',
     ]
       .filter(Boolean)
       .join(' ')

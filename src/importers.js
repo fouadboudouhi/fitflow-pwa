@@ -462,7 +462,13 @@ function fromStrong(records, keys, unit, source) {
       /^[wdf]?\d*$/i.test(r.set_order) && r.set_order !== ''
         ? buildSet({
             type: strongType(r.set_order),
-            weight: toKg(r.weight, r.weight_unit),
+            // Some exports name the unit in the header: "Weight (kg)".
+            weight:
+              r.weight_kg !== undefined
+                ? number(r.weight_kg)
+                : r.weight_lbs !== undefined
+                  ? number(r.weight_lbs) * LB_TO_KG
+                  : toKg(r.weight, r.weight_unit),
             reps: number(r.reps),
             time: number(r.seconds),
             distance: toKm(r.distance, r.distance_unit),

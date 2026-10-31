@@ -2,7 +2,7 @@
 import { t } from './i18n.js';
 import { EXERCISE_LIBRARY, exerciseName, libraryBySourceName } from './library.js';
 import { getSettings } from './storage.js';
-import { clone, dayKey, uid, weekdayIndex } from './util.js';
+import { clone, dayKey, setsCount, uid, weekdayIndex } from './util.js';
 
 export const scheduleSlots = (count) =>
   ({ 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4], 6: [0, 1, 2, 3, 4, 5] })[count] ||
@@ -24,7 +24,12 @@ export const planExerciseFromLibrary = (source) => {
     note: '',
   };
 };
-export const setCount = (day) => day.exercises.reduce((sum, ex) => sum + Number(ex.sets || 0), 0);
+export const setCount = (day) => day.exercises.reduce((sum, ex) => sum + setsCount(ex.sets), 0);
+// A copied exercise gets its own id; the old one stays as the link to the catalogue and the history.
+const renewExerciseId = (ex) => {
+  ex.libraryId ||= ex.id;
+  ex.id = uid();
+};
 
 export function createEmptyPlan() {
   const day = { id: uid(), name: t('day.first'), subtitle: '', exercises: [] };
@@ -48,9 +53,7 @@ export function duplicatePlan(plan) {
     const oldId = day.id;
     day.id = uid();
     assignments[day.id] = oldAssignments[oldId];
-    day.exercises.forEach((ex) => {
-      ex.id = uid();
-    });
+    day.exercises.forEach(renewExerciseId);
   });
   copy.schedule = { mode: copy.schedule?.mode || 'flexible', assignments };
   return copy;
@@ -73,9 +76,7 @@ export function duplicateDay(plan, index) {
   const copy = clone(source);
   copy.id = uid();
   copy.name = `${source.name}${t('plan.copySuffix')}`.slice(0, 60);
-  copy.exercises.forEach((ex) => {
-    ex.id = uid();
-  });
+  copy.exercises.forEach(renewExerciseId);
   return addDay(plan, copy);
 }
 // Moves one exercise to the end of another day of the same plan; returns the moved exercise.
@@ -292,11 +293,11 @@ export function nextSession(plan, history, today = new Date()) {
   if (!plan?.days?.length) return { day: null, label: t('home.next') };
   const lastOfPlan = history.find((h) => h.planId === plan.id);
   const lastIndex = plan.days.findIndex((d) => d.id === lastOfPlan?.dayId);
-  let day = plan.days[lastIndex >= 0 ? (lastIndex + 1) % plan.days.length : 0];
-  let label = t('home.next');
-  const ready = plan.days.filter((d) => d.exercises.length);
-  if (day && !day.exercises.length && ready.length) day = ready[0];
-  return { day, label };
+  const start = lastIndex >= 0 ? lastIndex + 1 : 0;
+  const count = plan.days.length;
+  // The rotation walks past days without exercises, so one empty day cannot hold it on the same day for ever.
+  const rotation = plan.days.map((_, i) => plan.days[(start + i) % count]);
+  return { day: rotation.find((d) => d.exercises.length) || rotation[0], label: t('home.next') };
 }
 
 // Weekly goal: sessions per calendar week (Monday start). Streak counts consecutive weeks that met the goal,

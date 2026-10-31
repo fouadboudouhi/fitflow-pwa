@@ -10,6 +10,21 @@ export const esc = (value) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]
   );
 export const number = (value) => Number(String(value ?? '').replace(',', '.')) || 0;
+// A plan exercise has 1 to 12 sets; anything else that got stored falls back to a usable count.
+export const setsCount = (value) => {
+  const n = Math.round(number(value));
+  return n > 0 ? Math.min(12, n) : 3;
+};
+// "8-12", "8 – 12" and "12–8" read as "8–12"; text such as "30 s" stays as typed; empty keeps the fallback.
+export function normalizeRange(value, fallback = '8–12') {
+  const text = String(value ?? '').trim();
+  if (!text) return fallback;
+  if (/[^\d\s\-–—]/.test(text)) return text.slice(0, 20);
+  const nums = (text.match(/\d+/g) || []).map(Number).filter((n) => n > 0);
+  if (!nums.length) return fallback;
+  const [a, b = a] = nums;
+  return a === b ? String(a) : `${Math.min(a, b)}–${Math.max(a, b)}`;
+}
 export const rangeMax = (range) => Math.max(...(String(range).match(/\d+/g)?.map(Number) || [12]));
 export const titleCase = (value) =>
   String(value)
@@ -66,8 +81,9 @@ export const volumeOf = (session) =>
     (sum, entry) => sum + entry.sets.reduce((s, set) => s + setVolume(set, entry.trackType), 0),
     0
   ) || 0;
+// Completed working sets; warm-ups stay out, like in every other count of the app.
 export const doneSets = (session) =>
-  session?.entries?.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0) || 0;
+  session?.entries?.reduce((n, e) => n + e.sets.filter((x) => x.done && isWorkSet(x)).length, 0) || 0;
 // Epley estimate of the one-repetition maximum.
 export const e1rm = (weight, reps) => number(weight) * (1 + number(reps) / 30);
 export const RANGES = { '4w': 28, '3m': 91, '1y': 365, all: Infinity };
