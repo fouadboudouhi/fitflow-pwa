@@ -7096,3 +7096,43 @@ button.chat-row > .icon {
 .dictate .primary:disabled {
   opacity: 0.45;
 }
+
+/* iPhones zoom into a field with text under 16px when it gets focus, and double taps zoom too; both shift the layout.
+   Every field stays at 16px or more, and pinching stays possible for those who need it. */
+* {
+  touch-action: manipulation;
+}
+input,
+select,
+textarea,
+.chart-card select,
+.chart-section select,
+.library-filter select,
+.exercise-note textarea {
+  font-size: 16px;
+}
+.toggle-setting input,
+.settings-form .toggle-setting input[type='checkbox'] {
+  font-size: 0;
+}
+.weekly-sets .bar-row {
+  grid-template-columns: 76px 1fr 28px;
+}
+.weekly-sets .bar-row b {
+  min-width: 0;
+  text-align: right;
+}
+/* Sits over the bar tracks: the name column and its gap on the left, the value column and its gap on the right. */
+.bar-scale {
+  position: relative;
+  height: 14px;
+  margin: 0 40px 0 88px;
+}
+.bar-scale small {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 14px;
+}

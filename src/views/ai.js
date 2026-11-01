@@ -33,6 +33,7 @@ const LABELS = {
 };
 const CLEAN = { aiInput: '', aiError: '', aiErrorDetail: '', aiAutoSend: false };
 const NEAR_BOTTOM = 80;
+const AT_END = 8;
 const MAX_SOURCES = 5;
 
 // One turn at a time. It keeps running while the person looks elsewhere; the answer waits in the chat.
@@ -116,7 +117,11 @@ export function view() {
 }
 
 const scroller = () => document.querySelector('#chatScroll');
-const nearBottom = (box) => box.scrollHeight - box.scrollTop - box.clientHeight < NEAR_BOTTOM;
+const fromBottom = (box) => box.scrollHeight - box.scrollTop - box.clientHeight;
+const nearBottom = (box) => fromBottom(box) < NEAR_BOTTOM;
+// Whether the chat stays on the latest text while it arrives. Any move upwards ends that, however small, and only
+// scrolling back down to the very end brings it back.
+let following = true;
 const toBottom = () => {
   const box = scroller();
   if (box) box.scrollTop = box.scrollHeight;
@@ -142,9 +147,8 @@ function paintLive() {
   const box = scroller();
   const element = document.querySelector('#chatLive');
   if (!box || !element) return;
-  const follow = nearBottom(box);
   element.innerHTML = liveHtml();
-  if (follow) toBottom();
+  if (following) toBottom();
 }
 
 const sizeInput = (input) => {
@@ -170,6 +174,7 @@ async function sendChat(text) {
   running = job;
   live = { text: '', status: '', actions: [] };
   let renderAfter = false;
+  following = true;
   paintChat();
   toBottom();
   const execute = async (name, input) => {
@@ -239,8 +244,7 @@ async function sendChat(text) {
       live = { text: '', status: '', actions: [] };
       if (renderAfter && state.view === 'ai') render();
       else paintChat();
-      const box = scroller();
-      if (box && nearBottom(box)) toBottom();
+      if (following) toBottom();
     }
   }
 }
@@ -361,17 +365,40 @@ function bindSetup() {
 let chatResize = null;
 function keepLatestVisible() {
   const box = scroller();
-  let pinned = true;
+  following = !running || nearBottom(box);
+  let lastTop = box.scrollTop;
   box.addEventListener(
     'scroll',
     () => {
-      pinned = nearBottom(box);
+      const top = box.scrollTop;
+      const left = fromBottom(box);
+      if (top < lastTop && left > AT_END) following = false;
+      else if (top > lastTop && left <= AT_END) following = true;
+      lastTop = top;
     },
     { passive: true }
   );
+  // A finger on the chat must not be pulled along by new text before its first scroll event.
+  let touchTop = null;
+  let followedAtTouch = false;
+  box.addEventListener(
+    'touchstart',
+    () => {
+      touchTop = box.scrollTop;
+      followedAtTouch = following;
+      following = false;
+    },
+    { passive: true }
+  );
+  const release = () => {
+    if (followedAtTouch && touchTop !== null && box.scrollTop >= touchTop) following = true;
+    touchTop = null;
+  };
+  box.addEventListener('touchend', release, { passive: true });
+  box.addEventListener('touchcancel', release, { passive: true });
   chatResize?.disconnect();
   chatResize = new ResizeObserver(() => {
-    if (pinned) toBottom();
+    if (following) toBottom();
   });
   chatResize.observe(box);
 }

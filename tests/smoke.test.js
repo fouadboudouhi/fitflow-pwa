@@ -2007,3 +2007,145 @@ test('the assistant knows the running workout, the summary and what it remembers
   await page.click('#aiBack');
   await page.waitForSelector('#summaryAi');
 });
+
+test('reading further up is not interrupted while a reply is still being written', async () => {
+  await addAiKey();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    const encoder = new TextEncoder();
+    const realFetch = window.fetch;
+    window.fetch = (url, options) => {
+      if (!String(url).includes('api.anthropic.com')) return realFetch(url, options);
+      const body = new ReadableStream({
+        start(controller) {
+          window.pushEvent = (event) =>
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          window.endStream = () => controller.close();
+        },
+      });
+      return Promise.resolve(
+        new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+      );
+    };
+  });
+  await page.click('[data-nav="ai"]');
+  await page.fill('#aiInput', 'Erzähl mir viel');
+  await page.click('#aiSend');
+  await page.waitForFunction(() => window.pushEvent);
+  const push = async (lines) => {
+    await page.evaluate((count) => {
+      window.pushEvent({
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text: 'Eine Zeile Text.\n\n'.repeat(count) },
+      });
+    }, lines);
+    await page.waitForTimeout(150);
+  };
+  const scroll = () =>
+    page.$eval('#chatScroll', (box) => ({
+      top: box.scrollTop,
+      left: box.scrollHeight - box.scrollTop - box.clientHeight,
+    }));
+  await page.evaluate(() =>
+    window.pushEvent({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } })
+  );
+  await push(60);
+  assert.ok((await scroll()).left < 8, 'new text is followed');
+  // A small move up is enough, even inside the zone that counts as near the end.
+  await page.$eval('#chatScroll', (box) => {
+    box.scrollTop -= 30;
+  });
+  await page.waitForTimeout(50);
+  const held = (await scroll()).top;
+  await push(20);
+  assert.equal((await scroll()).top, held, 'new text does not pull the reader back');
+  await page.$eval('#chatScroll', (box) => {
+    box.scrollTop = box.scrollHeight;
+  });
+  await page.waitForTimeout(50);
+  await push(20);
+  assert.ok((await scroll()).left < 8, 'back at the end it follows again');
+  await page.evaluate(() => {
+    window.pushEvent({ type: 'content_block_stop', index: 0 });
+    window.pushEvent({ type: 'message_delta', delta: { stop_reason: 'end_turn' } });
+    window.endStream();
+  });
+  await page.waitForFunction(() => !document.querySelector('#chatLive'));
+});
+
+test('progress explains itself: whole counts, labelled marks, a hint instead of an empty chart', async () => {
+  await seedHistory();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(async () => {
+    const { getHistory, saveHistory, saveBody } = await import('/src/storage.js');
+    saveHistory(getHistory().slice(0, 1));
+    saveBody([{ id: 'b1', date: new Date().toISOString(), weight: 80 }]);
+    const { navigate } = await import('/src/render.js');
+    const { state } = await import('/src/state.js');
+    state.analyticsRange = 'all';
+    navigate('analytics');
+  });
+  await page.waitForSelector('.bar-scale');
+  assert.deepEqual(await page.$$eval('.bar-scale small', (marks) => marks.map((m) => m.textContent)), [
+    '10',
+    '20',
+  ]);
+  const alignment = await page.evaluate(() => {
+    const track = document.querySelector('.bar-track.target').getBoundingClientRect();
+    const mark = document.querySelector('.bar-track.target em').getBoundingClientRect();
+    const label = document.querySelector('.bar-scale small').getBoundingClientRect();
+    return {
+      gap: Math.abs(mark.left + mark.width / 2 - (label.left + label.width / 2)),
+      inside: label.left > track.left,
+    };
+  });
+  assert.ok(alignment.gap < 2, `label sits over its mark, off by ${alignment.gap}`);
+  assert.ok(alignment.inside);
+  const value = await page.$eval('.weekly-sets .bar-row b', (b) => b.getBoundingClientRect().right);
+  assert.ok(value <= 390, `the set count stays on screen, ends at ${value}`);
+  assert.ok(await page.$eval('.weekly-sets .bar-row b', (b) => b.scrollWidth <= b.clientWidth + 1));
+  // One workout of the chosen exercise: a hint, and no empty canvas.
+  await page.waitForSelector('#bodyStrengthEmpty:not([hidden])');
+  assert.equal(await page.locator('#bodyStrengthChart').isVisible(), false);
+  assert.equal(await page.locator('#bodyStrengthHint').isVisible(), false);
+  // Count axes draw no halves: record what is written on the canvas.
+  const labels = await page.evaluate(async () => {
+    const written = [];
+    const original = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
+      if (this.canvas.id === 'frequencyChart') written.push(String(text));
+      return original.call(this, text, ...rest);
+    };
+    const { drawAnalytics } = await import('/src/charts.js');
+    const { state } = await import('/src/state.js');
+    drawAnalytics(state.analyticsExercise, 'all');
+    CanvasRenderingContext2D.prototype.fillText = original;
+    return written.filter((text) => /^\d+$/.test(text));
+  });
+  assert.deepEqual(labels.slice(0, 2), ['1', '0']);
+});
+
+test('no field is small enough for an iPhone to zoom into it', async () => {
+  await seedHistory();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const small = () =>
+    page.$$eval('input, select, textarea', (fields) =>
+      fields
+        .filter((f) => f.getClientRects().length && f.type !== 'checkbox' && f.type !== 'file')
+        .filter((f) => parseFloat(getComputedStyle(f).fontSize) < 16)
+        .map((f) => `${f.tagName} ${f.id || f.className || f.getAttribute('aria-label')}`)
+    );
+  for (const view of ['analytics', 'plans', 'more', 'settings', 'body']) {
+    await page.evaluate(async (name) => (await import('/src/render.js')).navigate(name), view);
+    await page.waitForTimeout(50);
+    assert.deepEqual(await small(), [], view);
+  }
+  await page.click('[data-nav="home"]');
+  await page.click('[data-start]');
+  await page.waitForSelector('[data-exercise-menu]');
+  assert.deepEqual(await small(), [], 'workout');
+  await page.click('[data-exercise-menu]');
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.deepEqual(await small(), [], 'workout menu');
+});

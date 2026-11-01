@@ -16,7 +16,7 @@ const fmt = (value, suffix) => `${fmtNumber(Math.round(value))}${suffix}`;
 export function lineChart(
   canvas,
   points,
-  { color = token('--green'), suffix = '', fill = true, secondary = null } = {}
+  { color = token('--green'), suffix = '', fill = true, secondary = null, whole = false } = {}
 ) {
   if (!canvas || !points.length) return;
   const card = canvas.parentElement;
@@ -55,7 +55,9 @@ export function lineChart(
       c.moveTo(pad.l, yy);
       c.lineTo(w - pad.r, yy);
       c.stroke();
-      c.fillText(fmt(max - (i * span) / 2, suffix), 4, yy + 4);
+      const tick = max - (i * span) / 2;
+      // A count has no halves: its middle line stays unlabelled rather than repeating a rounded number.
+      if (!whole || Number.isInteger(tick)) c.fillText(fmt(tick, suffix), 4, yy + 4);
       if (second.length) {
         const text = fmt(max2 - (i * span2) / 2, secondary.suffix || '');
         c.fillStyle = secondary.color || token('--blue');
@@ -257,7 +259,11 @@ export function drawAnalytics(selectedKey, range) {
   });
   // Body weight next to the strength of the selected exercise, both in the display unit.
   const combo = strengthVsBodyweight(historyInRange(range), bodyInRange(range), selectedKey);
-  if (combo.points.length >= 2)
+  const comboReady = combo.points.length >= 2;
+  document.querySelector('#bodyStrengthChart')?.toggleAttribute('hidden', !comboReady);
+  document.querySelector('#bodyStrengthHint')?.toggleAttribute('hidden', !comboReady);
+  document.querySelector('#bodyStrengthEmpty')?.toggleAttribute('hidden', comboReady);
+  if (comboReady)
     lineChart(
       document.querySelector('#bodyStrengthChart'),
       combo.points.slice(-16).map((p) => ({ label: p.label, value: Math.round(toDisplay(p.value)) })),
@@ -280,7 +286,10 @@ export function drawAnalytics(selectedKey, range) {
     weeklyVolume(all, 12).map((p) => ({ label: p.label, value: Math.round(toDisplay(p.value)) })),
     { suffix: ` ${unit()}` }
   );
-  lineChart(document.querySelector('#frequencyChart'), frequency(all, 12), { color: token('--blue') });
+  lineChart(document.querySelector('#frequencyChart'), frequency(all, 12), {
+    color: token('--blue'),
+    whole: true,
+  });
 }
 export function drawBodyChart() {
   lineChart(document.querySelector('#bodyChart'), weightPoints('all'), {
