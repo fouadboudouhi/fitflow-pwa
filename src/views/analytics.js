@@ -89,7 +89,7 @@ export function view() {
 export function bind() {
   document
     .querySelector('#aiReview')
-    ?.addEventListener('click', () => openAi(null, 'analytics', { aiInput: t('ai.reviewQuestion') }));
+    ?.addEventListener('click', () => openAi('analytics', { aiInput: t('ai.reviewQuestion') }));
   document.querySelector('#analyticsExercise')?.addEventListener('change', (e) => {
     state.analyticsExercise = e.target.value;
     drawAnalytics(state.analyticsExercise, state.analyticsRange || '3m');
