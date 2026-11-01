@@ -50,9 +50,15 @@ export const read = (key, fallback) => {
     return fallback;
   }
 };
+// Who wants to know that stored data changed; the optional server copy listens here.
+let changeListener = null;
+export const onDataChange = (listener) => {
+  changeListener = listener;
+};
 export const write = (key, value) => {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    changeListener?.(key);
     return true;
   } catch (err) {
     console.error('Speichern fehlgeschlagen', err);

@@ -1,4 +1,5 @@
 import { deloadHint, deloadQuietDate } from '../deload.js';
+import { syncConfig } from '../sync.js';
 import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
@@ -105,7 +106,8 @@ export function view() {
         : ''
     }
     ${
-      backupDue(history)
+      // With a server of their own the app saves by itself, so nobody needs reminding.
+      backupDue(history) && !syncConfig()
         ? `<section class="list-section"><div class="list"><div class="row backup-row"><button type="button" class="backup-main" id="backupNow"><span class="row-icon">${icon('backup')}</span><span class="row-main"><b>${t('home.backupTitle')}</b><small>${t('home.backupText')}</small></span></button><button type="button" class="text-btn" id="backupLater">${t('home.backupLater')}</button></div></div></section>`
         : ''
     }

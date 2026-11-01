@@ -1649,3 +1649,59 @@ test('a backup keeps the effort rating and drops an invalid one', () => {
   assert.equal(read(4), 4);
   assert.equal(read(9), undefined);
 });
+
+test('the sync server guards its data, refuses stale uploads and keeps versions', async () => {
+  const { createSyncServer } = await import('../sync-server/server.js');
+  const { mkdtemp, rm, readdir } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dataDir = await mkdtemp(join(tmpdir(), 'volumora-sync-'));
+  let clock = Date.UTC(2026, 10, 1);
+  const server = createSyncServer({
+    dataDir,
+    origins: ['https://app.test'],
+    maxBytes: 1000,
+    now: () => clock,
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${server.address().port}/v1/snapshot`;
+  const code = 'a-long-enough-access-code';
+  const request = (options = {}, token = code) =>
+    fetch(url, { ...options, headers: { authorization: `Bearer ${token}`, ...options.headers } });
+  const put = (body, version, token) =>
+    request({ method: 'PUT', body, headers: version ? { 'if-match': `"${version}"` } : {} }, token);
+  try {
+    assert.equal((await request()).status, 404);
+    assert.equal((await put('{"a":1}', null, 'short')).status, 400);
+    assert.equal((await put('{"a":1}')).status, 200, 'the first upload sets the code');
+    assert.equal((await request({}, 'wrong-but-long-enough-code')).status, 401);
+    assert.equal((await put('{"a":2}', null, 'wrong-but-long-enough-code')).status, 401);
+    const first = await request();
+    assert.deepEqual(await first.json(), { a: 1 });
+    const version = first.headers.get('etag').replaceAll('"', '');
+    assert.equal((await put('{"a":2}')).status, 412, 'an upload must name the version it builds on');
+    assert.equal((await put('not json', version)).status, 400);
+    assert.equal((await put(`{"a":"${'x'.repeat(2000)}"}`, version)).status, 413);
+    clock += 1000;
+    const second = await put('{"a":2}', version);
+    assert.equal(second.status, 200);
+    assert.equal((await put('{"a":3}', version)).status, 412, 'an old version can not replace a newer one');
+    assert.deepEqual(await (await request()).json(), { a: 2 });
+    let latest = (await second.json()).version;
+    for (let i = 0; i < 30; i++) {
+      clock += 1000;
+      latest = (await (await put(`{"i":${i}}`, latest)).json()).version;
+    }
+    assert.ok((await readdir(join(dataDir, 'snapshots'))).length <= 21, 'old versions are thinned out');
+    const preflight = await fetch(url, { method: 'OPTIONS', headers: { origin: 'https://app.test' } });
+    assert.equal(preflight.headers.get('access-control-allow-origin'), 'https://app.test');
+    const stranger = await fetch(url, { method: 'OPTIONS', headers: { origin: 'https://other.test' } });
+    assert.equal(stranger.headers.get('access-control-allow-origin'), null);
+    for (let i = 0; i < 10; i++) await request({}, 'wrong-but-long-enough-code');
+    assert.equal((await request({}, 'wrong-but-long-enough-code')).status, 429);
+  } finally {
+    server.close();
+    server.closeAllConnections?.();
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});
