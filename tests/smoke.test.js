@@ -2512,7 +2512,8 @@ test('a reinstall gets everything back from the server account, and the key stay
     await page.click('#syncConnect');
     await page.waitForSelector('.sheet-backdrop.show [data-ok]');
     await page.click('.sheet-backdrop.show [data-ok]');
-    await page.waitForFunction(async () => (await import('/src/storage.js')).getHistory().length > 0);
+    // The restore ends with the home screen; only then is everything, chat included, in place.
+    await page.waitForSelector('.next-card');
     const back = await page.evaluate(async () => {
       const { getHistory, getAiMemory, getAiChat, isOnboarded } = await import('/src/storage.js');
       return {
@@ -2523,7 +2524,6 @@ test('a reinstall gets everything back from the server account, and the key stay
         key: localStorage.getItem('volumora-ai-key'),
       };
     });
-    await page.waitForSelector('.next-card');
     assert.equal(back.day, 'Geändert');
     assert.equal(back.chat, 2);
     assert.ok(JSON.stringify(back.memory).includes('Trainiert im Studio'));
