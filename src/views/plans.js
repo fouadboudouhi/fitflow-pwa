@@ -35,7 +35,7 @@ export function bind() {
       hasAiKey() && {
         label: t('plans.withAi'),
         hint: t('plans.withAiHint'),
-        onClick: () => openAi('plan', 'plans'),
+        onClick: () => openAi('plans', { aiInput: t('ai.planQuestion') }),
       },
       {
         label: t('plans.empty'),

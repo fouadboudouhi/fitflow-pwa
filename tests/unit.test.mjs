@@ -975,16 +975,38 @@ const sse = (...events) =>
   });
 const textEvents = (text, stop = 'end_turn') => [
   { type: 'message_start', message: {} },
+  { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } },
   { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'hidden' } },
+  { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'sig' } },
+  { type: 'content_block_stop', index: 0 },
+  { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } },
   { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: text.slice(0, 3) } },
   { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: text.slice(3) } },
+  { type: 'content_block_stop', index: 1 },
   { type: 'message_delta', delta: { stop_reason: stop } },
   { type: 'message_stop' },
 ];
+const toolEvents = (id, name, json) => [
+  { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } },
+  { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'plan it' } },
+  { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'sig-1' } },
+  { type: 'content_block_stop', index: 0 },
+  { type: 'content_block_start', index: 1, content_block: { type: 'tool_use', id, name, input: {} } },
+  {
+    type: 'content_block_delta',
+    index: 1,
+    delta: { type: 'input_json_delta', partial_json: json.slice(0, 2) },
+  },
+  { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: json.slice(2) } },
+  { type: 'content_block_stop', index: 1 },
+  { type: 'message_delta', delta: { stop_reason: 'tool_use' } },
+];
+const USER = [{ role: 'user', content: 'u' }];
 
 test('Claude client: browser headers, streamed text, errors and one retry', async () => {
-  const { askClaude, errorCode, verifyKey } = await import('../src/ai.js');
+  const { runTurn, errorCode, verifyKey } = await import('../src/ai.js');
   const original = globalThis.fetch;
+  const ask = (extra = {}) => runTurn({ key: 'k', system: 's', messages: USER, ...extra });
   try {
     const calls = [];
     globalThis.fetch = async (url, init) => {
@@ -992,12 +1014,7 @@ test('Claude client: browser headers, streamed text, errors and one retry', asyn
       return sse(...textEvents('Hallo Welt'));
     };
     const seen = [];
-    const reply = await askClaude({
-      key: 'k',
-      system: 's',
-      messages: [{ role: 'user', content: 'u' }],
-      onText: (text) => seen.push(text),
-    });
+    const reply = await ask({ onText: (text) => seen.push(text) });
     assert.equal(reply.text, 'Hallo Welt', 'thinking stays out of the answer');
     assert.deepEqual(seen, ['Hal', 'Hallo Welt']);
     assert.equal(calls[0].url, 'https://api.anthropic.com/v1/messages');
@@ -1005,59 +1022,36 @@ test('Claude client: browser headers, streamed text, errors and one retry', asyn
     assert.equal(calls[0].init.headers['anthropic-dangerous-direct-browser-access'], 'true');
     const body = JSON.parse(calls[0].init.body);
     assert.equal(body.stream, true);
-    assert.equal(body.output_config, undefined);
     assert.equal(JSON.stringify(body).includes('"k"'), false, 'the key travels only in its header');
-
-    globalThis.fetch = async () => sse(...textEvents('{"a":1}'));
-    await askClaude({
-      key: 'k',
-      system: 's',
-      messages: [{ role: 'user', content: 'u' }],
-      schema: { type: 'object' },
-    });
 
     const failing =
       (status, message = 'x') =>
       async () =>
         new Response(JSON.stringify({ error: { message } }), { status });
     globalThis.fetch = failing(401);
-    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
-      code: 'key',
-    });
+    await assert.rejects(ask(), { code: 'key' });
     globalThis.fetch = failing(400, 'Your credit balance is too low');
-    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
-      code: 'billing',
-    });
+    await assert.rejects(ask(), { code: 'billing' });
+    globalThis.fetch = failing(400, 'tools.0: bad field');
+    await assert.rejects(ask(), { code: 'request', detail: 'tools.0: bad field' });
 
     let tries = 0;
     globalThis.fetch = async () => {
       tries++;
       return tries === 1 ? new Response('{}', { status: 529 }) : sse(...textEvents('Wieder da'));
     };
-    assert.equal(
-      (await askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] })).text,
-      'Wieder da'
-    );
+    assert.equal((await ask()).text, 'Wieder da');
     assert.equal(tries, 2, 'a busy service gets one more try');
 
     globalThis.fetch = async () => sse(...textEvents('Nein', 'refusal'));
-    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
-      code: 'refusal',
-    });
-    globalThis.fetch = async () => sse(...textEvents('{"a"', 'max_tokens'));
-    await assert.rejects(
-      askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }], schema: {} }),
-      { code: 'truncated' }
-    );
-    const cut = await askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] });
-    assert.equal(cut.stopReason, 'max_tokens', 'plain text that was cut off is still shown');
+    await assert.rejects(ask(), { code: 'refusal' });
+    globalThis.fetch = async () => sse(...textEvents('Lange Antwort', 'max_tokens'));
+    assert.equal((await ask()).stopReason, 'max_tokens', 'plain text that was cut off is still shown');
 
     globalThis.fetch = async () => {
       throw new TypeError('offline');
     };
-    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
-      code: 'network',
-    });
+    await assert.rejects(ask(), { code: 'network' });
 
     const controller = new AbortController();
     globalThis.fetch = (url, init) =>
@@ -1067,17 +1061,7 @@ test('Claude client: browser headers, streamed text, errors and one retry', asyn
         );
         controller.abort();
       });
-    await assert.rejects(
-      askClaude({
-        key: 'k',
-        system: 's',
-        messages: [{ role: 'user', content: 'u' }],
-        signal: controller.signal,
-      }),
-      {
-        code: 'aborted',
-      }
-    );
+    await assert.rejects(ask({ signal: controller.signal }), { code: 'aborted' });
 
     let verified = 0;
     globalThis.fetch = async (url) => {
@@ -1096,59 +1080,241 @@ test('Claude client: browser headers, streamed text, errors and one retry', asyn
   }
 });
 
-test('a plan from Claude only keeps what the catalogue knows', async () => {
-  const { planFromReply } = await import('../src/aiPrompts.js');
-  const { plan, dropped } = planFromReply({
-    name: 'Kurzhantel 3×',
-    description: 'Passt zu dir.',
+test('a turn with tools sends thinking back unchanged and reports bad input to Claude', async () => {
+  const { runTurn } = await import('../src/ai.js');
+  const original = globalThis.fetch;
+  try {
+    const bodies = [];
+    const script = [
+      () => sse(...toolEvents('t1', 'list_plans', '{"a":1}')),
+      () => sse(...toolEvents('t2', 'list_plans', '{"broken')),
+      () => sse(...toolEvents('t3', 'boom', '{}')),
+      () => sse(...textEvents('Fertig')),
+    ];
+    globalThis.fetch = async (url, init) => {
+      bodies.push(JSON.parse(init.body));
+      return script[bodies.length - 1]();
+    };
+    const executed = [];
+    const reply = await runTurn({
+      key: 'k',
+      system: 'S',
+      tools: [{ name: 'list_plans' }],
+      messages: USER,
+      execute: async (name, input) => {
+        executed.push([name, input]);
+        if (name === 'boom') throw new Error('kaputt');
+        return { ok: true };
+      },
+    });
+    assert.equal(reply.text, 'Fertig');
+    assert.deepEqual(
+      executed,
+      [
+        ['list_plans', { a: 1 }],
+        ['boom', {}],
+      ],
+      'unreadable input is never run'
+    );
+    assert.ok(
+      bodies.every((b) => b.system === 'S' && b.tools[0].name === 'list_plans'),
+      'system and tools stay the same for the whole turn'
+    );
+    const second = bodies[1].messages;
+    assert.deepEqual(second[0], USER[0]);
+    assert.deepEqual(second[1].content[0], { type: 'thinking', thinking: 'plan it', signature: 'sig-1' });
+    assert.deepEqual(second[1].content[1], {
+      type: 'tool_use',
+      id: 't1',
+      name: 'list_plans',
+      input: { a: 1 },
+    });
+    assert.deepEqual(second[2].content[0], {
+      type: 'tool_result',
+      tool_use_id: 't1',
+      content: '{"ok":true}',
+    });
+    assert.deepEqual(bodies[2].messages.slice(0, 3), second, 'the transcript only grows');
+    const bad = bodies[2].messages[4].content[0];
+    assert.equal(bad.is_error, true);
+    assert.match(bad.content, /INVALID_JSON/);
+    assert.deepEqual(bodies[2].messages[3].content[1].input, {}, 'the API gets a valid object back');
+    const failed = bodies[3].messages[6].content[0];
+    assert.equal(failed.is_error, true);
+    assert.match(failed.content, /kaputt/);
+
+    let count = 0;
+    globalThis.fetch = async () => {
+      count++;
+      return sse(...toolEvents(`t${count}`, 'list_plans', '{}'));
+    };
+    await assert.rejects(runTurn({ key: 'k', system: 'S', messages: USER, execute: async () => ({}) }), {
+      code: 'steps',
+    });
+    assert.equal(count, 12, 'a turn cannot run forever');
+
+    globalThis.fetch = async () =>
+      sse(...toolEvents('t', 'list_plans', '{"a":').slice(0, -1), {
+        type: 'message_delta',
+        delta: { stop_reason: 'max_tokens' },
+      });
+    await assert.rejects(
+      runTurn({ key: 'k', system: 'S', messages: USER, execute: async () => assert.fail('must not run') }),
+      { code: 'truncated' }
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('assistant tools: plans change completely or not at all, deleting asks, undo checks for later changes', async () => {
+  const store = new Map();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k) => store.get(k) ?? null,
+      setItem: (k, v) => store.set(k, v),
+      removeItem: (k) => store.delete(k),
+    },
+  });
+  // Changing settings applies the theme, which needs these two from the browser.
+  globalThis.matchMedia = () => ({ matches: false });
+  globalThis.document = {
+    documentElement: { dataset: {}, setAttribute: () => {}, style: { setProperty: () => {} } },
+    querySelector: () => null,
+  };
+  const { runTool, aiTools } = await import('../src/aiTools.js');
+  const { allPlans, savePlans, getSettings, saveSettings, saveHistory, saveBody } =
+    await import('../src/storage.js');
+  const { defaultPlan } = await import('../src/library.js');
+  const first = defaultPlan();
+  savePlans({ activePlanId: first.id, items: [first] });
+  saveHistory([]);
+  saveBody([]);
+  saveSettings({});
+  const run = (name, input = {}, confirm = async () => assert.fail('no question expected')) =>
+    runTool(name, input, { confirm });
+
+  assert.ok(aiTools().every((tool) => tool.input_schema.type === 'object' && tool.eager_input_streaming));
+  const listed = (await run('list_plans')).result;
+  assert.equal(listed.active_plan_id, first.id);
+  assert.equal(listed.plans[0].days[0].exercises[0].exercise_id, 'chest-press');
+
+  const found = (await run('search_exercises', { query: 'bankdruecken langhantel', limit: 3 })).result
+    .exercises;
+  assert.ok(
+    found.some((x) => x.exercise_id === '0025'),
+    'German words without umlauts find it'
+  );
+  assert.ok(
+    (await run('search_exercises', { group: 'legs' })).result.exercises.every((x) => x.group === 'legs')
+  );
+  assert.match((await run('get_exercise_stats', { exercise_id: 'nope' })).error, /Unknown/);
+  assert.equal((await run('get_exercise_stats', { exercise_id: '0025' })).result.exercise_id, '0025');
+  assert.deepEqual((await run('get_training_history')).result.sessions, []);
+  assert.equal((await run('get_stats')).result.total_sessions, 0);
+  assert.deepEqual((await run('get_body_data')).result.entries, []);
+  assert.match((await run('nonsense')).error, /Unknown tool/);
+
+  // A wrong id stops everything.
+  const refused = await run('create_plan', {
+    name: 'X',
+    days: [{ name: 'A', exercises: [{ exercise_id: '0025' }, { exercise_id: 'made-up' }] }],
+  });
+  assert.match(refused.error, /made-up/);
+  assert.equal(allPlans().items.length, 1);
+  assert.match((await run('create_plan', { name: 'X', days: [] })).error, /at least one day/);
+
+  const created = await run('create_plan', {
+    name: 'Kurzhantel',
+    description: 'Passt.',
     days: [
       {
         name: 'Tag A',
         exercises: [
-          { id: '0025', sets: 3, range: '8-12', note: '' },
-          { id: '0025', sets: 3, range: '8–12', note: 'doppelt' },
-          { id: 'erfunden', sets: 3, range: '8–12', note: '' },
-          { id: '0003', sets: 99, range: '', note: 'x'.repeat(500) },
+          { exercise_id: '0025', sets: 99, range: '8-12', note: 'x'.repeat(500), rest_seconds: 120 },
+          { exercise_id: '0025' },
+          { exercise_id: '0003' },
         ],
       },
-      { name: 'Nur Unsinn', exercises: [{ id: 'nope', sets: 3, range: '8', note: '' }] },
-      { name: '', exercises: 'kein Array' },
     ],
   });
-  assert.equal(dropped, 3);
-  assert.equal(plan.days.length, 1, 'days without a known exercise go away');
-  const [first, second] = plan.days[0].exercises;
-  assert.equal(first.libraryId, '0025');
-  assert.equal(first.range, '8–12');
-  assert.equal(second.sets, 12, 'sets are capped like everywhere else');
-  assert.equal(second.note.length, 200);
+  const id = created.result.plan_id;
+  let plan = allPlans().items.find((p) => p.id === id);
+  assert.equal(allPlans().activePlanId, id);
+  assert.equal(plan.days[0].exercises.length, 2, 'doubles are dropped');
+  const [one] = plan.days[0].exercises;
+  assert.deepEqual([one.sets, one.range, one.note.length, one.rest], [12, '8–12', 200, 120]);
   assert.ok(plan.schedule.assignments[plan.days[0].id] !== undefined);
 
-  const none = planFromReply({ name: 'x', description: 'Dafür braucht es einen Arzt.', days: [] });
-  assert.equal(none.plan, null);
-  assert.equal(none.message, 'Dafür braucht es einen Arzt.');
-  assert.equal(planFromReply(null).plan, null);
-});
-
-test('a reply becomes safe markup', async () => {
-  const { replyHtml } = await import('../src/aiPrompts.js');
-  assert.equal(
-    replyHtml('## Gut\n**Stark** <img src=x>\n\n- eins\n- **zwei**\nEnde'),
-    '<p>Gut</p><p><b>Stark</b> &lt;img src=x&gt;</p><ul><li>eins</li><li><b>zwei</b></li></ul><p>Ende</p>'
+  // Update: unknown fields stay, the same exercise keeps what it had, days keep their id.
+  const dayId = plan.days[0].id;
+  const oneId = one.id;
+  const updated = await run('update_plan', {
+    plan_id: id,
+    days: [{ id: dayId, name: 'Neu', exercises: [{ exercise_id: '0025', sets: 4 }] }],
+  });
+  assert.ok(updated.action);
+  plan = allPlans().items.find((p) => p.id === id);
+  assert.equal(plan.name, 'Kurzhantel');
+  assert.equal(plan.days[0].id, dayId);
+  assert.deepEqual(
+    [
+      plan.days[0].name,
+      plan.days[0].exercises[0].id,
+      plan.days[0].exercises[0].sets,
+      plan.days[0].exercises[0].rest,
+    ],
+    ['Neu', oneId, 4, 120]
   );
-  assert.equal(replyHtml('**<script>**'), '<p><b>&lt;script&gt;</b></p>');
+  assert.match((await run('update_plan', { plan_id: 'nope' })).error, /Unknown plan_id/);
+
+  // Undo works only while nothing else has changed.
+  const rename = await run('update_plan', { plan_id: id, name: 'Anders' });
+  const activate = await run('set_active_plan', { plan_id: first.id });
+  assert.equal(rename.action.undo(), false, 'a later change blocks an older undo');
+  assert.equal(allPlans().activePlanId, first.id);
+  assert.equal(activate.action.undo(), true);
+  assert.equal(allPlans().activePlanId, id);
+  assert.equal(rename.action.undo(), true, 'in reverse order it works again');
+  assert.equal(allPlans().items.find((p) => p.id === id).name, 'Kurzhantel');
+
+  // Deleting always asks.
+  const asked = [];
+  const declined = await run('delete_plan', { plan_id: id }, async (o) => {
+    asked.push(o);
+    return false;
+  });
+  assert.equal(declined.result.deleted, false);
+  assert.match(asked[0].title, /Kurzhantel/);
+  assert.equal(asked[0].danger, true);
+  assert.ok(allPlans().items.some((p) => p.id === id));
+  const deleted = await run('delete_plan', { plan_id: id }, async () => true);
+  assert.equal(deleted.result.deleted, true);
+  assert.equal(allPlans().activePlanId, first.id, 'another plan becomes active');
+  assert.match((await run('delete_plan', { plan_id: first.id })).error, /only plan/);
+  assert.equal(deleted.action.undo(), true);
+  assert.ok(allPlans().items.some((p) => p.id === id));
+
+  // Settings: checked, limited, with the unit's usual steps.
+  assert.match((await run('update_settings', {})).error, /Nothing to change/);
+  assert.match((await run('update_settings', { theme: 'pink' })).error, /theme/);
+  const before = getSettings();
+  const changed = await run('update_settings', { rest_seconds: 9999, show_rir: true, unit: 'lbs' });
+  const after = getSettings();
+  assert.deepEqual([after.rest, after.showRir, after.unit], [600, true, 'lbs']);
+  assert.ok(Math.abs(after.increment * 2.20462 - 5) < 0.01);
+  assert.match(changed.action.label, /RIR/);
+  assert.equal(changed.action.undo(), true);
+  assert.deepEqual(getSettings(), before);
+  delete globalThis.matchMedia;
+  delete globalThis.document;
+  setLanguage('de');
 });
 
-test('the prompts carry the wish and the language', async () => {
-  const { PLAN_SCHEMA, chatMessages, chatPrompt, planPrompt } = await import('../src/aiPrompts.js');
-  const plan = planPrompt('3 Tage Kurzhanteln', 'DATA');
-  assert.match(plan.messages[0].content, /3 Tage Kurzhanteln/);
-  assert.match(plan.messages[0].content, /DATA/);
-  assert.match(plan.system, /Deutsch/);
-  assert.match(plan.system, /0025\|/, 'the catalogue is part of the prompt');
-  const chat = chatPrompt('DATA', [{ role: 'user', text: 'Warum?' }]);
-  assert.match(chat.system, /<training_data>\nDATA/);
-  assert.deepEqual(chat.messages, [{ role: 'user', content: 'Warum?' }]);
+test('chat history keeps text and what was done, and answer buttons come off the text', async () => {
+  const { chatMessages, replyHtml, splitReplies } = await import('../src/aiPrompts.js');
+  assert.deepEqual(chatMessages([{ role: 'assistant', text: 'x' }]), []);
   const long = Array.from({ length: 25 }, (_, i) => ({
     role: i % 2 ? 'assistant' : 'user',
     text: String(i),
@@ -1157,12 +1323,37 @@ test('the prompts carry the wish and the language', async () => {
   assert.ok(trimmed.length <= 20);
   assert.equal(trimmed[0].role, 'user', 'a conversation starts with the person');
   assert.equal(trimmed.at(-1).content, '24');
-  const objects = [];
-  const walk = (node) => {
-    if (node?.type === 'object') objects.push(node);
-    Object.values(node?.properties || {}).forEach(walk);
-    if (node?.items) walk(node.items);
-  };
-  walk(PLAN_SCHEMA);
-  assert.ok(objects.length === 3 && objects.every((o) => o.additionalProperties === false));
+  const [, done, again] = chatMessages([
+    { role: 'user', text: 'Plan?' },
+    { role: 'assistant', text: '', actions: [{ label: 'Plan angelegt', undone: true }] },
+    { role: 'user', text: 'Danke' },
+  ]);
+  assert.match(done.content, /Plan angelegt \(the person undid this\)/);
+  assert.equal(again.content, 'Danke');
+  assert.deepEqual(splitReplies('Wie oft?\n\n[[2 Tage | 3 Tage|4 Tage ]]'), {
+    body: 'Wie oft?',
+    options: ['2 Tage', '3 Tage', '4 Tage'],
+  });
+  assert.deepEqual(
+    splitReplies('Wie oft? [[2 Tage | 3'),
+    { body: 'Wie oft?', options: [] },
+    'still arriving'
+  );
+  assert.deepEqual(splitReplies('Ein [[Satz]] mittendrin.'), {
+    body: 'Ein [[Satz]] mittendrin.',
+    options: [],
+  });
+  assert.equal(
+    replyHtml('## Gut\n**Stark** <img src=x>\n\n- eins\n- **zwei**\nEnde'),
+    '<p>Gut</p><p><b>Stark</b> &lt;img src=x&gt;</p><ul><li>eins</li><li><b>zwei</b></li></ul><p>Ende</p>'
+  );
+  assert.equal(replyHtml('**<script>**'), '<p><b>&lt;script&gt;</b></p>');
+});
+
+test('the system prompt carries the data and the language', async () => {
+  const { assistantSystem } = await import('../src/aiPrompts.js');
+  const system = assistantSystem('DATA');
+  assert.match(system, /<training_data>\nDATA/);
+  assert.match(system, /Deutsch/);
+  assert.match(system, /\[\[3 days \| 4 days \| 5 days\]\]/);
 });

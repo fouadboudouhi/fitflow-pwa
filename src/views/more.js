@@ -16,7 +16,7 @@ import {
 } from '../storage.js';
 import { applyTheme } from '../theme.js';
 import { confirmDialog, infoDialog, toast, undoToast } from '../ui.js';
-import { LB_PER_KG, fieldValue, fromDisplay, unit } from '../units.js';
+import { fieldValue, fromDisplay, inUnit, unit } from '../units.js';
 import { esc, fmtDate, normalizeRange, number, setsCount } from '../util.js';
 import { viewportReport } from '../viewport.js';
 import { emptySessionCount, removeEmptySessions, restoreHistory } from '../workout.js';
@@ -80,14 +80,6 @@ export function view() {
 // A weight field that still shows the stored value keeps it, so converting units cannot shift it.
 const typedWeight = (form, name, stored) =>
   form.get(name) === fieldValue(stored) ? stored : Math.max(0, number(fromDisplay(form.get(name))));
-// The usual steps of a unit, swapped when the unit changes; values set by hand stay.
-const near = (a, b) => Math.abs(a - b) < 0.01;
-const inUnit = (value, unitName, kg, lbs) => {
-  if (unitName === 'lbs' && near(value, kg)) return lbs / LB_PER_KG;
-  if (unitName === 'kg' && near(value, lbs / LB_PER_KG)) return kg;
-  return value;
-};
-
 async function saveForm(form) {
   const f = new FormData(form);
   const current = getSettings();
@@ -232,8 +224,8 @@ export function bind() {
     form.addEventListener('submit', (e) => e.preventDefault());
     form.addEventListener('change', () => saveForm(form));
   }
-  document.querySelector('#aiRow')?.addEventListener('click', () => openAi(null, 'more'));
-  document.querySelector('#openAi')?.addEventListener('click', () => openAi(null, 'settings'));
+  document.querySelector('#aiRow')?.addEventListener('click', () => openAi('more'));
+  document.querySelector('#openAi')?.addEventListener('click', () => openAi('settings'));
   document.querySelector('#cleanEmpty')?.addEventListener('click', () => {
     const count = emptySessionCount();
     const before = removeEmptySessions();

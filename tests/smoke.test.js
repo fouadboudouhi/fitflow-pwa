@@ -1327,7 +1327,8 @@ test('first run: the rest timer can be turned off, and the install tip waits on 
   await fresh.close();
 });
 
-// The Claude API as the app sees it; no test ever reaches the real service.
+// The Claude API as the app sees it; no test ever reaches the real service. `onMessage` returns { text }, { tool, input }
+// or { status }.
 async function mockClaude({ onMessage, verifyStatus = 200 } = {}) {
   const calls = [];
   await page.route('https://api.anthropic.com/**', async (route) => {
@@ -1338,7 +1339,8 @@ async function mockClaude({ onMessage, verifyStatus = 200 } = {}) {
       'access-control-allow-methods': '*',
     };
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 200, headers: cors });
-    calls.push({ url: request.url(), headers: request.headers(), body: request.postDataJSON() });
+    const body = request.postDataJSON();
+    calls.push({ url: request.url(), headers: request.headers(), body });
     if (request.url().endsWith('/count_tokens'))
       return route.fulfill({
         status: verifyStatus,
@@ -1346,7 +1348,7 @@ async function mockClaude({ onMessage, verifyStatus = 200 } = {}) {
         contentType: 'application/json',
         body: JSON.stringify({ input_tokens: 1, error: { message: 'x' } }),
       });
-    const reply = onMessage?.(request.postDataJSON()) ?? { text: 'Antwort' };
+    const reply = onMessage?.(body) ?? { text: 'Antwort' };
     if (reply.status)
       return route.fulfill({
         status: reply.status,
@@ -1354,10 +1356,38 @@ async function mockClaude({ onMessage, verifyStatus = 200 } = {}) {
         contentType: 'application/json',
         body: JSON.stringify({ error: { message: reply.message || 'x' } }),
       });
-    const events = [
-      { type: 'content_block_delta', delta: { type: 'text_delta', text: reply.text } },
-      { type: 'message_delta', delta: { stop_reason: reply.stop || 'end_turn' } },
+    const thinking = [
+      {
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'thinking', thinking: '', signature: '' },
+      },
+      { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'sig' } },
+      { type: 'content_block_stop', index: 0 },
     ];
+    const events = reply.tool
+      ? [
+          ...thinking,
+          {
+            type: 'content_block_start',
+            index: 1,
+            content_block: { type: 'tool_use', id: `tool${calls.length}`, name: reply.tool, input: {} },
+          },
+          {
+            type: 'content_block_delta',
+            index: 1,
+            delta: { type: 'input_json_delta', partial_json: JSON.stringify(reply.input || {}) },
+          },
+          { type: 'content_block_stop', index: 1 },
+          { type: 'message_delta', delta: { stop_reason: 'tool_use' } },
+        ]
+      : [
+          ...thinking,
+          { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } },
+          { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: reply.text } },
+          { type: 'content_block_stop', index: 1 },
+          { type: 'message_delta', delta: { stop_reason: reply.stop || 'end_turn' } },
+        ];
     await route.fulfill({
       status: 200,
       headers: cors,
@@ -1374,7 +1404,7 @@ test('without a key no AI feature shows and nothing is sent', async () => {
   await seedHistory();
   await page.click('[data-nav="plans"]');
   await page.click('#newPlan');
-  assert.equal(await page.getByText('Plan mit KI').count(), 0);
+  assert.equal(await page.getByText('Mit dem KI-Assistenten').count(), 0);
   await page.keyboard.press('Escape');
   await page.click('[data-nav="analytics"]');
   assert.equal(await page.locator('#aiReview').count(), 0);
@@ -1433,52 +1463,144 @@ test('a Claude key is checked before saving and stays out of the backup', async 
   assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), 'sk-ant-api-test-secret');
 });
 
-test('a plan from one sentence is shown first and only then saved', async () => {
+test('the assistant asks, creates a plan, and the change can be undone from the chat', async () => {
   await addAiKey();
-  const calls = await mockClaude({
-    onMessage: () => ({
-      text: JSON.stringify({
-        name: 'Kurzhantel 2×',
-        description: 'Schont die Schulter.',
-        days: [
-          {
-            name: 'Tag A',
-            exercises: [
-              { id: '0025', sets: 3, range: '8–12', note: '' },
-              { id: 'erfunden', sets: 3, range: '8–12', note: '' },
-            ],
-          },
-          { name: 'Tag B', exercises: [{ id: '0003', sets: 2, range: '12–15', note: '' }] },
-        ],
-      }),
-    }),
-  });
+  let answers = [];
+  const calls = await mockClaude({ onMessage: () => answers.shift() });
   await page.click('[data-nav="plans"]');
-  const before = await page.locator('[data-edit-plan]').count();
   await page.click('#newPlan');
-  await page.getByText('Plan mit KI').click();
-  await page.waitForSelector('#aiPlanInput');
-  await axeCheck('ai plan');
-  await page.click('#aiPlanSend');
-  assert.equal(calls.length, 0, 'an empty wish sends nothing');
-  await page.locator('[data-ai-example]').first().click();
-  assert.match(await page.inputValue('#aiPlanInput'), /Kurzhanteln/);
-  await page.fill('#aiPlanInput', '2 Tage Kurzhanteln');
-  await page.click('#aiPlanSend');
-  await page.waitForSelector('#aiUsePlan');
-  assert.match(calls[0].body.messages[0].content, /2 Tage Kurzhanteln/);
-  assert.equal(calls[0].body.output_config.format.type, 'json_schema');
-  assert.equal(JSON.stringify(calls[0].body).includes('sk-ant'), false);
-  assert.match(await page.textContent('.plan-preview'), /Tag A/);
-  assert.match(await page.textContent('main'), /1 Übungen ließen sich nicht zuordnen/);
-  await axeCheck('ai plan preview');
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')).items.length);
-  assert.equal(saved, before, 'nothing is saved before the person agrees');
-  await page.click('#aiUsePlan');
-  await page.waitForSelector('.next-card');
-  const plans = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')));
-  assert.equal(plans.items.length, before + 1);
+  await page.getByText('Mit dem KI-Assistenten').click();
+  await page.waitForSelector('#aiInput');
+  assert.match(await page.inputValue('#aiInput'), /neuen Trainingsplan/);
+  assert.equal(calls.length, 0, 'the prepared question waits for a tap');
+
+  // A question with answer buttons.
+  answers = [{ text: 'Wie viele Tage pro Woche?\n\n[[2 Tage | 3 Tage | 4 Tage]]' }];
+  await page.click('#aiSend');
+  await page.waitForSelector('.chat-replies button');
+  assert.equal(await page.locator('.chat-replies button').count(), 3);
+  assert.equal((await page.textContent('.chat-assistant')).includes('[['), false);
+  await axeCheck('ai chat with answer buttons');
+
+  // Tapping an answer sends it; Claude looks things up and creates the plan.
+  answers = [
+    { tool: 'search_exercises', input: { query: 'bankdrücken' } },
+    {
+      tool: 'create_plan',
+      input: { name: 'Erfunden', days: [{ name: 'A', exercises: [{ exercise_id: 'erfunden' }] }] },
+    },
+    {
+      tool: 'create_plan',
+      input: {
+        name: 'Kurzhantel 2×',
+        description: 'Passt.',
+        days: [
+          { name: 'Tag A', exercises: [{ exercise_id: '0025', sets: 3, range: '8–12' }] },
+          { name: 'Tag B', exercises: [{ exercise_id: '0003', sets: 2, range: '12–15' }] },
+        ],
+      },
+    },
+    { text: 'Der Plan ist angelegt.' },
+  ];
+  await page.locator('.chat-replies button').nth(1).click();
+  await page.waitForSelector('[data-ai-undo]');
+  await page.waitForFunction(
+    () => document.querySelector('#aiSend') && !document.querySelector('#aiSend').hidden
+  );
+  assert.equal(await page.locator('.chat-user').last().textContent(), '3 Tage');
+  assert.equal(await page.locator('.chat-replies').count(), 0, 'old answer buttons are gone');
+  assert.match(await page.textContent('.chat-action'), /Plan „Kurzhantel 2×“ angelegt/);
+  await axeCheck('ai chat with action');
+
+  const turn = calls.slice(-4).map((c) => c.body);
+  assert.ok(
+    turn.every((b) => b.system === turn[0].system),
+    'one system prompt for the whole turn'
+  );
+  assert.equal(turn[0].tools.length, 12);
+  assert.ok(turn[0].tools.every((tool) => tool.eager_input_streaming === true));
+  assert.deepEqual(turn[1].messages.at(-2).content[0], { type: 'thinking', thinking: '', signature: 'sig' });
+  assert.equal(turn[1].messages.at(-1).content[0].type, 'tool_result');
+  const refused = turn[2].messages.at(-1).content[0];
+  assert.equal(refused.is_error, true, 'an unknown exercise goes back to Claude');
+  assert.match(refused.content, /erfunden/);
+  assert.equal(JSON.stringify(turn).includes('sk-ant'), false);
+
+  const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')));
+  let plans = await stored();
+  assert.equal(plans.items.length, 2);
   assert.equal(plans.items.find((p) => p.id === plans.activePlanId).name, 'Kurzhantel 2×');
+
+  // The next turn sends text only, and says what was done.
+  answers = [{ text: 'Gern.' }];
+  await page.fill('#aiInput', 'Danke');
+  await page.click('#aiSend');
+  await page.waitForFunction(() => document.querySelector('#chatScroll').textContent.includes('Gern.'));
+  const next = calls.at(-1).body.messages;
+  assert.equal(typeof next.at(-2).content, 'string');
+  assert.match(
+    next.at(-2).content,
+    /Der Plan ist angelegt\.[\s\S]*Done in the app: Plan „Kurzhantel 2×“ angelegt/
+  );
+
+  await page.click('[data-ai-undo]');
+  await page.waitForFunction(() => document.querySelector('.chat-action small'));
+  plans = await stored();
+  assert.equal(plans.items.length, 1, 'the plan is gone again');
+  assert.equal(await page.locator('[data-ai-undo]').count(), 0);
+});
+
+test('deleting a plan needs a yes, and settings change right away', async () => {
+  await addAiKey();
+  const extra = await page.evaluate(() => {
+    const data = JSON.parse(localStorage.getItem('volumora-plans-v2'));
+    const copy = JSON.parse(JSON.stringify(data.items[0]));
+    copy.id = 'second';
+    copy.name = 'Zweiter Plan';
+    data.items.push(copy);
+    localStorage.setItem('volumora-plans-v2', JSON.stringify(data));
+    return copy.id;
+  });
+  let answers = [];
+  const calls = await mockClaude({ onMessage: () => answers.shift() });
+  await page.click('[data-nav="more"]');
+  await page.click('#aiRow');
+  const say = async (text) => {
+    await page.fill('#aiInput', text);
+    await page.click('#aiSend');
+  };
+  const plans = () => page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')).items.length);
+
+  answers = [{ tool: 'delete_plan', input: { plan_id: extra } }, { text: 'Gut, er bleibt.' }];
+  await say('Lösche den zweiten Plan');
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.sheet'), /Zweiter Plan/);
+  assert.equal(await plans(), 2);
+  await page.click('.sheet-actions [data-cancel]');
+  await page.waitForFunction(() =>
+    document.querySelector('#chatScroll').textContent.includes('Gut, er bleibt.')
+  );
+  assert.equal(await plans(), 2, 'declined');
+  assert.match(calls.at(-1).body.messages.at(-1).content[0].content, /"deleted":false/);
+
+  answers = [{ tool: 'delete_plan', input: { plan_id: extra } }, { text: 'Gelöscht.' }];
+  await say('Doch, lösche ihn');
+  await page.waitForSelector('.sheet-backdrop.show');
+  await page.click('.sheet-actions [data-ok]');
+  await page.waitForFunction(() => document.querySelector('#chatScroll').textContent.includes('Gelöscht.'));
+  assert.equal(await plans(), 1);
+
+  answers = [
+    { tool: 'update_settings', input: { rest_seconds: 120, theme: 'light' } },
+    { text: 'Erledigt.' },
+  ];
+  await say('Pause auf 2 Minuten und helles Design');
+  await page.waitForFunction(() => document.querySelector('#chatScroll').textContent.includes('Erledigt.'));
+  const settings = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-settings-v2')));
+  assert.deepEqual([settings.rest, settings.theme], [120, 'light']);
+  assert.equal(await page.getAttribute('html', 'data-theme'), 'light');
+  await page.locator('[data-ai-undo]').last().click();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('volumora-settings-v2')).rest === 90);
 });
 
 test('the chat keeps the conversation, sends the history and survives a reload', async () => {
@@ -1501,6 +1623,7 @@ test('the chat keeps the conversation, sends the history and survives a reload',
   await page.locator('[data-chat-starter]').first().click();
   await page.waitForSelector('.chat-assistant li');
   assert.match(calls[0].body.system, /Sessions in the last 8 weeks/);
+  assert.match(calls[0].body.messages[0].content, /Erstelle mir einen neuen Trainingsplan/);
   assert.equal(calls[0].body.messages.length, 1);
   assert.equal(await page.locator('.chat-user').count(), 1);
   const reply = page.locator('.chat-assistant li').first();
@@ -1510,7 +1633,9 @@ test('the chat keeps the conversation, sends the history and survives a reload',
   await page.focus('#aiInput');
   await page.fill('#aiInput', 'Warum stagniere ich?');
   await page.click('#aiSend');
-  await page.waitForFunction(() => document.querySelectorAll('.chat-assistant').length === 2);
+  await page.waitForFunction(
+    () => document.querySelectorAll('.chat-assistant').length === 2 && !document.querySelector('#chatLive')
+  );
   assert.equal(await page.evaluate(() => document.activeElement.id), 'aiInput', 'the keyboard stays up');
   assert.equal(await page.inputValue('#aiInput'), '');
   const second = calls.at(-1).body.messages;

@@ -31,3 +31,10 @@ export const roundToStep = (kg) => {
   return Math.max(step, Math.round(number(kg) / step) * step);
 };
 export const LB_PER_KG = LB;
+// The usual steps of a unit, swapped when the unit changes; values set by hand stay.
+const near = (a, b) => Math.abs(a - b) < 0.01;
+export const inUnit = (value, unitName, kg, lbs) => {
+  if (unitName === 'lbs' && near(value, kg)) return lbs / LB_PER_KG;
+  if (unitName === 'kg' && near(value, lbs / LB_PER_KG)) return kg;
+  return value;
+};
