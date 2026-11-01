@@ -5,20 +5,29 @@ import { importParsed, parseImport } from '../importers.js';
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { activePlan, getLastBackup, getSettings, markBackup, photos, saveSettings } from '../storage.js';
+import {
+  activePlan,
+  getLastBackup,
+  getSettings,
+  hasAiKey,
+  markBackup,
+  photos,
+  saveSettings,
+} from '../storage.js';
 import { applyTheme } from '../theme.js';
 import { confirmDialog, infoDialog, toast, undoToast } from '../ui.js';
 import { LB_PER_KG, fieldValue, fromDisplay, unit } from '../units.js';
 import { esc, fmtDate, normalizeRange, number, setsCount } from '../util.js';
 import { viewportReport } from '../viewport.js';
 import { emptySessionCount, removeEmptySessions, restoreHistory } from '../workout.js';
+import { openAi } from './ai.js';
 import { mediaCredit, parentRow } from './shell.js';
 
 const menuRow = (attrs, ic, title, text, chevron = true) =>
   `<button type="button" class="row" ${attrs}><span class="row-icon">${icon(ic)}</span><span class="row-main"><b>${title}</b><small>${text}</small></span>${chevron ? icon('chevron-right') : ''}</button>`;
 
 const moreView = () =>
-  `<main class="shell"><section class="page-head"><h1>${t('more.title')}</h1></section><div class="list">${menuRow('data-nav="body"', 'person', t('more.body'), t('more.bodyHint'))}${menuRow('data-nav="backup"', 'backup', t('more.backup'), t('more.backupHint'))}${menuRow('data-nav="customExercises"', 'dumbbell', t('more.customExercises'), t('more.customExercisesHint'))}${menuRow('data-nav="settings"', 'settings', t('more.settings'), t('more.settingsHint'))}${menuRow('id="installRow"', 'install', t('more.install'), state.installPrompt ? t('more.installApp') : t('more.installHint'), false)}${menuRow('data-nav="legal"', 'shield', t('more.legal'), t('more.legalHint'))}</div><p class="about">${t('more.about')}</p>${mediaCredit()}</main>`;
+  `<main class="shell"><section class="page-head"><h1>${t('more.title')}</h1></section><div class="list">${menuRow('data-nav="body"', 'person', t('more.body'), t('more.bodyHint'))}${menuRow('data-nav="backup"', 'backup', t('more.backup'), t('more.backupHint'))}${menuRow('data-nav="customExercises"', 'dumbbell', t('more.customExercises'), t('more.customExercisesHint'))}${hasAiKey() ? menuRow('id="aiRow"', 'spark', t('ai.title'), t('more.aiHint')) : ''}${menuRow('data-nav="settings"', 'settings', t('more.settings'), t('more.settingsHint'))}${menuRow('id="installRow"', 'install', t('more.install'), state.installPrompt ? t('more.installApp') : t('more.installHint'), false)}${menuRow('data-nav="legal"', 'shield', t('more.legal'), t('more.legalHint'))}</div><p class="about">${t('more.about')}</p>${mediaCredit()}</main>`;
 
 const backupView = () =>
   `<main class="shell narrow">${parentRow('more')}<section class="page-head compact"><h1>${t('backup.title')}</h1></section><div class="list">${menuRow('id="exportJson"', 'share', t('backup.export'), t('backup.exportHint'), false)}${menuRow('id="exportCsv"', 'chart', t('backup.csv'), t('backup.csvHint'), false)}<label class="row" for="importJson"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.import')}</b><small>${t('backup.importHint')}</small></span><input type="file" id="importJson" accept="application/json,.json" hidden></label><label class="row" for="importCsv"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.csvImport')}</b><small>${t('backup.csvImportHint')}</small></span><input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></div><p class="muted settings-hint" id="lastBackup">${getLastBackup() ? t('backup.lastDone', { date: fmtDate(getLastBackup()) }) : t('backup.never')}</p></main>`;
@@ -48,6 +57,9 @@ function settingsView() {
     <h2>${t('settings.appearance')}</h2>
     <label><span>${t('settings.language')}</span><select name="language">${option('auto', t('language.auto'), s.language)}${LANGUAGES.map((code) => option(code, languageLabel(code), s.language)).join('')}</select></label>
     <label><span>${t('settings.theme')}</span><select name="theme">${option('auto', t('theme.auto'), s.theme)}${option('light', t('theme.light'), s.theme)}${option('dark', t('theme.dark'), s.theme)}</select></label>
+    <h2>${t('ai.title')}</h2>
+    <button type="button" class="secondary full" id="openAi">${hasAiKey() ? t('settings.aiManage') : t('settings.aiAdd')}</button>
+    <p class="muted settings-hint">${t('settings.aiHint')}</p>
     <h2>${t('settings.data')}</h2>
     ${
       emptySessionCount()
@@ -220,6 +232,8 @@ export function bind() {
     form.addEventListener('submit', (e) => e.preventDefault());
     form.addEventListener('change', () => saveForm(form));
   }
+  document.querySelector('#aiRow')?.addEventListener('click', () => openAi(null, 'more'));
+  document.querySelector('#openAi')?.addEventListener('click', () => openAi(null, 'settings'));
   document.querySelector('#cleanEmpty')?.addEventListener('click', () => {
     const count = emptySessionCount();
     const before = removeEmptySessions();

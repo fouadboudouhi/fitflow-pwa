@@ -614,7 +614,8 @@ test('progression: stall detection, per-exercise increment and 1RM reps table', 
     session('a', '2026-02-17', 60, 8),
   ];
   assert.equal(stalled(ex, flat), true);
-  const stall = suggestion(ex, flat);
+  const today = new Date('2026-03-04T12:00:00Z');
+  const stall = suggestion(ex, flat, today);
   assert.equal(stall.kind, 'stall');
   assert.equal(stall.weight, 55, '10 % off 60 kg, rounded to the plate step');
   const rising = [
@@ -623,10 +624,14 @@ test('progression: stall detection, per-exercise increment and 1RM reps table', 
     session('a', '2026-02-17', 60, 8),
   ];
   assert.equal(stalled(ex, rising), false);
-  assert.equal(suggestion(ex, rising).kind, 'confirm');
+  assert.equal(suggestion(ex, rising, today).kind, 'confirm');
   const topOfRange = [session('c', '2026-03-03', 60, 12)];
-  assert.equal(suggestion(ex, topOfRange).weight, 62.5, 'default increment');
-  assert.equal(suggestion({ ...ex, increment: 1 }, topOfRange).weight, 61, 'plan exercise increment wins');
+  assert.equal(suggestion(ex, topOfRange, today).weight, 62.5, 'default increment');
+  assert.equal(
+    suggestion({ ...ex, increment: 1 }, topOfRange, today).weight,
+    61,
+    'plan exercise increment wins'
+  );
   assert.equal(repsAtPercent(100), 1);
   assert.equal(repsAtPercent(80), 8);
 });
@@ -878,4 +883,244 @@ test('progression: advice cannot spiral down, drop sets do not block, values are
   assert.equal(normalizeRange('', '6–8'), '6–8');
   assert.equal(normalizeRange('30 s'), '30 s');
   assert.deepEqual([-1, 0, '', 2.5, 999, 4].map(setsCount), [3, 3, 3, 3, 12, 4]);
+});
+
+test('suggestions read the last weeks: a long break, too heavy, a plateau and the trend', async () => {
+  const { strengthTrend, suggestion } = await import('../src/workout.js');
+  const ex = { id: 'x', libraryId: '0025', range: '8–12' };
+  const session = (day, weight, reps) => ({
+    day,
+    finishedAt: `${day}T10:00:00.000Z`,
+    entries: [
+      {
+        exerciseId: 'x',
+        libraryId: '0025',
+        trackType: 'weight_reps',
+        sets: [{ weight: String(weight), reps: String(reps), done: true, type: 'normal' }],
+      },
+    ],
+  });
+  const today = new Date('2026-06-01T12:00:00Z');
+
+  const away = suggestion(ex, [session('2026-05-01', 60, 12)], today);
+  assert.deepEqual(
+    [away.kind, away.weight, away.weeks],
+    ['comeback', 55, 4],
+    'a month off beats the increase'
+  );
+  assert.equal(
+    suggestion(ex, [session('2026-05-20', 60, 12)], today).kind,
+    'progress',
+    'twelve days are no break'
+  );
+
+  const heavy = [session('2026-05-28', 60, 6), session('2026-05-25', 60, 7)];
+  const tooHeavy = suggestion(ex, heavy, today);
+  assert.deepEqual([tooHeavy.kind, tooHeavy.weight], ['reduce', 57.5]);
+  assert.equal(
+    suggestion(ex, [session('2026-05-28', 60, 8), session('2026-05-25', 60, 7)], today).kind,
+    'confirm',
+    'reaching the range once is enough'
+  );
+
+  // Up and down for six weeks: never three flat sessions in a row, and no real gain either.
+  const wavy = [
+    session('2026-05-30', 60, 10),
+    session('2026-05-22', 62.5, 8),
+    session('2026-05-15', 60, 9),
+    session('2026-05-08', 60, 10),
+    session('2026-05-01', 62.5, 8),
+    session('2026-04-24', 60, 10),
+  ];
+  const plateau = suggestion(ex, wavy, today);
+  assert.equal(plateau.kind, 'plateau');
+  assert.equal(plateau.weeks, 5);
+  assert.ok(Math.abs(strengthTrend(ex, wavy, today).percent) < 1);
+
+  const rising = [
+    session('2026-05-30', 67.5, 10),
+    session('2026-05-22', 65, 10),
+    session('2026-05-15', 62.5, 10),
+    session('2026-05-08', 60, 10),
+  ];
+  assert.ok(strengthTrend(ex, rising, today).percent > 5);
+  assert.equal(strengthTrend(ex, rising.slice(0, 2), today), null, 'two sessions are no trend');
+});
+
+test('replacements train the same muscle and prefer the equipment in use', async () => {
+  const { alternativesFor, libraryExercise } = await import('../src/library.js');
+  const base = libraryExercise('0025');
+  const options = alternativesFor(base, { equipment: ['dumbbell'] });
+  assert.equal(options.length, 5);
+  assert.ok(options.every((x) => x.target === base.target && x.id !== base.id));
+  assert.equal(options[0].equipment === 'dumbbell' || options[0].equipment === 'body weight', true);
+  const counts = {};
+  options.forEach((x) => (counts[x.equipment] = (counts[x.equipment] || 0) + 1));
+  assert.ok(
+    Object.values(counts).every((n) => n <= 3),
+    'a choice of equipment'
+  );
+  assert.deepEqual(alternativesFor({ name: 'Unknown', id: 'nope' }), []);
+  const builtIn = alternativesFor({ id: 'squat' });
+  assert.ok(builtIn.length && builtIn.every((x) => x.target === 'quads'), 'the default plan has them too');
+  assert.ok(
+    alternativesFor({ id: 'chest-press' }).every((x) => exerciseName(x) !== 'Brustpresse'),
+    'the same exercise under another id is no replacement'
+  );
+});
+
+const sse = (...events) =>
+  new Response(events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join(''), {
+    status: 200,
+  });
+const textEvents = (text, stop = 'end_turn') => [
+  { type: 'message_start', message: {} },
+  { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'hidden' } },
+  { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: text.slice(0, 3) } },
+  { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: text.slice(3) } },
+  { type: 'message_delta', delta: { stop_reason: stop } },
+  { type: 'message_stop' },
+];
+
+test('Claude client: browser headers, streamed text, errors and one retry', async () => {
+  const { askClaude, errorCode, verifyKey } = await import('../src/ai.js');
+  const original = globalThis.fetch;
+  try {
+    const calls = [];
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url, init });
+      return sse(...textEvents('Hallo Welt'));
+    };
+    const seen = [];
+    const reply = await askClaude({ key: 'k', system: 's', user: 'u', onText: (text) => seen.push(text) });
+    assert.equal(reply.text, 'Hallo Welt', 'thinking stays out of the answer');
+    assert.deepEqual(seen, ['Hal', 'Hallo Welt']);
+    assert.equal(calls[0].url, 'https://api.anthropic.com/v1/messages');
+    assert.equal(calls[0].init.headers['x-api-key'], 'k');
+    assert.equal(calls[0].init.headers['anthropic-dangerous-direct-browser-access'], 'true');
+    const body = JSON.parse(calls[0].init.body);
+    assert.equal(body.stream, true);
+    assert.equal(body.output_config, undefined);
+    assert.equal(JSON.stringify(body).includes('"k"'), false, 'the key travels only in its header');
+
+    globalThis.fetch = async () => sse(...textEvents('{"a":1}'));
+    await askClaude({ key: 'k', system: 's', user: 'u', schema: { type: 'object' } });
+
+    const failing =
+      (status, message = 'x') =>
+      async () =>
+        new Response(JSON.stringify({ error: { message } }), { status });
+    globalThis.fetch = failing(401);
+    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'key' });
+    globalThis.fetch = failing(400, 'Your credit balance is too low');
+    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'billing' });
+
+    let tries = 0;
+    globalThis.fetch = async () => {
+      tries++;
+      return tries === 1 ? new Response('{}', { status: 529 }) : sse(...textEvents('Wieder da'));
+    };
+    assert.equal((await askClaude({ key: 'k', system: 's', user: 'u' })).text, 'Wieder da');
+    assert.equal(tries, 2, 'a busy service gets one more try');
+
+    globalThis.fetch = async () => sse(...textEvents('Nein', 'refusal'));
+    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'refusal' });
+    globalThis.fetch = async () => sse(...textEvents('{"a"', 'max_tokens'));
+    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u', schema: {} }), { code: 'truncated' });
+    const cut = await askClaude({ key: 'k', system: 's', user: 'u' });
+    assert.equal(cut.stopReason, 'max_tokens', 'plain text that was cut off is still shown');
+
+    globalThis.fetch = async () => {
+      throw new TypeError('offline');
+    };
+    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'network' });
+
+    const controller = new AbortController();
+    globalThis.fetch = (url, init) =>
+      new Promise((_, reject) => {
+        init.signal.addEventListener('abort', () =>
+          reject(Object.assign(new Error('stop'), { name: 'AbortError' }))
+        );
+        controller.abort();
+      });
+    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u', signal: controller.signal }), {
+      code: 'aborted',
+    });
+
+    let verified = 0;
+    globalThis.fetch = async (url) => {
+      verified++;
+      assert.match(url, /count_tokens$/);
+      return new Response('{}', { status: 200 });
+    };
+    await verifyKey('sk-ant-api-test');
+    assert.equal(verified, 1);
+    await assert.rejects(verifyKey('sk-ant-oat-test'), { code: 'subscription' });
+    assert.equal(verified, 1, 'a subscription token is not even sent');
+    assert.equal(errorCode(404), 'model');
+    assert.equal(errorCode(503), 'server');
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('a plan from Claude only keeps what the catalogue knows', async () => {
+  const { planFromReply } = await import('../src/aiPrompts.js');
+  const { plan, dropped } = planFromReply({
+    name: 'Kurzhantel 3×',
+    description: 'Passt zu dir.',
+    days: [
+      {
+        name: 'Tag A',
+        exercises: [
+          { id: '0025', sets: 3, range: '8-12', note: '' },
+          { id: '0025', sets: 3, range: '8–12', note: 'doppelt' },
+          { id: 'erfunden', sets: 3, range: '8–12', note: '' },
+          { id: '0003', sets: 99, range: '', note: 'x'.repeat(500) },
+        ],
+      },
+      { name: 'Nur Unsinn', exercises: [{ id: 'nope', sets: 3, range: '8', note: '' }] },
+      { name: '', exercises: 'kein Array' },
+    ],
+  });
+  assert.equal(dropped, 3);
+  assert.equal(plan.days.length, 1, 'days without a known exercise go away');
+  const [first, second] = plan.days[0].exercises;
+  assert.equal(first.libraryId, '0025');
+  assert.equal(first.range, '8–12');
+  assert.equal(second.sets, 12, 'sets are capped like everywhere else');
+  assert.equal(second.note.length, 200);
+  assert.ok(plan.schedule.assignments[plan.days[0].id] !== undefined);
+
+  const none = planFromReply({ name: 'x', description: 'Dafür braucht es einen Arzt.', days: [] });
+  assert.equal(none.plan, null);
+  assert.equal(none.message, 'Dafür braucht es einen Arzt.');
+  assert.equal(planFromReply(null).plan, null);
+});
+
+test('a reply becomes safe markup', async () => {
+  const { replyHtml } = await import('../src/aiPrompts.js');
+  assert.equal(
+    replyHtml('## Gut\n**Stark** <img src=x>\n\n- eins\n- zwei\nEnde'),
+    '<p>Gut</p><p>Stark &lt;img src=x&gt;</p><ul><li>eins</li><li>zwei</li></ul><p>Ende</p>'
+  );
+});
+
+test('the prompts carry the wish and the language', async () => {
+  const { PLAN_SCHEMA, planPrompt, questionPrompt, reviewPrompt } = await import('../src/aiPrompts.js');
+  const plan = planPrompt('3 Tage Kurzhanteln', 'DATA');
+  assert.match(plan.user, /3 Tage Kurzhanteln/);
+  assert.match(plan.user, /DATA/);
+  assert.match(plan.system, /Deutsch/);
+  assert.match(plan.system, /0025\|/, 'the catalogue is part of the prompt');
+  assert.match(questionPrompt('DATA', 'Warum?').user, /Warum\?/);
+  assert.match(reviewPrompt('DATA').user, /DATA/);
+  const objects = [];
+  const walk = (node) => {
+    if (node?.type === 'object') objects.push(node);
+    Object.values(node?.properties || {}).forEach(walk);
+    if (node?.items) walk(node.items);
+  };
+  walk(PLAN_SCHEMA);
+  assert.ok(objects.length === 3 && objects.every((o) => o.additionalProperties === false));
 });

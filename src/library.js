@@ -156,6 +156,30 @@ export const customExercise = (id) => {
 // Catalogue plus custom exercises, for the picker.
 export const allExercises = () => [...EXERCISE_LIBRARY, ...customExercises()];
 
+// Replacements for an exercise: same target muscle (the group when it has none), preferring equipment this person
+// already uses, the same equipment and shared helper muscles. At most three per equipment, so the list offers a choice.
+export function alternativesFor(item, { equipment = [], limit = 5 } = {}) {
+  const base = libraryOf(item);
+  if (!base) return [];
+  const owned = new Set(equipment);
+  const score = (x) =>
+    (owned.has(x.equipment) || x.equipment === 'body weight' ? 3 : 0) +
+    (x.equipment === base.equipment ? 2 : 0) +
+    (x.secondary || []).filter((muscle) => (base.secondary || []).includes(muscle)).length;
+  const perEquipment = {};
+  return EXERCISE_LIBRARY.filter(
+    (x) =>
+      x.id !== base.id &&
+      exerciseName(x) !== exerciseName(base) &&
+      (base.target ? x.target === base.target : x.group === base.group)
+  )
+    .map((x) => [score(x), x])
+    .sort((a, b) => b[0] - a[0])
+    .map(([, x]) => x)
+    .filter((x) => (perEquipment[x.equipment] = (perEquipment[x.equipment] || 0) + 1) <= 3)
+    .slice(0, limit);
+}
+
 // The record behind a plan exercise, session entry or picker item: built-in, catalogue or custom; null otherwise.
 export const libraryOf = (item) => {
   const key = exerciseKey(item);

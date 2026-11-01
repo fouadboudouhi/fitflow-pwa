@@ -1,7 +1,7 @@
 // Plan editor. Exercises come from the picker overlay; secondary actions live in "⋯" menus; rows can be dragged.
 import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
-import { exerciseName } from '../library.js';
+import { alternativesFor, exerciseName } from '../library.js';
 import {
   addDay,
   duplicateDay,
@@ -20,6 +20,7 @@ import { allPlans, persistPlan, savePlans } from '../storage.js';
 import { actionSheet, toast, undoToast } from '../ui.js';
 import { fieldValue, fromDisplay, unit } from '../units.js';
 import { esc, normalizeRange, number, setsCount } from '../util.js';
+import { usedEquipment } from '../workout.js';
 import { openPicker } from './picker.js';
 import { empty } from './shell.js';
 import * as plansView from './plans.js';
@@ -109,6 +110,9 @@ function openLibrary(dayIndex, replaceIndex = null) {
     isAdded: (id) =>
       !replacing && !!currentPlan()?.days[dayIndex]?.exercises.some((x) => (x.libraryId || x.id) === id),
     closeOnPick: replacing,
+    suggested: replacing
+      ? alternativesFor(plan.days[dayIndex]?.exercises[replaceIndex], { equipment: usedEquipment() })
+      : [],
     onPick: (source) => {
       const data = allPlans();
       const list = data.items.find((x) => x.id === state.editPlanId).days[dayIndex].exercises;

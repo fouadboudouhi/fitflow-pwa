@@ -2,6 +2,7 @@
 import { drawAnalytics, drawBodyChart } from './charts.js';
 import { pushView } from './router.js';
 import { state } from './state.js';
+import * as ai from './views/ai.js';
 import * as analytics from './views/analytics.js';
 import * as assistant from './views/assistant.js';
 import * as body from './views/body.js';
@@ -39,6 +40,7 @@ const VIEWS = {
   templates,
   customExercises,
   legal,
+  ai,
 };
 const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary'];
 const NAV_FOR = {
@@ -51,6 +53,7 @@ const NAV_FOR = {
   settings: 'more',
   customExercises: 'more',
   legal: 'more',
+  ai: 'more',
 };
 const $app = document.querySelector('#app');
 // Installed on iOS the app shell scrolls instead of the document (see styles.css), so both go to the top.

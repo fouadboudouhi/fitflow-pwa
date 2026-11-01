@@ -2,9 +2,10 @@ import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { createEmptyPlan } from '../plans.js';
 import { navigate, render } from '../render.js';
-import { allPlans, savePlans } from '../storage.js';
+import { allPlans, hasAiKey, savePlans } from '../storage.js';
 import { actionSheet, toast } from '../ui.js';
 import { esc } from '../util.js';
+import { openAi } from './ai.js';
 
 const planRow = (p, activeId) => {
   const count = p.days.reduce((n, d) => n + d.exercises.length, 0);
@@ -30,6 +31,11 @@ export function bind() {
         hint: t('plans.withAssistantHint'),
         onClick: () =>
           navigate('assistant', { assistantStep: 1, assistantDraft: null, assistantPreview: null }),
+      },
+      hasAiKey() && {
+        label: t('plans.withAi'),
+        hint: t('plans.withAiHint'),
+        onClick: () => openAi('plan', 'plans'),
       },
       {
         label: t('plans.empty'),

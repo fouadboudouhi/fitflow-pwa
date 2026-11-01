@@ -1,13 +1,13 @@
 // Exercise detail sheet: animation, muscles and equipment, the plan note, step-by-step instructions (loaded on
 // demand) and the last sessions.
-import { currentLanguage, t } from '../i18n.js';
+import { currentLanguage, fmtNumber, t } from '../i18n.js';
 import { equipmentLabel, exerciseName, groupLabel, libraryOf, muscleLabel } from '../library.js';
 import { KINDS, recordsFor } from '../records.js';
 import { describeBest, shortSet, trackTypeLabel, trackTypeOf } from '../sets.js';
 import { recordLine } from './records.js';
 import { sheet } from '../ui.js';
 import { esc, exerciseKey, fmtLong } from '../util.js';
-import { exerciseHistory } from '../workout.js';
+import { exerciseHistory, strengthTrend } from '../workout.js';
 
 const historyRows = (rows) =>
   rows.length
@@ -48,9 +48,13 @@ export function openExerciseSheet(item) {
         .filter(Boolean)
         .join(' · ')
     : '';
+  const trend = trackType === 'weight_reps' ? strengthTrend(item) : null;
+  const trendLine = trend
+    ? `<p class="exercise-meta">${esc(t('exercise.trend', { weeks: trend.weeks, percent: `${trend.percent > 0 ? '+' : ''}${fmtNumber(Math.round(trend.percent))}` }))}</p>`
+    : '';
   const box = document.createElement('div');
   box.className = 'exercise-sheet';
-  box.innerHTML = `${gif ? `<img class="exercise-gif" src="${esc(gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">` : ''}${meta.length ? `<p class="exercise-meta">${meta.map(esc).join(' · ')}</p>` : ''}${also.length ? `<p class="exercise-meta">${esc(t('exercise.also', { muscles: also.join(', ') }))}</p>` : ''}${bests ? `<p class="exercise-meta exercise-records">${t('exercise.records')}: ${esc(bests)}</p>` : ''}${item.note ? `<p class="coach-note">${esc(item.note)}</p>` : ''}<div class="exercise-steps-slot"></div><h3>${t('exercise.lastSessions')}</h3>${historyRows(exerciseHistory(exerciseKey(item), 5))}`;
+  box.innerHTML = `${gif ? `<img class="exercise-gif" src="${esc(gif)}" alt="${esc(t('workout.techniqueAlt', { name }))}">` : ''}${meta.length ? `<p class="exercise-meta">${meta.map(esc).join(' · ')}</p>` : ''}${also.length ? `<p class="exercise-meta">${esc(t('exercise.also', { muscles: also.join(', ') }))}</p>` : ''}${bests ? `<p class="exercise-meta exercise-records">${t('exercise.records')}: ${esc(bests)}</p>` : ''}${trendLine}${item.note ? `<p class="coach-note">${esc(item.note)}</p>` : ''}<div class="exercise-steps-slot"></div><h3>${t('exercise.lastSessions')}</h3>${historyRows(exerciseHistory(exerciseKey(item), 5))}`;
   sheet({ title: name, content: box });
   if (lib && !lib.builtIn)
     loadSteps(lib.id).then((steps) => {
