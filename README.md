@@ -73,7 +73,7 @@ npm run format
 ```
 
 ## Daten
-Alle Trainings- und Körperdaten bleiben im Browser des Geräts. Es gibt keinen Account und kein Backend. Für einen Gerätewechsel steht der JSON-Export zur Verfügung; er enthält auch die Fotos aus IndexedDB. Beim Import werden alle Werte geprüft und auf das erwartete Format gebracht.
+Alle Trainings- und Körperdaten bleiben im Browser des Geräts. Es gibt keinen Account und kein Backend. Einzige Ausnahme sind die optionalen KI-Funktionen (`src/ai.js`, `src/aiPrompts.js`, `src/views/ai.js`): Wer einen eigenen Claude-API-Schlüssel einträgt, schickt nach einem Tipp direkt aus dem Browser den eigenen Text und eine Trainingszusammenfassung an Anthropic. Der Schlüssel liegt nur im `localStorage` und kommt nicht ins Backup. Für einen Gerätewechsel steht der JSON-Export zur Verfügung; er enthält auch die Fotos aus IndexedDB. Beim Import werden alle Werte geprüft und auf das erwartete Format gebracht.
 
 ## Lizenz
 Der Quellcode steht unter der [MIT-Lizenz](LICENSE). Übungsanimationen und andere Medien von Dritten sind davon ausgenommen und gehören ihren jeweiligen Rechteinhabern, siehe [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md).

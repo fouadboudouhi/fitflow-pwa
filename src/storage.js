@@ -20,6 +20,7 @@ export const LS = {
   lastBackup: 'volumora-last-backup',
   backupSnooze: 'volumora-backup-snooze',
   installTip: 'volumora-install-tip',
+  aiKey: 'volumora-ai-key',
 };
 export const DEFAULT_SETTINGS = {
   language: 'auto',
@@ -167,6 +168,11 @@ export const dismissInstallTip = () => localStorage.removeItem(LS.installTip);
 export const getActive = () => read(LS.active, null);
 export const saveActive = (session) => write(LS.active, session);
 export const clearActive = () => localStorage.removeItem(LS.active);
+// The Claude API key stays out of the settings, so it never ends up in a backup file.
+export const getAiKey = () => localStorage.getItem(LS.aiKey) || '';
+export const hasAiKey = () => !!getAiKey();
+export const saveAiKey = (key) => localStorage.setItem(LS.aiKey, key);
+export const clearAiKey = () => localStorage.removeItem(LS.aiKey);
 export const getRestUntil = () => Number(localStorage.getItem(LS.rest)) || 0;
 export const saveRestUntil = (until) =>
   until ? localStorage.setItem(LS.rest, String(until)) : localStorage.removeItem(LS.rest);

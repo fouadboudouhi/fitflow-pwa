@@ -6569,3 +6569,134 @@ body {
 .set-row:not(.swiped) .set-delete {
   visibility: hidden;
 }
+
+/* AI assistant: one calm column; a reply reads as plain text, not as a chat bubble */
+.ai-intro {
+  margin: 4px 0 16px;
+}
+.ai-entry {
+  margin-top: 16px;
+}
+.ai-field {
+  margin-top: 8px;
+}
+.ai-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.ai-field textarea {
+  width: 100%;
+}
+.ai-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.ai-examples button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+}
+.ai-output {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.ai-output:not(:empty) {
+  margin: 12px 0 20px;
+}
+.ai-output p {
+  margin: 0 0 10px;
+}
+.ai-output ul {
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+.ai-output li {
+  margin-bottom: 6px;
+}
+.ai-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.ai-status .text-btn {
+  min-height: 44px;
+}
+.ai-error {
+  margin: 12px 0;
+  color: var(--danger);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.ai-sent {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ai-sent summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.ai-sent pre {
+  max-height: 260px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--cloud);
+  font: inherit;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ai-notes {
+  margin: 20px 0 8px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ai-notes li {
+  margin-bottom: 6px;
+}
+.ai-remove {
+  margin-top: 16px;
+}
+#aiDiscardPlan {
+  min-height: 44px;
+}
+/* The plan is checked here before anything is saved, so every exercise stays readable */
+.ai-preview .plan-preview p {
+  white-space: normal;
+  overflow: visible;
+}
+
+/* Replacements come first in the picker, set apart from the full list by a hairline */
+.library-suggested {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.library-suggested > h3 {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.library-suggested[hidden] {
+  display: none;
+}

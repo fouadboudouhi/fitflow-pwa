@@ -319,7 +319,8 @@ test('legacy data is migrated: day keys, library ids and photos in IndexedDB', a
     await page.inputValue('.workout-exercise input[data-set-field="weight"][data-index="0"]'),
     '60'
   );
-  assert.match(await page.textContent('.suggest-row span'), /60 kg/);
+  // The fixture dates from months ago, so the suggestion treats this as a restart after a break.
+  assert.match(await page.textContent('.suggest-row span'), /Wochen Pause: Einstieg mit 55 kg/);
 });
 
 test('deleting a set can be undone and open details survive a re-render', async () => {
@@ -367,7 +368,7 @@ test('deleting a plan can be undone', async () => {
 
 // WCAG 2.0 A/AA check of the current page; only serious and critical violations fail.
 const axeCheck = async (name) => {
-  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
   await page.addScriptTag({ content: AXE });
   const result = await page.evaluate(() => axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] }));
   const serious = result.violations.filter((v) => ['serious', 'critical'].includes(v.impact));
@@ -1324,4 +1325,243 @@ test('first run: the rest timer can be turned off, and the install tip waits on 
   await fresh.click('#installLater');
   await fresh.waitForSelector('#installNow', { state: 'detached' });
   await fresh.close();
+});
+
+// The Claude API as the app sees it; no test ever reaches the real service.
+async function mockClaude({ onMessage, verifyStatus = 200 } = {}) {
+  const calls = [];
+  await page.route('https://api.anthropic.com/**', async (route) => {
+    const request = route.request();
+    const cors = {
+      'access-control-allow-origin': '*',
+      'access-control-allow-headers': '*',
+      'access-control-allow-methods': '*',
+    };
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 200, headers: cors });
+    calls.push({ url: request.url(), headers: request.headers(), body: request.postDataJSON() });
+    if (request.url().endsWith('/count_tokens'))
+      return route.fulfill({
+        status: verifyStatus,
+        headers: cors,
+        contentType: 'application/json',
+        body: JSON.stringify({ input_tokens: 1, error: { message: 'x' } }),
+      });
+    const reply = onMessage?.(request.postDataJSON()) ?? { text: 'Antwort' };
+    if (reply.status)
+      return route.fulfill({
+        status: reply.status,
+        headers: cors,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { message: reply.message || 'x' } }),
+      });
+    const events = [
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: reply.text } },
+      { type: 'message_delta', delta: { stop_reason: reply.stop || 'end_turn' } },
+    ];
+    await route.fulfill({
+      status: 200,
+      headers: cors,
+      contentType: 'text/event-stream',
+      body: events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(''),
+    });
+  });
+  return calls;
+}
+const addAiKey = () => page.evaluate(() => localStorage.setItem('volumora-ai-key', 'sk-ant-api-test-secret'));
+
+test('without a key no AI feature shows and nothing is sent', async () => {
+  const calls = await mockClaude();
+  await seedHistory();
+  await page.click('[data-nav="plans"]');
+  await page.click('#newPlan');
+  assert.equal(await page.getByText('Plan mit KI').count(), 0);
+  await page.keyboard.press('Escape');
+  await page.click('[data-nav="analytics"]');
+  assert.equal(await page.locator('#aiReview').count(), 0);
+  await page.click('[data-nav="more"]');
+  assert.equal(await page.locator('#aiRow').count(), 0);
+  await page.click('[data-nav="settings"]');
+  assert.match(await page.textContent('#openAi'), /Claude-Schlüssel eintragen/);
+  assert.equal(calls.length, 0);
+});
+
+test('a Claude key is checked before saving and stays out of the backup', async () => {
+  const calls = await mockClaude({ verifyStatus: 401 });
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="settings"]');
+  await page.click('#openAi');
+  await axeCheck('ai setup');
+  assert.equal(await page.getAttribute('#aiKey', 'type'), 'password');
+  await page.fill('#aiKey', 'sk-ant-oat-subscription');
+  await page.click('#aiKeySave');
+  await page.waitForSelector('.ai-error');
+  assert.match(await page.textContent('.ai-error'), /Claude-Abo/);
+  assert.equal(calls.length, 0, 'a subscription token never leaves the device');
+  await page.fill('#aiKey', 'sk-ant-api-wrong');
+  await page.click('#aiKeySave');
+  await page.waitForFunction(() => document.querySelector('.ai-error')?.textContent.includes('lehnt'));
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), null);
+
+  await page.unroute('https://api.anthropic.com/**');
+  const good = await mockClaude();
+  await page.fill('#aiKey', ' sk-ant-api-test-secret ');
+  await page.click('#aiKeySave');
+  await page.waitForSelector('[data-ai-mode="plan"]');
+  assert.equal(good[0].headers['x-api-key'], 'sk-ant-api-test-secret');
+  assert.equal(good[0].headers['anthropic-dangerous-direct-browser-access'], 'true');
+  assert.match(good[0].url, /count_tokens$/);
+  await page.click('.toast-close');
+  await page.waitForSelector('.toast', { state: 'detached' });
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), 'sk-ant-api-test-secret');
+  await axeCheck('ai home');
+
+  await page.click('[data-nav="more"]');
+  await page.waitForSelector('#aiRow');
+  await page.click('[data-nav="backup"]');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#exportJson')]);
+  assert.equal(fs.readFileSync(await download.path(), 'utf8').includes('sk-ant'), false);
+
+  await page.click('[data-nav="more"]');
+  await page.click('#aiRow');
+  await page.click('#aiRemoveKey');
+  await page.waitForSelector('#aiKey');
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), null);
+  await page.click('.toast-action');
+  await page.waitForSelector('[data-ai-mode="plan"]');
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), 'sk-ant-api-test-secret');
+});
+
+test('a plan from one sentence is shown first and only then saved', async () => {
+  await addAiKey();
+  const calls = await mockClaude({
+    onMessage: () => ({
+      text: JSON.stringify({
+        name: 'Kurzhantel 2×',
+        description: 'Schont die Schulter.',
+        days: [
+          {
+            name: 'Tag A',
+            exercises: [
+              { id: '0025', sets: 3, range: '8–12', note: '' },
+              { id: 'erfunden', sets: 3, range: '8–12', note: '' },
+            ],
+          },
+          { name: 'Tag B', exercises: [{ id: '0003', sets: 2, range: '12–15', note: '' }] },
+        ],
+      }),
+    }),
+  });
+  await page.click('[data-nav="plans"]');
+  const before = await page.locator('[data-edit-plan]').count();
+  await page.click('#newPlan');
+  await page.getByText('Plan mit KI').click();
+  await page.waitForSelector('#aiInput');
+  await axeCheck('ai plan');
+  await page.click('#aiSend');
+  assert.equal(calls.length, 0, 'an empty wish sends nothing');
+  await page.locator('[data-ai-example]').first().click();
+  assert.match(await page.inputValue('#aiInput'), /Kurzhanteln/);
+  await page.fill('#aiInput', '2 Tage Kurzhanteln');
+  await page.click('#aiSend');
+  await page.waitForSelector('#aiUsePlan');
+  assert.match(calls[0].body.messages[0].content, /2 Tage Kurzhanteln/);
+  assert.equal(calls[0].body.output_config.format.type, 'json_schema');
+  assert.equal(JSON.stringify(calls[0].body).includes('sk-ant'), false);
+  assert.match(await page.textContent('.plan-preview'), /Tag A/);
+  assert.match(await page.textContent('main'), /1 Übungen ließen sich nicht zuordnen/);
+  await axeCheck('ai plan preview');
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')).items.length);
+  assert.equal(saved, before, 'nothing is saved before the person agrees');
+  await page.click('#aiUsePlan');
+  await page.waitForSelector('.next-card');
+  const plans = await page.evaluate(() => JSON.parse(localStorage.getItem('volumora-plans-v2')));
+  assert.equal(plans.items.length, before + 1);
+  assert.equal(plans.items.find((p) => p.id === plans.activePlanId).name, 'Kurzhantel 2×');
+});
+
+test('a review and a question use the training data and show errors plainly', async () => {
+  await seedHistory();
+  await addAiKey();
+  let status = 0;
+  const calls = await mockClaude({
+    onMessage: () => (status ? { status } : { text: 'Läuft gut.\n- Mehr Rücken <b>trainieren</b>' }),
+  });
+  await page.click('[data-nav="analytics"]');
+  await page.click('#aiReview');
+  await page.waitForSelector('#aiSend');
+  assert.equal(calls.length, 0, 'opening the screen sends nothing');
+  await page.click('.ai-sent summary');
+  assert.match(await page.textContent('.ai-sent pre'), /Sessions in the last 8 weeks/);
+  await axeCheck('ai review');
+  await page.click('#aiSend');
+  await page.waitForSelector('.ai-output li');
+  assert.match(await page.textContent('.ai-output'), /Mehr Rücken <b>trainieren<\/b>/, 'shown as text');
+  assert.match(calls[0].body.messages[0].content, /Sessions in the last 8 weeks/);
+  assert.equal(calls[0].body.output_config, undefined);
+
+  status = 401;
+  await page.click('#aiSend');
+  await page.waitForSelector('.ai-error');
+  assert.match(await page.textContent('.ai-error'), /lehnt diesen Schlüssel ab/);
+
+  status = 0;
+  await page.click('#aiBack');
+  await page.click('[data-nav="more"]');
+  await page.click('#aiRow');
+  await page.click('[data-ai-mode="ask"]');
+  await page.fill('#aiInput', 'Warum stagniere ich?');
+  await page.click('#aiSend');
+  await page.waitForSelector('.ai-output li');
+  assert.match(calls.at(-1).body.messages[0].content, /Warum stagniere ich\?/);
+
+  await page.click('#aiBack');
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="settings"]');
+  await page.click('#deleteAll');
+  await page.click('.sheet-actions [data-ok]');
+  await page.waitForSelector('#onboardingForm, .next-card');
+  assert.equal(
+    await page.evaluate(() => localStorage.getItem('volumora-ai-key')),
+    null,
+    'delete all includes the key'
+  );
+});
+
+test('replacing an exercise offers matching ones first', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  await page.click('[data-exercise-menu="0"]');
+  await page.getByRole('button', { name: 'Ersetzen', exact: true }).click();
+  await page.waitForSelector('.library-suggested');
+  assert.match(await page.textContent('.library-suggested h3'), /Passender Ersatz/);
+  const cards = page.locator('.library-suggested .library-item');
+  assert.ok((await cards.count()) >= 3);
+  await axeCheck('picker with replacements');
+  await page.fill('#librarySearch', 'kabel');
+  assert.equal(
+    await page.locator('.library-suggested').isVisible(),
+    false,
+    'searching shows the normal list'
+  );
+  await page.fill('#librarySearch', '');
+  const name = await cards.first().locator('h3').textContent();
+  await cards.first().locator('[data-pick-exercise]').click();
+  await page.waitForSelector('.exercise-library', { state: 'detached' });
+  assert.match(await page.locator('.workout-exercise').first().textContent(), new RegExp(name));
+});
+
+test('cancelling stops the request and leaves no error', async () => {
+  await seedHistory();
+  await addAiKey();
+  await page.route('https://api.anthropic.com/**', () => {});
+  await page.click('[data-nav="more"]');
+  await page.click('#aiRow');
+  await page.click('[data-ai-mode="review"]');
+  await page.click('#aiSend');
+  await page.waitForSelector('#aiCancel');
+  assert.equal(await page.isDisabled('#aiSend'), true, 'one request at a time');
+  await page.click('#aiCancel');
+  await page.waitForSelector('#aiCancel', { state: 'detached' });
+  assert.equal(await page.locator('.ai-error').count(), 0);
+  assert.equal(await page.isDisabled('#aiSend'), false);
 });

@@ -26,6 +26,11 @@ export function normalizeRange(value, fallback = '8–12') {
   return a === b ? String(a) : `${Math.min(a, b)}–${Math.max(a, b)}`;
 }
 export const rangeMax = (range) => Math.max(...(String(range).match(/\d+/g)?.map(Number) || [12]));
+// Bottom of a real range; a single target such as "10" or "30 s" has none.
+export const rangeMin = (range) => {
+  const nums = String(range).match(/\d+/g)?.map(Number) || [];
+  return nums.length > 1 ? Math.min(...nums) : 0;
+};
 export const titleCase = (value) =>
   String(value)
     .replace(/\b\w/g, (c) => c.toUpperCase())

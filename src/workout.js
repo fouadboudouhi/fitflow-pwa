@@ -4,6 +4,7 @@ import { annotateAll, annotatePrs } from './records.js';
 import { fillFromReference, newSetFor, setReady, setScore, setType, trackTypeOf } from './sets.js';
 import { state } from './state.js';
 import {
+  activePlan,
   clearActive,
   findPlan,
   getActive,
@@ -22,7 +23,9 @@ import {
   exerciseKey,
   isWorkSet,
   number,
+  parseDate,
   rangeMax,
+  rangeMin,
   setsCount,
   uid,
   volumeOf,
@@ -309,7 +312,52 @@ export function stalled(ex, history = getHistory()) {
   return newest <= oldest && middle <= oldest && newest >= Math.max(...all) * 0.95;
 }
 
-export function suggestion(ex, history = getHistory()) {
+const DAY_MS = 86400000;
+const TREND_DAYS = 56;
+const COMEBACK_DAYS = 21;
+const sessionTime = (session) => parseDate(session.finishedAt || session.day)?.getTime() || 0;
+
+// Best estimated strength per session of an exercise, newest first.
+function strengthPoints(ex, history) {
+  const key = exerciseKey(ex);
+  return history.flatMap((session) => {
+    const entry = session.entries?.find((e) => exerciseKey(e) === key);
+    return entry && loggedSets(entry).length ? [{ at: sessionTime(session), score: bestScoreOf(entry) }] : [];
+  });
+}
+
+// Direction of the last eight weeks as a straight line through the sessions: the change in percent, or null when
+// fewer than three sessions over two weeks say too little.
+export function strengthTrend(ex, history = getHistory(), today = new Date()) {
+  const points = strengthPoints(ex, history).filter(
+    (p) => p.at && p.score && today.getTime() - p.at <= TREND_DAYS * DAY_MS
+  );
+  if (points.length < 3) return null;
+  const first = Math.min(...points.map((p) => p.at));
+  const days = (Math.max(...points.map((p) => p.at)) - first) / DAY_MS;
+  if (days < 14) return null;
+  const meanX = points.reduce((sum, p) => sum + (p.at - first) / DAY_MS, 0) / points.length;
+  const meanY = points.reduce((sum, p) => sum + p.score, 0) / points.length;
+  const slope =
+    points.reduce((sum, p) => sum + ((p.at - first) / DAY_MS - meanX) * (p.score - meanY), 0) /
+    points.reduce((sum, p) => sum + ((p.at - first) / DAY_MS - meanX) ** 2, 0);
+  return { percent: (slope * days * 100) / meanY, weeks: Math.round(days / 7), sessions: points.length };
+}
+
+// Weeks of training without getting stronger, even if single sessions go up and down, so `stalled` misses it.
+// Recent lighter sessions count as the break already taken.
+function plateaued(ex, history, today) {
+  const trend = strengthTrend(ex, history, today);
+  if (!trend || trend.sessions < 5 || trend.weeks < 4 || trend.percent >= 1) return false;
+  const scores = strengthPoints(ex, history).map((p) => p.score);
+  return scores.slice(0, 3).every((score) => score >= Math.max(...scores) * 0.95);
+}
+
+const belowRange = (entry, min) =>
+  Math.max(0, ...entry.sets.filter((s) => isWorkSet(s) && s.done).map((s) => number(s.reps))) < min;
+
+// The working weight for today, from the last session and the weeks before it. Each kind says why, so the row can too.
+export function suggestion(ex, history = getHistory(), today = new Date()) {
   if (trackTypeOf(ex) !== 'weight_reps') return { kind: 'start', weight: null };
   const previous = recentEntries(ex, 1, history)[0];
   if (!previous) return { kind: 'start', weight: null };
@@ -317,6 +365,10 @@ export function suggestion(ex, history = getHistory()) {
   const work = previous.sets.filter((s) => isWorkSet(s) && s.done && setType(s) !== 'drop');
   const max = rangeMax(ex.range);
   const best = Math.max(...work.map((s) => number(s.weight)), 0);
+  const lastAt = strengthPoints(ex, history)[0]?.at;
+  const away = lastAt ? (today.getTime() - lastAt) / DAY_MS : 0;
+  if (best && away >= COMEBACK_DAYS)
+    return { kind: 'comeback', weight: roundToStep(best * 0.9), weeks: Math.floor(away / 7) };
   const hasRir = work.some((s) => s.rir !== '' && s.rir !== undefined);
   const averageRir = work.reduce((a, s) => a + number(s.rir), 0) / (work.length || 1);
   const ready = work.length && work.every((s) => number(s.reps) >= max) && (!hasRir || averageRir >= 1);
@@ -329,7 +381,24 @@ export function suggestion(ex, history = getHistory()) {
   const inc = number(ex.increment) || (heavy ? Math.max(plateStep() * 2, base) : base);
   if (ready) return { kind: 'progress', weight: best + inc };
   if (stalled(ex, history)) return { kind: 'stall', weight: roundToStep(best * 0.9) };
+  const min = rangeMin(ex.range);
+  const lastTwo = recentEntries(ex, 2, history);
+  if (min && best > inc && lastTwo.length === 2 && lastTwo.every((entry) => belowRange(entry, min)))
+    return { kind: 'reduce', weight: roundToStep(best - inc) };
+  if (plateaued(ex, history, today)) {
+    const trend = strengthTrend(ex, history, today);
+    return { kind: 'plateau', weight: roundToStep(best * 0.9), weeks: trend.weeks };
+  }
   return { kind: 'confirm', weight: best };
+}
+
+// The equipment this person trains with: from the active plan and the recent sessions.
+export function usedEquipment(history = getHistory()) {
+  const items = [
+    ...(activePlan()?.days || []).flatMap((day) => day.exercises),
+    ...history.slice(0, 30).flatMap((session) => session.entries || []),
+  ];
+  return [...new Set(items.map((item) => libraryOf(item)?.equipment).filter(Boolean))];
 }
 
 // Epley: estimated one-rep max, and the reps a given share of it allows.

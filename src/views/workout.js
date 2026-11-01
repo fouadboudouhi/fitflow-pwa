@@ -1,7 +1,7 @@
 import { beep, buzz, primeAudio } from '../audio.js';
 import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
-import { exerciseName } from '../library.js';
+import { alternativesFor, exerciseName } from '../library.js';
 import { BARS, PLATES, defaultBar, isBarbell, platesPerSide } from '../plates.js';
 import { planExerciseFromLibrary, supersetLetters, supersetPosition } from '../plans.js';
 import { navigate, render } from '../render.js';
@@ -43,6 +43,7 @@ import {
   suggestion,
   toggleSet,
   touchSession,
+  usedEquipment,
   warmupSets,
   workSets,
 } from '../workout.js';
@@ -57,12 +58,16 @@ const clockText = (session) =>
     ? ` · ${fmtDuration((Date.now() - new Date(session.startedAt).getTime()) / 1000)}`
     : '';
 
+const SUGGESTION_TEXT = {
+  progress: 'workout.suggest',
+  stall: 'workout.suggestStall',
+  comeback: 'workout.suggestComeback',
+  reduce: 'workout.suggestReduce',
+  plateau: 'workout.suggestPlateau',
+  confirm: 'workout.suggestConfirm',
+};
 const suggestionText = (s) =>
-  s.kind === 'progress'
-    ? t('workout.suggest', { weight: fmtWeight(s.weight) })
-    : s.kind === 'stall'
-      ? t('workout.suggestStall', { weight: fmtWeight(s.weight) })
-      : t('workout.suggestConfirm', { weight: fmtWeight(s.weight) });
+  t(SUGGESTION_TEXT[s.kind] || SUGGESTION_TEXT.confirm, { weight: fmtWeight(s.weight), weeks: s.weeks });
 
 function exerciseSection(ex, index, entry, exercises, letters, showRir) {
   const complete = entryComplete(entry);
@@ -253,6 +258,7 @@ function replaceExercise(index) {
     title: t('picker.replaceTitle'),
     subtitle: t('picker.replaceHint'),
     closeOnPick: true,
+    suggested: alternativesFor(sessionExercises(current())[index], { equipment: usedEquipment() }),
     onPick: (source) =>
       mutate((s) => replaceSessionExercise(s, index, planExerciseFromLibrary(source)), true),
   });

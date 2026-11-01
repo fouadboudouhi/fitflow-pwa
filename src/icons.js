@@ -41,6 +41,8 @@ const PATHS = {
   timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9.5V13l2.5 2M9.5 3h5"/>',
   trend: '<path d="M3.5 17.5 9.5 11l4 4 7-7.5"/><path d="M16 7.5h4.5V12"/>',
   copy: '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V5.5A2.5 2.5 0 0 1 7.5 3H15"/>',
+  spark:
+    '<path d="m12 4 1.9 5.1L19 11l-5.1 1.9L12 18l-1.9-5.1L5 11l5.1-1.9z"/><path d="M19 4v3M17.5 5.5h3"/>',
   theme: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/>',
   body: '<circle cx="12" cy="7.5" r="3.5"/><path d="M5 20.5a7 7 0 0 1 14 0"/>',
 };
