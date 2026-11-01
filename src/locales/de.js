@@ -367,7 +367,7 @@ const ui = {
   'more.installHint': 'Anleitung für iPhone und Android',
   'more.installText':
     'iPhone und iPad: In Safari „Teilen“ und dann „Zum Home-Bildschirm“ wählen. Android: Im Browser-Menü „App installieren“ oder „Zum Startbildschirm hinzufügen“.',
-  'more.about': 'Volumora speichert alles nur auf diesem Gerät. Kein Konto, kein Server.',
+  'more.about': 'Volumora speichert alles auf diesem Gerät und sichert es auf dem Volumora-Server.',
   'more.legal': 'Datenschutz & Lizenzen',
   'more.legalHint': 'Datenschutz, Quellen',
   'backup.title': 'Backup',
@@ -443,7 +443,7 @@ const ui = {
   'legal.title': 'Datenschutz & Lizenzen',
   'legal.privacy': 'Datenschutz',
   'legal.privacyText':
-    'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) ausschließlich auf deinem Gerät im Speicher des Browsers. Es gibt kein Konto, keinen Server und keine Übertragung an uns.\nDie KI-Funktionen sind optional und nur aktiv, wenn du einen eigenen Claude-API-Schlüssel einträgst. Der Schlüssel bleibt auf diesem Gerät und kommt nicht ins Backup. Nur wenn du etwas sendest, gehen deine Nachrichten samt bisherigem Chat und eine Zusammenfassung deiner Trainingsdaten direkt an Anthropic. Für die Antwort kann der Assistent außerdem Pläne, Trainings, Bestwerte, Einstellungen und Körperdaten abrufen, auch deine Notizen zu vergangenen Trainings, aber keine Fotos. Er kann in deinem Auftrag Pläne, Einstellungen, das laufende Training und Einträge ändern; jede Änderung steht im Chat, und das Löschen eines Plans musst du bestätigen. Was er sich merkt, bleibt auf diesem Gerät, und du kannst es im Menü des Chats ansehen und löschen. Für aktuelle Informationen kann er im Web suchen.\nBeim Diktieren eines Satzes wertet das iPhone oder der Browser die Sprache aus, dabei gehen Aufnahmen je nach Gerät an den Hersteller, etwa Apple. Volumora selbst speichert und sendet keine Aufnahmen. Dafür gilt die Datenschutzerklärung von Anthropic. Der Chat bleibt auf diesem Gerät und kommt nicht ins Backup; „Alle Daten löschen“ entfernt ihn.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Wenn du dich bei einem Server anmeldest, gehen deine Daten samt Fotos, Chat und Gedächtnis des Assistenten von selbst dorthin, aber nie dein Claude-Schlüssel. Wer den Server betreibt, kann diese Daten einsehen; melde dich nur bei jemandem an, dem du vertraust. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
+    'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) auf deinem Gerät im Speicher des Browsers und sichert sie unter deinem Konto auf dem Volumora-Server, einem privat betriebenen Server. Dorthin gehen auch der Chat und das Gedächtnis des Assistenten, nie aber dein Claude-Schlüssel. Wer den Server betreibt, kann diese Daten einsehen; Passwörter liegen nur verschlüsselt vor.\nDie KI-Funktionen sind optional und nur aktiv, wenn du einen eigenen Claude-API-Schlüssel einträgst. Der Schlüssel bleibt auf diesem Gerät und kommt nicht ins Backup. Nur wenn du etwas sendest, gehen deine Nachrichten samt bisherigem Chat und eine Zusammenfassung deiner Trainingsdaten direkt an Anthropic. Für die Antwort kann der Assistent außerdem Pläne, Trainings, Bestwerte, Einstellungen und Körperdaten abrufen, auch deine Notizen zu vergangenen Trainings, aber keine Fotos. Er kann in deinem Auftrag Pläne, Einstellungen, das laufende Training und Einträge ändern; jede Änderung steht im Chat, und das Löschen eines Plans musst du bestätigen. Was er sich merkt, bleibt auf diesem Gerät, und du kannst es im Menü des Chats ansehen und löschen. Für aktuelle Informationen kann er im Web suchen.\nBeim Diktieren eines Satzes wertet das iPhone oder der Browser die Sprache aus, dabei gehen Aufnahmen je nach Gerät an den Hersteller, etwa Apple. Volumora selbst speichert und sendet keine Aufnahmen. Dafür gilt die Datenschutzerklärung von Anthropic. Der Chat bleibt auf diesem Gerät und kommt nicht ins Backup; „Alle Daten löschen“ entfernt ihn.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Wenn du dich bei einem Server anmeldest, gehen deine Daten samt Fotos, Chat und Gedächtnis des Assistenten von selbst dorthin, aber nie dein Claude-Schlüssel. Wer den Server betreibt, kann diese Daten einsehen; melde dich nur bei jemandem an, dem du vertraust. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
   'legal.licenses': 'Quellen und Lizenzen',
   'legal.licensesText':
     'Der Quellcode von Volumora steht unter der MIT-Lizenz.\nÜbungsdaten und Animationen stammen aus dem öffentlichen Datensatz „Exercises Dataset“ (YaKohen, nur für Bildungs- und nicht-kommerzielle Zwecke) sowie von ExerciseDB (nicht-kommerzielle Nutzung). Volumora ist kostenlos und werbefrei; die Medien werden nur verlinkt.',
@@ -474,10 +474,17 @@ const ui = {
   'onboarding.use': 'Los geht’s',
 
   // Summary, records, sharing
-  'onboarding.haveServer': 'Ich habe schon ein Konto auf einem Server',
+  'gate.text':
+    'Dein Konto hält Pläne, Trainings und Körperdaten auf dem Volumora-Server, damit bei einem neuen Handy oder einer Neuinstallation nichts verloren geht. Zum Registrieren brauchst du einen Einladungscode.',
+  'gate.foot':
+    'Volumora ist ein privates Projekt. Wer den Server betreibt, kann die gespeicherten Daten einsehen. Dein Claude-Schlüssel bleibt immer auf dem Gerät.',
+  'sync.serverIs': 'Server: {host}.',
+  'sync.otherServer': 'Anderen Server verwenden',
+  'sync.expiredTitle': 'Bitte neu anmelden',
+  'sync.expiredText': 'Deine Anmeldung am Server ist abgelaufen. Bis dahin wird nichts gesichert.',
   'sync.title': 'Auf eigenem Server sichern',
   'sync.hint':
-    'Die App sichert deine Daten dann von selbst auf einem Server, dem du vertraust, zum Beispiel deinem eigenen. Nach einer Neuinstallation meldest du dich dort an und bekommst alles zurück. Ohne Server bleibt alles nur auf diesem Gerät.',
+    'Die App sichert deine Daten von selbst auf dem Server. Nach einer Neuinstallation meldest du dich an und bekommst alles zurück.',
   'sync.open': 'Anmelden oder registrieren',
   'sync.intro': 'Die Adresse und eine Einladung bekommst du von der Person, die den Server betreibt.',
   'sync.modeLogin': 'Anmelden',

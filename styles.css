@@ -7275,3 +7275,17 @@ textarea,
   justify-items: center;
   gap: 4px;
 }
+
+.gate {
+  padding-top: 24px;
+}
+.gate .assistant-hero {
+  margin-bottom: 18px;
+}
+.gate-foot {
+  margin-top: 18px;
+}
+.sync-server .text-btn {
+  min-height: 0;
+  padding: 0;
+}
