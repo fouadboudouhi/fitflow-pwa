@@ -2,7 +2,8 @@
 import { fmtNumber, t } from './i18n.js';
 import { groupOf } from './library.js';
 import { setScore, trackTypeOf } from './sets.js';
-import { frequency, strengthVsBodyweight, weeklyVolume } from './stats.js';
+import { state } from './state.js';
+import { frequency, groupSetsPerWeek, strengthVsBodyweight, weeklyVolume } from './stats.js';
 import { getBody, getHistory } from './storage.js';
 import { toDisplay, unit } from './units.js';
 import { dayKey, exerciseKey, fmtDate, rangeCutoff, setVolume, volumeOf } from './util.js';
@@ -286,6 +287,11 @@ export function drawAnalytics(selectedKey, range) {
       }
     );
   const all = getHistory();
+  if (state.analyticsGroup)
+    lineChart(document.querySelector('#groupChart'), groupSetsPerWeek(all, state.analyticsGroup), {
+      color: token('--blue'),
+      whole: true,
+    });
   lineChart(
     document.querySelector('#weeklyVolumeChart'),
     weeklyVolume(all, 12).map((p) => ({ label: p.label, value: Math.round(toDisplay(p.value)) })),

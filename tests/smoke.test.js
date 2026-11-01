@@ -2297,3 +2297,132 @@ test('the assistant reads notes, links into the app and draws charts from real d
   await page.click('[data-chat-nav="records"]');
   await page.waitForFunction(async () => (await import('/src/state.js')).state.view === 'records');
 });
+
+test('a new exercise suggests reps in grey, and a tick takes them with a typed weight', async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('[data-start]');
+  const reps = page.locator('[data-exercise="0"][data-set-field="reps"]').first();
+  const range = await page.evaluate(async () => {
+    const { allPlans } = await import('/src/storage.js');
+    const { rangeMid } = await import('/src/util.js');
+    return rangeMid(allPlans().items[0].days[0].exercises[0].range);
+  });
+  assert.equal(await reps.getAttribute('placeholder'), String(range));
+  assert.equal(await reps.inputValue(), '');
+  // Without a weight nothing is logged and the field stays empty.
+  await page.locator('[data-set-done][data-exercise="0"]').first().click();
+  assert.equal(await reps.inputValue(), '');
+  await page.locator('[data-exercise="0"][data-set-field="weight"]').first().fill('40');
+  await page.locator('[data-set-done][data-exercise="0"]').first().click();
+  await page.waitForSelector('.set-card.complete');
+  assert.equal(
+    await page.locator('[data-exercise="0"][data-set-field="reps"]').first().inputValue(),
+    String(range)
+  );
+});
+
+test('a finished workout can be rated, and shows calories once a body weight exists', async () => {
+  await seedHistory();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const id = await page.evaluate(async () => {
+    const { getHistory } = await import('/src/storage.js');
+    const { navigate } = await import('/src/render.js');
+    const session = getHistory()[0];
+    navigate('summary', { sessionId: session.id });
+    return session.id;
+  });
+  await page.waitForSelector('#sessionExtras');
+  assert.match(await page.textContent('.session-calories'), /Körpergewicht/);
+  await axeCheck('summary with rating');
+  await page.click('[data-effort="4"]');
+  assert.equal(await page.getAttribute('[data-effort="4"]', 'aria-pressed'), 'true');
+  const stored = () =>
+    page.evaluate(
+      async (sid) => (await import('/src/storage.js')).getHistory().find((h) => h.id === sid).effort,
+      id
+    );
+  assert.equal(await stored(), 4);
+  await page.click('[data-effort="4"]');
+  assert.equal(await stored(), undefined);
+  await page.click('[data-effort="5"]');
+  // A weight entered later gives the same workout a value, also in its details.
+  await page.evaluate(async (sid) => {
+    const { saveBody } = await import('/src/storage.js');
+    saveBody([{ id: 'b1', date: new Date().toISOString(), weight: 80 }]);
+    (await import('/src/render.js')).navigate('session', { sessionId: sid, sessionFrom: 'analytics' });
+  }, id);
+  await page.waitForSelector('#sessionExtras');
+  assert.match(await page.textContent('.session-calories'), /ca\. 400 kcal/);
+  assert.equal(await page.getAttribute('[data-effort="5"]', 'aria-pressed'), 'true');
+});
+
+test('a lighter week is suggested once and stays quiet after "not now"', async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(async () => {
+    const { saveHistory } = await import('/src/storage.js');
+    const week = 7 * 86400000;
+    const entry = (id) => ({
+      exerciseId: id,
+      name: id,
+      sets: [{ weight: 50, reps: 8, done: true }],
+    });
+    saveHistory(
+      Array.from({ length: 5 }, (_, i) => {
+        const at = new Date(Date.now() - i * week).toISOString();
+        return {
+          id: `s${i}`,
+          planId: null,
+          dayId: null,
+          dayName: 'A',
+          startedAt: at,
+          finishedAt: at,
+          day: at.slice(0, 10),
+          duration: 3600,
+          totalSets: 1,
+          volume: 400,
+          effort: 5,
+          markers: {},
+          entries: [entry('a')],
+        };
+      })
+    );
+    (await import('/src/render.js')).navigate('more');
+    (await import('/src/render.js')).navigate('home');
+  });
+  await page.waitForSelector('#deloadCard');
+  assert.match(await page.textContent('#deloadCard'), /leichtere Woche/);
+  await axeCheck('home with deload card');
+  await page.click('#deloadLater');
+  await page.waitForFunction(() => !document.querySelector('#deloadCard'));
+  await page.click('[data-nav="more"]');
+  await page.click('[data-nav="home"]');
+  assert.equal(await page.locator('#deloadCard').count(), 0);
+});
+
+test('progress lists exercises and muscle groups side by side, and a tap opens the big chart', async () => {
+  await seedHistory();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('[data-nav="analytics"]');
+  await page.click('[data-range="all"]');
+  await page.waitForSelector('.trend-row');
+  assert.equal(await page.locator('#analyticsExercise').count(), 0);
+  assert.equal(await page.locator('.trend-row[aria-expanded="true"]').count(), 1);
+  await page.waitForFunction(() => document.querySelector('#strengthChart')?.width > 0);
+  assert.match(await page.textContent('.analytics-hint:near(.trend-list)'), /geschätztes Maximalgewicht/);
+  assert.ok(await page.locator('.trend-row .sparkline').count());
+  assert.match(await page.textContent('.trend-row .row-value'), /kg/);
+  await page.locator('.trend-row').first().click();
+  await page.waitForFunction(() => !document.querySelector('#strengthChart'));
+  await page.locator('.trend-row').first().click();
+  await page.waitForFunction(() => document.querySelector('#strengthChart')?.width > 0);
+  await axeCheck('progress list of exercises');
+  await page.click('[data-list-mode="groups"]');
+  await page.waitForSelector('[data-trend-group]');
+  assert.match(await page.textContent('.trend-list'), /Brust/);
+  assert.match(await page.textContent('.trend-row .row-value'), /Sätze/);
+  await page.locator('[data-trend-group]').first().click();
+  await page.waitForFunction(() => document.querySelector('#groupChart')?.width > 0);
+  await axeCheck('progress list of muscle groups');
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  assert.equal(wide, false);
+});

@@ -48,16 +48,28 @@ const lastValue = (name, last) => {
   return number(last[name]) ? String(last[name]) : '';
 };
 // What an empty field shows in grey: the value a tick would take over.
-export const placeholderFor = (name, last) => lastValue(name, last) || (name === 'time' ? '0:00' : '–');
+export const placeholderFor = (name, last, repsHint = null) =>
+  lastValue(name, last) || (name === 'reps' && repsHint ? String(repsHint) : name === 'time' ? '0:00' : '–');
 // The input sits on a hidden twin of its text, so the field is exactly as wide as the number and the unit
 // follows it like typeset text. The twin is kept in sync while typing (views/workout.js).
-const field = (name, label, attrs, set, index, exerciseIndex, workNumber, last, suffix = '') => {
+const field = (
+  name,
+  label,
+  attrs,
+  set,
+  index,
+  exerciseIndex,
+  workNumber,
+  last,
+  suffix = '',
+  repsHint = null
+) => {
   const value = fieldDisplay(name, set);
-  const placeholder = placeholderFor(name, last);
+  const placeholder = placeholderFor(name, last, repsHint);
   return `<label><span>${esc(label)}</span><span class="set-value"><span class="set-num"><i class="set-sizer" aria-hidden="true">${esc(value || placeholder)}</i><input aria-label="${esc(t('workout.fieldAria', { field: label, n: workNumber }))}" type="${inputType(name)}" autocomplete="off" ${attrs} data-set-field="${name}" data-exercise="${exerciseIndex}" data-index="${index}" value="${esc(value)}" placeholder="${esc(placeholder)}"></span>${suffix ? `<u>${esc(suffix)}</u>` : ''}</span></label>`;
 };
 
-export function setRow({ set, index, exerciseIndex, trackType, workNumber, last, showRir }) {
+export function setRow({ set, index, exerciseIndex, trackType, workNumber, last, showRir, repsHint }) {
   const type = setType(set);
   const label = setTypeMark(set) || workNumber;
   // The letter already says what kind of set this is; only a record adds a tag.
@@ -66,7 +78,7 @@ export function setRow({ set, index, exerciseIndex, trackType, workNumber, last,
     trackType
   )
     .map(([name, columnLabel, attrs, suffix]) =>
-      field(name, columnLabel, attrs, set, index, exerciseIndex, workNumber, last, suffix)
+      field(name, columnLabel, attrs, set, index, exerciseIndex, workNumber, last, suffix, repsHint)
     )
     .join(
       ''

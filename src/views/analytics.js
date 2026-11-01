@@ -1,10 +1,10 @@
-import { drawAnalytics, historyInRange, volumeByMuscle } from '../charts.js';
+import { drawAnalytics, historyInRange, strengthSeries, volumeByMuscle } from '../charts.js';
 import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { exerciseName, groupLabel } from '../library.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { recordTimeline, weeklySets } from '../stats.js';
+import { groupSetsPerWeek, recordTimeline, weeklySets } from '../stats.js';
 import { getBody, getHistory } from '../storage.js';
 import { fmtVolume, toDisplay, unit } from '../units.js';
 import { esc, exerciseKey, fmtLong, number, volumeOf } from '../util.js';
@@ -30,6 +30,93 @@ function weeklySetsSection() {
     ? `<div class="bar-list weekly-sets"><div class="bar-scale" aria-hidden="true"><small style="left:${(10 / scale) * 100}%">10</small><small style="left:${(20 / scale) * 100}%">20</small></div>${rows.map((r) => `<div class="bar-row"><span>${esc(groupLabel(r.group))}</span><div class="bar-track target"><i style="width:${Math.max(2, (r.sets / scale) * 100)}%"></i><em style="left:${(10 / scale) * 100}%"></em><em style="left:${(20 / scale) * 100}%"></em></div><b>${fmtNumber(r.sets, { maximumFractionDigits: 1 })}</b></div>`).join('')}</div><p class="muted analytics-hint">${t('analytics.setsTarget')}</p>`
     : `<p class="muted">${t('analytics.noWeeklySets')}</p>`;
   return `<section class="chart-section"><div class="section-head"><h2>${t('analytics.weeklySets')}</h2></div>${toggle}${list}</section>`;
+}
+
+const MAX_ROWS = 8;
+const SPARK_POINTS = 12;
+
+// A small line for one row. Shapes only: the numbers stand next to it, and the big chart opens on a tap.
+function sparkline(values) {
+  const w = 72;
+  const h = 26;
+  const pad = 3;
+  const list = values.slice(-SPARK_POINTS);
+  if (!list.length) return '';
+  const low = Math.min(...list);
+  const high = Math.max(...list);
+  const x = (i) => (list.length > 1 ? pad + (i / (list.length - 1)) * (w - pad * 2) : w / 2);
+  const y = (v) => (high === low ? h / 2 : h - pad - ((v - low) / (high - low)) * (h - pad * 2));
+  const dot = `<circle cx="${x(list.length - 1).toFixed(1)}" cy="${y(list.at(-1)).toFixed(1)}" r="2.5"></circle>`;
+  const line =
+    list.length > 1
+      ? `<polyline points="${list.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}"></polyline>`
+      : '';
+  return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">${line}${dot}</svg>`;
+}
+
+// Whether a series went up, down or stayed, from its first point to its last.
+function direction(values) {
+  if (values.length < 2) return '';
+  const first = values[0];
+  const last = values.at(-1);
+  const kind = last > first * 1.01 ? 'up' : last < first * 0.99 ? 'down' : 'flat';
+  return `<span class="trend-arrow ${kind}" role="img" aria-label="${t(`analytics.trend.${kind}`)}">${{ up: '↗', down: '↘', flat: '→' }[kind]}</span>`;
+}
+
+const trendRow = ({ attrs, name, value, values, open, detail }) =>
+  `<button type="button" class="row trend-row" ${attrs} aria-expanded="${open}"><span class="row-main"><b>${esc(name)}</b></span>${sparkline(values)}<span class="row-value"><b>${esc(value)}</b>${direction(values)}</span>${icon('chevron-right')}</button>${open ? `<div class="trend-detail">${detail}</div>` : ''}`;
+
+function exerciseRows(history, exercises, selected) {
+  const counts = new Map();
+  history.forEach((h) =>
+    new Set((h.entries || []).map(exerciseKey)).forEach((key) => counts.set(key, (counts.get(key) || 0) + 1))
+  );
+  const keys = [...exercises.keys()].sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0));
+  const shown = state.analyticsAll ? keys : keys.slice(0, MAX_ROWS);
+  if (selected && !shown.includes(selected)) shown[shown.length - 1] = selected;
+  const oldestFirst = history.slice().reverse();
+  const rows = shown.map((key) => {
+    const { points, suffix } = strengthSeries(oldestFirst, key);
+    const values = points.map((p) => p.value);
+    return trendRow({
+      attrs: `data-trend-exercise="${esc(key)}"`,
+      name: exercises.get(key),
+      value: values.length ? `${fmtNumber(values.at(-1))}${suffix}` : '–',
+      values,
+      open: key === selected && !state.analyticsCollapsed,
+      detail: `<canvas id="strengthChart" height="200" role="img" aria-label="${t('history.strengthAria')}"></canvas>`,
+    });
+  });
+  const more =
+    keys.length > MAX_ROWS && !state.analyticsAll
+      ? `<button type="button" class="text-btn" id="trendAll">${t('analytics.allExercises', { n: keys.length })}</button>`
+      : '';
+  return `<div class="list trend-list">${rows.join('')}</div>${more}<p class="muted analytics-hint">${t('analytics.strengthHint')}</p>`;
+}
+
+function groupRows() {
+  const all = getHistory();
+  const groups = weeklySets(all, { weeks: 12 }).map((g) => g.group);
+  if (!groups.length) return `<p class="muted">${t('analytics.noWeeklySets')}</p>`;
+  const rows = groups.map((group) => {
+    const values = groupSetsPerWeek(all, group).map((p) => p.value);
+    return trendRow({
+      attrs: `data-trend-group="${esc(group)}"`,
+      name: groupLabel(group),
+      value: t('analytics.setsPerWeekValue', { n: fmtNumber(values.at(-1) || 0) }),
+      values,
+      open: group === state.analyticsGroup,
+      detail: `<canvas id="groupChart" height="180" role="img" aria-label="${esc(t('analytics.groupChartAria', { group: groupLabel(group) }))}"></canvas>`,
+    });
+  });
+  return `<div class="list trend-list">${rows.join('')}</div><p class="muted analytics-hint">${t('analytics.groupHint')}</p>`;
+}
+
+// Everything side by side instead of one exercise behind a menu; a tap opens the big chart in place.
+function trendSection(history, exercises, selected) {
+  const groups = state.analyticsListMode === 'groups';
+  const toggle = `<div class="segmented small" role="group" aria-label="${t('history.strength')}"><button type="button" class="${groups ? '' : 'active'}" data-list-mode="exercises" aria-pressed="${!groups}">${t('analytics.modeExercises')}</button><button type="button" class="${groups ? 'active' : ''}" data-list-mode="groups" aria-pressed="${groups}">${t('analytics.modeGroups')}</button></div>`;
+  return `<section class="chart-section"><div class="section-head"><h2>${t('history.strength')}</h2></div>${toggle}${groups ? groupRows() : exerciseRows(history, exercises, selected)}</section>`;
 }
 
 function timelineSection(history) {
@@ -75,8 +162,8 @@ export function view() {
     <div class="stat-row"><div><b>${history.length}</b><span>${t('history.sessions')}</span></div><div><b>${fmtNumber(Math.round(toDisplay(totalVolume)))}</b><span>${t('history.volume', { unit: unit() })}</span></div><div><b>${history.reduce((n, h) => n + number(h.totalSets), 0)}</b><span>${t('history.sets')}</span></div></div>
     ${weeklySetsSection()}
     <section class="chart-section"><h2>${t('history.volumeChart')}</h2><canvas id="volumeChart" height="200" role="img" aria-label="${t('history.volumeChartAria')}"></canvas></section>
-    <section class="chart-section"><div class="section-head"><h2>${t('history.strength')}</h2><select id="analyticsExercise" aria-label="${t('history.chooseExercise')}">${[...exercises].map(([key, name]) => `<option value="${esc(key)}" ${key === selected ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></div><canvas id="strengthChart" height="200" role="img" aria-label="${t('history.strengthAria')}"></canvas></section>
-    ${hasBody ? `<section class="chart-section"><h2>${t('analytics.bodyStrength')}</h2><canvas id="bodyStrengthChart" height="200" role="img" aria-label="${t('analytics.bodyStrengthAria')}"></canvas><p class="muted analytics-hint" id="bodyStrengthHint">${t('analytics.bodyStrengthHint')}</p><p class="muted analytics-hint" id="bodyStrengthEmpty" hidden>${t('analytics.bodyStrengthEmpty')}</p></section>` : ''}
+    ${trendSection(history, exercises, selected)}
+    ${hasBody ? `<section class="chart-section"><h2>${esc(t('analytics.bodyStrengthOf', { name: exercises.get(selected) || '' }))}</h2><canvas id="bodyStrengthChart" height="200" role="img" aria-label="${t('analytics.bodyStrengthAria')}"></canvas><p class="muted analytics-hint" id="bodyStrengthHint">${t('analytics.bodyStrengthHint')}</p><p class="muted analytics-hint" id="bodyStrengthEmpty" hidden>${t('analytics.bodyStrengthEmpty')}</p></section>` : ''}
     <section class="chart-section"><h2>${t('analytics.weeklyVolume')}</h2><canvas id="weeklyVolumeChart" height="180" role="img" aria-label="${t('analytics.weeklyVolumeAria')}"></canvas></section>
     <section class="chart-section"><h2>${t('analytics.frequency')}</h2><canvas id="frequencyChart" height="160" role="img" aria-label="${t('analytics.frequencyAria')}"></canvas></section>
     <section class="chart-section"><h2>${t('history.muscles')}</h2><div class="bar-list">${muscles.map((m) => `<div class="bar-row"><span>${esc(groupLabel(m.group))}</span><div class="bar-track"><i style="width:${Math.max(2, (m.volume / maxMuscle) * 100)}%"></i></div><b>${fmtVolume(m.volume)}</b></div>`).join('')}</div></section>
@@ -85,9 +172,30 @@ export function view() {
 }
 
 export function bind() {
-  document.querySelector('#analyticsExercise')?.addEventListener('change', (e) => {
-    state.analyticsExercise = e.target.value;
-    drawAnalytics(state.analyticsExercise, state.analyticsRange || '3m');
+  document.querySelectorAll('[data-trend-exercise]').forEach((b) => {
+    b.onclick = () => {
+      // A second tap folds the open chart away; the choice stays for the chart with the body weight.
+      state.analyticsCollapsed =
+        b.dataset.trendExercise === state.analyticsExercise && !state.analyticsCollapsed;
+      state.analyticsExercise = b.dataset.trendExercise;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-trend-group]').forEach((b) => {
+    b.onclick = () => {
+      state.analyticsGroup = b.dataset.trendGroup === state.analyticsGroup ? null : b.dataset.trendGroup;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-list-mode]').forEach((b) => {
+    b.onclick = () => {
+      state.analyticsListMode = b.dataset.listMode;
+      render();
+    };
+  });
+  document.querySelector('#trendAll')?.addEventListener('click', () => {
+    state.analyticsAll = true;
+    render();
   });
   document.querySelectorAll('[data-range]').forEach((b) => {
     b.onclick = () => {

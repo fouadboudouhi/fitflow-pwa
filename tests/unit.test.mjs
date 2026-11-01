@@ -1606,3 +1606,46 @@ test('the system prompt carries the data and the language', async () => {
   assert.match(system, /Deutsch/);
   assert.match(system, /\[\[3 days \| 4 days \| 5 days\]\]/);
 });
+
+test('calories come from duration and body weight, and only with both', async () => {
+  const { caloriesOf } = await import('../src/calories.js');
+  const session = { day: '2026-11-01', duration: 3600 };
+  const body = [
+    { day: '2026-01-01', weight: 90 },
+    { day: '2026-10-30', weight: 80 },
+  ];
+  assert.equal(caloriesOf(session, body), 280);
+  assert.equal(caloriesOf({ ...session, effort: 5 }, body), 400);
+  assert.equal(caloriesOf(session, []), null);
+  assert.equal(caloriesOf({ ...session, duration: 0 }, body), null);
+});
+
+test('the middle of a range starts an exercise without history', async () => {
+  const { rangeMid } = await import('../src/util.js');
+  assert.equal(rangeMid('8–12'), 10);
+  assert.equal(rangeMid('10–15'), 13);
+  assert.equal(rangeMid('5'), 5);
+  assert.equal(rangeMid(''), null);
+});
+
+test('a backup keeps the effort rating and drops an invalid one', () => {
+  const backup = (effort) => ({
+    app: 'Volumora',
+    version: 5,
+    plans: {
+      activePlanId: 'p',
+      items: [{ id: 'p', name: 'Plan', days: [{ id: 'd', name: 'Tag', exercises: [] }] }],
+    },
+    history: [
+      {
+        id: 'a',
+        finishedAt: '2026-11-01T10:00:00.000Z',
+        effort,
+        entries: [],
+      },
+    ],
+  });
+  const read = (effort) => validateBackup(backup(effort)).history?.[0]?.effort;
+  assert.equal(read(4), 4);
+  assert.equal(read(9), undefined);
+});

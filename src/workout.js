@@ -25,6 +25,7 @@ import {
   number,
   parseDate,
   rangeMax,
+  rangeMid,
   rangeMin,
   setsCount,
   uid,
@@ -71,6 +72,8 @@ export function setReference(entry, index, lastWork) {
   }
   return null;
 }
+// Reps to start from for an exercise done for the first time: the middle of its range.
+export const repsStart = (ex, lastWork = []) => (lastWork.length ? null : rangeMid(ex?.range));
 // Ticks or unticks a set. Returns false when it holds nothing to log yet.
 export function toggleSet(session, exerciseIndex, setIndex, lastWork = []) {
   const entry = session.entries[exerciseIndex];
@@ -82,6 +85,9 @@ export function toggleSet(session, exerciseIndex, setIndex, lastWork = []) {
   }
   const trackType = entryTrackType(entry);
   fillFromReference(set, setReference(entry, setIndex, lastWork), trackType);
+  // The grey start value counts like any other, but only once the set can be logged with it.
+  const start = repsStart(sessionExercises(session)[exerciseIndex], lastWork);
+  if (start && !number(set.reps) && setReady({ ...set, reps: start }, trackType)) set.reps = start;
   if (!setReady(set, trackType)) return false;
   set.done = true;
   touchSession(session);
