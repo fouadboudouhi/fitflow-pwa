@@ -27,6 +27,9 @@ const setRow = (set, si, ei, showRir, trackType, workNumber) => {
     )}${showRir ? input('rir', t('workout.rir'), 'inputmode="numeric" min="0" max="10"', set, ei, si) : ''}<label class="edit-done"><input type="checkbox" data-edit="done" data-e="${ei}" data-s="${si}" aria-label="${t('session.done')}" ${set.done ? 'checked' : ''}></label></div>`;
 };
 
+const sessionParent = () =>
+  ['calendar', 'ai'].includes(state.sessionFrom) ? state.sessionFrom : 'analytics';
+
 export function view() {
   const session = getHistory().find((h) => h.id === state.sessionId);
   if (!session) {
@@ -40,7 +43,7 @@ export function view() {
     session.markers?.pain ? t('marker.pain') : '',
   ].filter(Boolean);
   const records = session.entries.reduce((n, e) => n + e.sets.filter((s) => s.pr).length, 0);
-  return `<main class="shell narrow">${parentRow(state.sessionFrom === 'calendar' ? 'calendar' : 'analytics')}
+  return `<main class="shell narrow">${parentRow(sessionParent())}
     <section class="page-head compact"><div><h1>${esc(session.dayName || t('session.title'))}</h1><p>${fmtLong(session.day || session.finishedAt)} · ${esc(session.planName || '')}</p></div></section>
     <div class="stat-row"><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div></div>
     ${markers.length || records ? `<div class="chip-row">${markers.map((m) => `<span class="chip">${m}</span>`).join('')}${records ? `<span class="chip chip-green">${plural(records, 'records')}</span>` : ''}</div>` : ''}
@@ -90,7 +93,7 @@ export function bind() {
   document.querySelector('#deleteSession')?.addEventListener('click', () => {
     const result = deleteSession(state.sessionId);
     if (!result) return;
-    navigate(state.sessionFrom === 'calendar' ? 'calendar' : 'analytics');
+    navigate(sessionParent());
     undoToast(t('session.deleted'), () => {
       restoreSession(result.removed, result.index);
       render();

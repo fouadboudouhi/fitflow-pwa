@@ -1,6 +1,7 @@
 // AI assistant with the person's own Claude key: one chat that answers, analyses and changes plans and settings.
 // Without a key this is only the screen to add one; nothing is sent before the person sends something.
 import { AiError, costOf, runTurn, verifyKey } from '../ai.js';
+import { drawChatCharts } from '../chatCharts.js';
 import { assistantSystem, chatMessages, replyHtml, splitReplies, trainingSummary } from '../aiPrompts.js';
 import { aiTools, runTool, webSearchTool } from '../aiTools.js';
 import { fmtNumber, plural, t } from '../i18n.js';
@@ -90,7 +91,7 @@ const messageHtml = (message, last) => {
 
 const dots = () => `<span class="chat-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
 const liveHtml = () =>
-  `${replyHtml(splitReplies(live.text).body)}${live.actions.map(actionHtml).join('')}<div class="chat-status" role="status" aria-label="${t('ai.thinking')}">${dots()}${live.status ? `<span>${esc(live.status)}</span>` : ''}</div>`;
+  `${replyHtml(splitReplies(live.text).body, { live: true })}${live.actions.map(actionHtml).join('')}<div class="chat-status" role="status" aria-label="${t('ai.thinking')}">${dots()}${live.status ? `<span>${esc(live.status)}</span>` : ''}</div>`;
 
 const emptyChat = () =>
   `<div class="chat-empty"><h2>${t('ai.chatTitle')}</h2><p class="muted">${t('ai.chatNote')}</p><div class="chat-starters">${t(
@@ -112,8 +113,20 @@ const chatView = () =>
   <div class="chat-scroll" id="chatScroll" role="log">${messagesHtml()}</div>
   <div class="chat-foot">${errorLine('chat-error')}<form class="chat-composer" id="chatForm"><textarea id="aiInput" rows="1" maxlength="2000" enterkeyhint="send" aria-label="${t('ai.chatPlaceholder')}" placeholder="${t('ai.chatPlaceholder')}">${esc(state.aiInput)}</textarea><button type="submit" class="chat-send" id="aiSend" aria-label="${t('ai.chatSend')}" ${running ? 'hidden' : ''} ${state.aiInput.trim() ? '' : 'disabled'}>${icon('up')}</button><button type="button" class="chat-send chat-stop" id="aiStop" aria-label="${t('ai.chatStop')}" ${running ? '' : 'hidden'}>${icon('stop')}</button></form></div></main>`;
 
+// The app was closed while a reply was on its way: nothing can pick that up again, so the question goes back into the
+// field. Sending it by itself could repeat a change that had already been made.
+function recoverInterrupted() {
+  const messages = getAiChat();
+  if (running || messages.at(-1)?.role !== 'user') return;
+  saveAiChat(messages.slice(0, -1));
+  if (!state.aiInput.trim()) state.aiInput = messages.at(-1).text;
+  Object.assign(state, { aiError: 'interrupted', aiErrorDetail: '' });
+}
+
 export function view() {
-  return hasAiKey() ? chatView() : setupView();
+  if (!hasAiKey()) return setupView();
+  recoverInterrupted();
+  return chatView();
 }
 
 const scroller = () => document.querySelector('#chatScroll');
@@ -132,6 +145,7 @@ function paintChat() {
   const box = scroller();
   if (!box) return;
   box.innerHTML = messagesHtml();
+  drawChatCharts(box);
   const send = document.querySelector('#aiSend');
   const stop = document.querySelector('#aiStop');
   const input = document.querySelector('#aiInput');
@@ -214,10 +228,16 @@ async function sendChat(text) {
       serverTools: [webSearchTool],
       signal: job.signal,
       onUsage: (usage) => addAiCost(costOf(usage)),
+      onResume: () => {
+        if (running !== job) return;
+        live.status = t('ai.resuming');
+        paintLive();
+      },
       execute,
       onText: (current) => {
         if (running !== job) return;
         live.text = current;
+        if (current) live.status = '';
         paintLive();
       },
     });
@@ -408,6 +428,7 @@ function bindChat() {
   const send = document.querySelector('#aiSend');
   if (!input) return;
   sizeInput(input);
+  drawChatCharts(scroller());
   toBottom();
   keepLatestVisible();
   // The messages are redrawn while the chat runs, so one listener on their parent serves every button in them.
@@ -416,6 +437,9 @@ function bindChat() {
     if (!button) return;
     if (button.dataset.aiUndo) undoAction(button.dataset.aiUndo);
     else if (button.dataset.exercise) openExerciseSheet(libraryOf({ id: button.dataset.exercise }));
+    else if (button.dataset.chatNav) navigate(button.dataset.chatNav);
+    else if (button.dataset.chatSession)
+      navigate('session', { sessionFrom: 'ai', sessionId: button.dataset.chatSession });
     else if (button.matches('[data-chat-starter], [data-chat-reply]')) sendChat(button.textContent);
   });
   input.addEventListener('input', () => {

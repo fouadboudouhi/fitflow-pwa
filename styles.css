@@ -7136,3 +7136,38 @@ textarea,
   font-size: 11px;
   line-height: 14px;
 }
+
+.chat-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin: 8px 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--radius-md, 14px);
+  background: var(--surface);
+  color: var(--green-ink);
+  font-weight: 600;
+  text-align: left;
+}
+.chat-chart {
+  position: relative;
+  margin: 8px 0;
+  padding: 14px;
+  border-radius: var(--radius-md, 14px);
+  background: var(--surface);
+}
+.chat-chart h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+.chat-chart canvas {
+  display: block;
+  width: 100%;
+}
+.chat-chart p {
+  margin: 0;
+}

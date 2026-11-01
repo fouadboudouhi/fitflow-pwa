@@ -431,7 +431,7 @@ const ui = {
   'legal.title': 'Datenschutz & Lizenzen',
   'legal.privacy': 'Datenschutz',
   'legal.privacyText':
-    'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) ausschließlich auf deinem Gerät im Speicher des Browsers. Es gibt kein Konto, keinen Server und keine Übertragung an uns.\nDie KI-Funktionen sind optional und nur aktiv, wenn du einen eigenen Claude-API-Schlüssel einträgst. Der Schlüssel bleibt auf diesem Gerät und kommt nicht ins Backup. Nur wenn du etwas sendest, gehen deine Nachrichten samt bisherigem Chat und eine Zusammenfassung deiner Trainingsdaten direkt an Anthropic. Für die Antwort kann der Assistent außerdem Pläne, Trainings, Bestwerte, Einstellungen und Körperdaten abrufen, aber keine Fotos und keine Trainingsnotizen. Er kann in deinem Auftrag Pläne, Einstellungen, das laufende Training und Einträge ändern; jede Änderung steht im Chat, und das Löschen eines Plans musst du bestätigen. Was er sich merkt, bleibt auf diesem Gerät, und du kannst es im Menü des Chats ansehen und löschen. Für aktuelle Informationen kann er im Web suchen.\nBeim Diktieren eines Satzes wertet das iPhone oder der Browser die Sprache aus, dabei gehen Aufnahmen je nach Gerät an den Hersteller, etwa Apple. Volumora selbst speichert und sendet keine Aufnahmen. Dafür gilt die Datenschutzerklärung von Anthropic. Der Chat bleibt auf diesem Gerät und kommt nicht ins Backup; „Alle Daten löschen“ entfernt ihn.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
+    'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) ausschließlich auf deinem Gerät im Speicher des Browsers. Es gibt kein Konto, keinen Server und keine Übertragung an uns.\nDie KI-Funktionen sind optional und nur aktiv, wenn du einen eigenen Claude-API-Schlüssel einträgst. Der Schlüssel bleibt auf diesem Gerät und kommt nicht ins Backup. Nur wenn du etwas sendest, gehen deine Nachrichten samt bisherigem Chat und eine Zusammenfassung deiner Trainingsdaten direkt an Anthropic. Für die Antwort kann der Assistent außerdem Pläne, Trainings, Bestwerte, Einstellungen und Körperdaten abrufen, auch deine Notizen zu vergangenen Trainings, aber keine Fotos. Er kann in deinem Auftrag Pläne, Einstellungen, das laufende Training und Einträge ändern; jede Änderung steht im Chat, und das Löschen eines Plans musst du bestätigen. Was er sich merkt, bleibt auf diesem Gerät, und du kannst es im Menü des Chats ansehen und löschen. Für aktuelle Informationen kann er im Web suchen.\nBeim Diktieren eines Satzes wertet das iPhone oder der Browser die Sprache aus, dabei gehen Aufnahmen je nach Gerät an den Hersteller, etwa Apple. Volumora selbst speichert und sendet keine Aufnahmen. Dafür gilt die Datenschutzerklärung von Anthropic. Der Chat bleibt auf diesem Gerät und kommt nicht ins Backup; „Alle Daten löschen“ entfernt ihn.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
   'legal.licenses': 'Quellen und Lizenzen',
   'legal.licensesText':
     'Der Quellcode von Volumora steht unter der MIT-Lizenz.\nÜbungsdaten und Animationen stammen aus dem öffentlichen Datensatz „Exercises Dataset“ (YaKohen, nur für Bildungs- und nicht-kommerzielle Zwecke) sowie von ExerciseDB (nicht-kommerzielle Nutzung). Volumora ist kostenlos und werbefrei; die Medien werden nur verlinkt.',
@@ -1017,7 +1017,7 @@ export default {
     'Volumora funktioniert ohne KI. Mit einem eigenen API-Schlüssel von Anthropic kommt ein Assistent dazu, der dein Training kennt und für dich Pläne und Einstellungen ändert.',
   'ai.setupSent': 'Daten gehen nur an Anthropic, wenn du etwas sendest. Das kostet dein API-Guthaben.',
   'ai.sentHint':
-    'Deine Nachrichten, das Gemerkte und diese Zusammenfassung. Claude kann zusätzlich Pläne, Trainings, Bestwerte, Einstellungen und Körperdaten nachschlagen. Keine Fotos und keine Trainingsnotizen.',
+    'Deine Nachrichten, das Gemerkte und diese Zusammenfassung. Claude kann zusätzlich Pläne, Trainings, Bestwerte, Einstellungen Körperdaten und deine Trainingsnotizen nachschlagen. Keine Fotos.',
   'ai.chatNote':
     'Claude kennt deine Trainings und kann vieles für dich ändern. Beim Senden gehen deine Daten an Anthropic.',
   'ai.chatExamples':
@@ -1128,6 +1128,16 @@ export default {
   'ai.error.rate': 'Gerade zu viele Anfragen. Versuch es gleich noch einmal.',
   'ai.error.server': 'Claude ist gerade nicht erreichbar. Versuch es gleich noch einmal.',
   'ai.error.network': 'Keine Verbindung zu Claude. Prüfe dein Internet.',
+  'ai.error.interrupted':
+    'Die Antwort wurde unterbrochen, weil die App geschlossen wurde. Schick deine Frage einfach noch einmal.',
+  'ai.resuming': 'Verbindung war weg, ich mache weiter …',
+  'ai.link.progress': 'Fortschritt öffnen',
+  'ai.link.records': 'Bestwerte öffnen',
+  'ai.link.calendar': 'Kalender öffnen',
+  'ai.link.workout': 'Training vom {date} ansehen',
+  'ai.chart.strength': 'Geschätztes Maximalgewicht: {name}',
+  'ai.chart.body': 'Körpergewicht',
+  'ai.chart.thin': 'Dafür gibt es noch zu wenig Daten.',
   'ai.error.request': 'Die Anfrage wurde abgelehnt. Bitte versuch es noch einmal.',
   'ai.error.refusal': 'Claude möchte das nicht beantworten. Formuliere es bitte anders.',
   'ai.error.truncated': 'Die Antwort war zu lang. Versuch es mit einem kleineren Wunsch.',
