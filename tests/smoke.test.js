@@ -2398,3 +2398,31 @@ test('a lighter week is suggested once and stays quiet after "not now"', async (
   await page.click('[data-nav="home"]');
   assert.equal(await page.locator('#deloadCard').count(), 0);
 });
+
+test('progress lists exercises and muscle groups side by side, and a tap opens the big chart', async () => {
+  await seedHistory();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('[data-nav="analytics"]');
+  await page.click('[data-range="all"]');
+  await page.waitForSelector('.trend-row');
+  assert.equal(await page.locator('#analyticsExercise').count(), 0);
+  assert.equal(await page.locator('.trend-row[aria-expanded="true"]').count(), 1);
+  await page.waitForFunction(() => document.querySelector('#strengthChart')?.width > 0);
+  assert.match(await page.textContent('.analytics-hint:near(.trend-list)'), /geschätztes Maximalgewicht/);
+  assert.ok(await page.locator('.trend-row .sparkline').count());
+  assert.match(await page.textContent('.trend-row .row-value'), /kg/);
+  await page.locator('.trend-row').first().click();
+  await page.waitForFunction(() => !document.querySelector('#strengthChart'));
+  await page.locator('.trend-row').first().click();
+  await page.waitForFunction(() => document.querySelector('#strengthChart')?.width > 0);
+  await axeCheck('progress list of exercises');
+  await page.click('[data-list-mode="groups"]');
+  await page.waitForSelector('[data-trend-group]');
+  assert.match(await page.textContent('.trend-list'), /Brust/);
+  assert.match(await page.textContent('.trend-row .row-value'), /Sätze/);
+  await page.locator('[data-trend-group]').first().click();
+  await page.waitForFunction(() => document.querySelector('#groupChart')?.width > 0);
+  await axeCheck('progress list of muscle groups');
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  assert.equal(wide, false);
+});

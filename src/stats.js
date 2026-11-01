@@ -74,6 +74,14 @@ function perWeek(history, weeks, today, valueOf) {
 export const weeklyVolume = (history, weeks = 12, today = new Date()) =>
   perWeek(history, weeks, today, (h) => number(h.volume) || volumeOf(h));
 export const frequency = (history, weeks = 12, today = new Date()) => perWeek(history, weeks, today, () => 1);
+// Working sets of one muscle group per week, for its trend.
+export const groupSetsPerWeek = (history, group, weeks = 12, today = new Date()) =>
+  perWeek(history, weeks, today, (h) =>
+    (h.entries || []).reduce(
+      (n, e) => (groupOf(e) === group ? n + e.sets.filter((s) => s.done && isWorkSet(s)).length : n),
+      0
+    )
+  );
 
 // Sessions with records, newest first: [{ sessionId, day, dayName, count, items }].
 export function recordTimeline(history, limit = 10) {

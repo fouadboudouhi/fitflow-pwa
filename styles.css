@@ -7209,3 +7209,54 @@ textarea,
   color: #06140b;
   font-weight: 600;
 }
+
+.trend-list .trend-row {
+  gap: 10px;
+}
+.trend-row .row-main {
+  min-width: 0;
+}
+.trend-row .row-main b {
+  overflow-wrap: anywhere;
+}
+.trend-row .row-value {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 4px;
+}
+.trend-row[aria-expanded='true'] > svg:last-child {
+  transform: rotate(90deg);
+}
+.sparkline {
+  flex: none;
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sparkline circle {
+  fill: var(--green);
+  stroke: none;
+}
+.trend-arrow {
+  font-weight: 600;
+}
+.trend-arrow.up {
+  color: var(--green-ink);
+}
+.trend-arrow.down {
+  color: var(--orange);
+}
+.trend-arrow.flat {
+  color: var(--muted);
+}
+.trend-detail {
+  position: relative;
+  padding: 4px 0 10px;
+}
+.trend-detail canvas {
+  display: block;
+  width: 100%;
+}

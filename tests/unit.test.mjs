@@ -1632,7 +1632,10 @@ test('a backup keeps the effort rating and drops an invalid one', () => {
   const backup = (effort) => ({
     app: 'Volumora',
     version: 5,
-    plans: { items: [] },
+    plans: {
+      activePlanId: 'p',
+      items: [{ id: 'p', name: 'Plan', days: [{ id: 'd', name: 'Tag', exercises: [] }] }],
+    },
     history: [
       {
         id: 'a',
