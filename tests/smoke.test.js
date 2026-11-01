@@ -1406,7 +1406,7 @@ test('a Claude key is checked before saving and stays out of the backup', async 
   const good = await mockClaude();
   await page.fill('#aiKey', ' sk-ant-api-test-secret ');
   await page.click('#aiKeySave');
-  await page.waitForSelector('[data-ai-mode="plan"]');
+  await page.waitForSelector('#aiInput');
   assert.equal(good[0].headers['x-api-key'], 'sk-ant-api-test-secret');
   assert.equal(good[0].headers['anthropic-dangerous-direct-browser-access'], 'true');
   assert.match(good[0].url, /count_tokens$/);
@@ -1415,6 +1415,7 @@ test('a Claude key is checked before saving and stays out of the backup', async 
   assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), 'sk-ant-api-test-secret');
   await axeCheck('ai home');
 
+  await page.click('#aiBack');
   await page.click('[data-nav="more"]');
   await page.waitForSelector('#aiRow');
   await page.click('[data-nav="backup"]');
@@ -1423,11 +1424,12 @@ test('a Claude key is checked before saving and stays out of the backup', async 
 
   await page.click('[data-nav="more"]');
   await page.click('#aiRow');
-  await page.click('#aiRemoveKey');
+  await page.click('#aiMenu');
+  await page.getByRole('button', { name: 'Schlüssel entfernen' }).click();
   await page.waitForSelector('#aiKey');
   assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), null);
   await page.click('.toast-action');
-  await page.waitForSelector('[data-ai-mode="plan"]');
+  await page.waitForSelector('#aiInput');
   assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), 'sk-ant-api-test-secret');
 });
 
@@ -1455,14 +1457,14 @@ test('a plan from one sentence is shown first and only then saved', async () => 
   const before = await page.locator('[data-edit-plan]').count();
   await page.click('#newPlan');
   await page.getByText('Plan mit KI').click();
-  await page.waitForSelector('#aiInput');
+  await page.waitForSelector('#aiPlanInput');
   await axeCheck('ai plan');
-  await page.click('#aiSend');
+  await page.click('#aiPlanSend');
   assert.equal(calls.length, 0, 'an empty wish sends nothing');
   await page.locator('[data-ai-example]').first().click();
-  assert.match(await page.inputValue('#aiInput'), /Kurzhanteln/);
-  await page.fill('#aiInput', '2 Tage Kurzhanteln');
-  await page.click('#aiSend');
+  assert.match(await page.inputValue('#aiPlanInput'), /Kurzhanteln/);
+  await page.fill('#aiPlanInput', '2 Tage Kurzhanteln');
+  await page.click('#aiPlanSend');
   await page.waitForSelector('#aiUsePlan');
   assert.match(calls[0].body.messages[0].content, /2 Tage Kurzhanteln/);
   assert.equal(calls[0].body.output_config.format.type, 'json_schema');
@@ -1479,52 +1481,103 @@ test('a plan from one sentence is shown first and only then saved', async () => 
   assert.equal(plans.items.find((p) => p.id === plans.activePlanId).name, 'Kurzhantel 2×');
 });
 
-test('a review and a question use the training data and show errors plainly', async () => {
+test('the chat keeps the conversation, sends the history and survives a reload', async () => {
   await seedHistory();
   await addAiKey();
   let status = 0;
+  let count = 0;
   const calls = await mockClaude({
-    onMessage: () => (status ? { status } : { text: 'Läuft gut.\n- Mehr Rücken <b>trainieren</b>' }),
+    onMessage: () =>
+      status ? { status } : { text: `Antwort ${++count}\n- Mehr **Rücken** <b>trainieren</b>` },
   });
-  await page.click('[data-nav="analytics"]');
-  await page.click('#aiReview');
-  await page.waitForSelector('#aiSend');
-  assert.equal(calls.length, 0, 'opening the screen sends nothing');
-  await page.click('.ai-sent summary');
-  assert.match(await page.textContent('.ai-sent pre'), /Sessions in the last 8 weeks/);
-  await axeCheck('ai review');
-  await page.click('#aiSend');
-  await page.waitForSelector('.ai-output li');
-  assert.match(await page.textContent('.ai-output'), /Mehr Rücken <b>trainieren<\/b>/, 'shown as text');
-  assert.match(calls[0].body.messages[0].content, /Sessions in the last 8 weeks/);
-  assert.equal(calls[0].body.output_config, undefined);
-
-  status = 401;
-  await page.click('#aiSend');
-  await page.waitForSelector('.ai-error');
-  assert.match(await page.textContent('.ai-error'), /lehnt diesen Schlüssel ab/);
-
-  status = 0;
-  await page.click('#aiBack');
   await page.click('[data-nav="more"]');
   await page.click('#aiRow');
-  await page.click('[data-ai-mode="ask"]');
+  await page.waitForSelector('.chat-empty');
+  assert.equal(calls.length, 0, 'opening the chat sends nothing');
+  assert.equal(await page.isDisabled('#aiSend'), true);
+  assert.equal(await page.locator('.bottom-nav').count(), 0, 'the chat has the screen to itself');
+  await axeCheck('ai chat empty');
+
+  await page.locator('[data-chat-starter]').first().click();
+  await page.waitForSelector('.chat-assistant li');
+  assert.match(calls[0].body.system, /Sessions in the last 8 weeks/);
+  assert.equal(calls[0].body.messages.length, 1);
+  assert.equal(await page.locator('.chat-user').count(), 1);
+  const reply = page.locator('.chat-assistant li').first();
+  assert.match(await reply.textContent(), /Mehr Rücken <b>trainieren<\/b>/, 'markup in a reply stays text');
+  assert.equal(await reply.locator('b').count(), 1, 'bold is the one thing that gets formatted');
+
+  await page.focus('#aiInput');
   await page.fill('#aiInput', 'Warum stagniere ich?');
   await page.click('#aiSend');
-  await page.waitForSelector('.ai-output li');
-  assert.match(calls.at(-1).body.messages[0].content, /Warum stagniere ich\?/);
+  await page.waitForFunction(() => document.querySelectorAll('.chat-assistant').length === 2);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'aiInput', 'the keyboard stays up');
+  assert.equal(await page.inputValue('#aiInput'), '');
+  const second = calls.at(-1).body.messages;
+  assert.deepEqual(
+    second.map((m) => m.role),
+    ['user', 'assistant', 'user']
+  );
+  assert.match(second[1].content, /Antwort 1/);
+  assert.equal(second[2].content, 'Warum stagniere ich?');
+  await axeCheck('ai chat');
 
-  await page.click('#aiBack');
+  status = 401;
+  await page.fill('#aiInput', 'Noch eine Frage');
+  await page.click('#aiSend');
+  await page.waitForSelector('.chat-error');
+  assert.match(await page.textContent('.chat-error'), /lehnt diesen Schlüssel ab/);
+  assert.equal(
+    await page.inputValue('#aiInput'),
+    'Noch eine Frage',
+    'a failed question comes back to the field'
+  );
+  assert.equal(await page.locator('.chat-user').count(), 2);
+
+  status = 0;
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  await page.click('[data-nav="more"]');
+  await page.click('#aiRow');
+  await page.waitForSelector('.chat-user');
+  assert.equal(await page.locator('.chat-user').count(), 2, 'the chat is still there');
+
+  await page.click('#aiMenu');
+  await page.getByRole('button', { name: 'Neuer Chat' }).click();
+  await page.waitForSelector('.chat-empty');
+  await page.click('.toast-action');
+  await page.waitForSelector('.chat-user');
+  assert.equal(await page.locator('.chat-user').count(), 2, 'a new chat can be undone');
+
+  await page.click('.chat-head #aiBack');
+  await page.click('[data-nav="backup"]');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('#exportJson')]);
+  assert.equal(fs.readFileSync(await download.path(), 'utf8').includes('Warum stagniere'), false);
   await page.click('[data-nav="more"]');
   await page.click('[data-nav="settings"]');
   await page.click('#deleteAll');
   await page.click('.sheet-actions [data-ok]');
   await page.waitForSelector('#onboardingForm, .next-card');
-  assert.equal(
-    await page.evaluate(() => localStorage.getItem('volumora-ai-key')),
-    null,
-    'delete all includes the key'
-  );
+  const left = await page.evaluate(() => [
+    localStorage.getItem('volumora-ai-key'),
+    localStorage.getItem('volumora-ai-chat'),
+  ]);
+  assert.deepEqual(left, [null, null], 'delete all includes key and chat');
+});
+
+test('the review from the history is a prepared question that waits for a tap', async () => {
+  await seedHistory();
+  await addAiKey();
+  const calls = await mockClaude();
+  await page.click('[data-nav="analytics"]');
+  await page.click('#aiReview');
+  await page.waitForSelector('#aiInput');
+  assert.match(await page.inputValue('#aiInput'), /Wie liefen meine letzten Wochen/);
+  assert.equal(calls.length, 0);
+  await page.click('#aiSend');
+  await page.waitForSelector('.chat-assistant');
+  await page.click('#aiBack');
+  await page.waitForSelector('#aiReview');
 });
 
 test('replacing an exercise offers matching ones first', async () => {
@@ -1550,18 +1603,20 @@ test('replacing an exercise offers matching ones first', async () => {
   assert.match(await page.locator('.workout-exercise').first().textContent(), new RegExp(name));
 });
 
-test('cancelling stops the request and leaves no error', async () => {
+test('stopping an answer leaves no error and the question returns when nothing arrived', async () => {
   await seedHistory();
   await addAiKey();
   await page.route('https://api.anthropic.com/**', () => {});
   await page.click('[data-nav="more"]');
   await page.click('#aiRow');
-  await page.click('[data-ai-mode="review"]');
+  await page.fill('#aiInput', 'Hallo');
   await page.click('#aiSend');
-  await page.waitForSelector('#aiCancel');
-  assert.equal(await page.isDisabled('#aiSend'), true, 'one request at a time');
-  await page.click('#aiCancel');
-  await page.waitForSelector('#aiCancel', { state: 'detached' });
-  assert.equal(await page.locator('.ai-error').count(), 0);
-  assert.equal(await page.isDisabled('#aiSend'), false);
+  await page.waitForSelector('#aiStop:not([hidden])');
+  assert.equal(await page.isVisible('#aiSend'), false, 'one request at a time');
+  assert.equal(await page.locator('.chat-dots').count(), 1);
+  await page.click('#aiStop');
+  await page.waitForSelector('#aiSend:not([hidden])');
+  assert.equal(await page.locator('.chat-error').count(), 0);
+  assert.equal(await page.locator('.chat-user').count(), 0);
+  assert.equal(await page.inputValue('#aiInput'), 'Hallo');
 });

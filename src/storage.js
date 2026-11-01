@@ -21,6 +21,7 @@ export const LS = {
   backupSnooze: 'volumora-backup-snooze',
   installTip: 'volumora-install-tip',
   aiKey: 'volumora-ai-key',
+  aiChat: 'volumora-ai-chat',
 };
 export const DEFAULT_SETTINGS = {
   language: 'auto',
@@ -173,6 +174,13 @@ export const getAiKey = () => localStorage.getItem(LS.aiKey) || '';
 export const hasAiKey = () => !!getAiKey();
 export const saveAiKey = (key) => localStorage.setItem(LS.aiKey, key);
 export const clearAiKey = () => localStorage.removeItem(LS.aiKey);
+// The chat stays on this device too, the latest messages only.
+const MAX_CHAT = 60;
+export const getAiChat = () => {
+  const chat = read(LS.aiChat, []);
+  return Array.isArray(chat) ? chat : [];
+};
+export const saveAiChat = (messages) => write(LS.aiChat, messages.slice(-MAX_CHAT));
 export const getRestUntil = () => Number(localStorage.getItem(LS.rest)) || 0;
 export const saveRestUntil = (until) =>
   until ? localStorage.setItem(LS.rest, String(until)) : localStorage.removeItem(LS.rest);

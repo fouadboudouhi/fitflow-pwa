@@ -47,6 +47,7 @@ Rules: text never wears a fill color; red is destructive only; amber is caution 
 - **List** (`.list` + `.row`): one surface with 20px radius, rows 50px minimum separated by hairlines, a faint chevron at the right of every tappable row, an optional tinted icon tile at the left.
 - **Hero** (`.next-card`): 20px radius; green uppercase label, week ring top right (`done/goal`), 26px title, one fact line, pill button.
 - **Week line** (`.week-line`): muted heading with the streak on the right, then three numbers (volume, records, sessions) split by hairlines, no fill.
+- **Chat** (`.ai-chat`): the one screen with a header bar, because a conversation needs it: back, title, „⋯“. It fills what the keyboard leaves, the field stays pinned below. The person's messages are `--cloud` bubbles on the right, replies plain text on the canvas.
 - **Chart card**: surface, sentence-case title, canvas with crosshair tooltip.
 - **Segmented control**: `--cloud` track with 2px inset, active segment on surface with a 1px shadow (grey in dark mode).
 - **Switch**: 51×31 iOS-style toggle, green when on, white knob with a short eased slide.

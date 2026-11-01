@@ -109,13 +109,21 @@ export async function readStream(response, onText = () => {}) {
 }
 
 // One request with one retry for a busy service, as long as no answer has appeared yet.
-export async function askClaude({ key, system, user, maxTokens = 6000, schema, signal, onText = () => {} }) {
+export async function askClaude({
+  key,
+  system,
+  messages,
+  maxTokens = 6000,
+  schema,
+  signal,
+  onText = () => {},
+}) {
   const body = {
     model: MODEL,
     max_tokens: maxTokens,
     stream: true,
     system,
-    messages: [{ role: 'user', content: user }],
+    messages,
     ...(schema ? { output_config: { format: { type: 'json_schema', schema } } } : {}),
   };
   let started = false;

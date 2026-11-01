@@ -992,7 +992,12 @@ test('Claude client: browser headers, streamed text, errors and one retry', asyn
       return sse(...textEvents('Hallo Welt'));
     };
     const seen = [];
-    const reply = await askClaude({ key: 'k', system: 's', user: 'u', onText: (text) => seen.push(text) });
+    const reply = await askClaude({
+      key: 'k',
+      system: 's',
+      messages: [{ role: 'user', content: 'u' }],
+      onText: (text) => seen.push(text),
+    });
     assert.equal(reply.text, 'Hallo Welt', 'thinking stays out of the answer');
     assert.deepEqual(seen, ['Hal', 'Hallo Welt']);
     assert.equal(calls[0].url, 'https://api.anthropic.com/v1/messages');
@@ -1004,36 +1009,55 @@ test('Claude client: browser headers, streamed text, errors and one retry', asyn
     assert.equal(JSON.stringify(body).includes('"k"'), false, 'the key travels only in its header');
 
     globalThis.fetch = async () => sse(...textEvents('{"a":1}'));
-    await askClaude({ key: 'k', system: 's', user: 'u', schema: { type: 'object' } });
+    await askClaude({
+      key: 'k',
+      system: 's',
+      messages: [{ role: 'user', content: 'u' }],
+      schema: { type: 'object' },
+    });
 
     const failing =
       (status, message = 'x') =>
       async () =>
         new Response(JSON.stringify({ error: { message } }), { status });
     globalThis.fetch = failing(401);
-    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'key' });
+    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
+      code: 'key',
+    });
     globalThis.fetch = failing(400, 'Your credit balance is too low');
-    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'billing' });
+    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
+      code: 'billing',
+    });
 
     let tries = 0;
     globalThis.fetch = async () => {
       tries++;
       return tries === 1 ? new Response('{}', { status: 529 }) : sse(...textEvents('Wieder da'));
     };
-    assert.equal((await askClaude({ key: 'k', system: 's', user: 'u' })).text, 'Wieder da');
+    assert.equal(
+      (await askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] })).text,
+      'Wieder da'
+    );
     assert.equal(tries, 2, 'a busy service gets one more try');
 
     globalThis.fetch = async () => sse(...textEvents('Nein', 'refusal'));
-    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'refusal' });
+    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
+      code: 'refusal',
+    });
     globalThis.fetch = async () => sse(...textEvents('{"a"', 'max_tokens'));
-    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u', schema: {} }), { code: 'truncated' });
-    const cut = await askClaude({ key: 'k', system: 's', user: 'u' });
+    await assert.rejects(
+      askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }], schema: {} }),
+      { code: 'truncated' }
+    );
+    const cut = await askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] });
     assert.equal(cut.stopReason, 'max_tokens', 'plain text that was cut off is still shown');
 
     globalThis.fetch = async () => {
       throw new TypeError('offline');
     };
-    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u' }), { code: 'network' });
+    await assert.rejects(askClaude({ key: 'k', system: 's', messages: [{ role: 'user', content: 'u' }] }), {
+      code: 'network',
+    });
 
     const controller = new AbortController();
     globalThis.fetch = (url, init) =>
@@ -1043,9 +1067,17 @@ test('Claude client: browser headers, streamed text, errors and one retry', asyn
         );
         controller.abort();
       });
-    await assert.rejects(askClaude({ key: 'k', system: 's', user: 'u', signal: controller.signal }), {
-      code: 'aborted',
-    });
+    await assert.rejects(
+      askClaude({
+        key: 'k',
+        system: 's',
+        messages: [{ role: 'user', content: 'u' }],
+        signal: controller.signal,
+      }),
+      {
+        code: 'aborted',
+      }
+    );
 
     let verified = 0;
     globalThis.fetch = async (url) => {
@@ -1101,20 +1133,30 @@ test('a plan from Claude only keeps what the catalogue knows', async () => {
 test('a reply becomes safe markup', async () => {
   const { replyHtml } = await import('../src/aiPrompts.js');
   assert.equal(
-    replyHtml('## Gut\n**Stark** <img src=x>\n\n- eins\n- zwei\nEnde'),
-    '<p>Gut</p><p>Stark &lt;img src=x&gt;</p><ul><li>eins</li><li>zwei</li></ul><p>Ende</p>'
+    replyHtml('## Gut\n**Stark** <img src=x>\n\n- eins\n- **zwei**\nEnde'),
+    '<p>Gut</p><p><b>Stark</b> &lt;img src=x&gt;</p><ul><li>eins</li><li><b>zwei</b></li></ul><p>Ende</p>'
   );
+  assert.equal(replyHtml('**<script>**'), '<p><b>&lt;script&gt;</b></p>');
 });
 
 test('the prompts carry the wish and the language', async () => {
-  const { PLAN_SCHEMA, planPrompt, questionPrompt, reviewPrompt } = await import('../src/aiPrompts.js');
+  const { PLAN_SCHEMA, chatMessages, chatPrompt, planPrompt } = await import('../src/aiPrompts.js');
   const plan = planPrompt('3 Tage Kurzhanteln', 'DATA');
-  assert.match(plan.user, /3 Tage Kurzhanteln/);
-  assert.match(plan.user, /DATA/);
+  assert.match(plan.messages[0].content, /3 Tage Kurzhanteln/);
+  assert.match(plan.messages[0].content, /DATA/);
   assert.match(plan.system, /Deutsch/);
   assert.match(plan.system, /0025\|/, 'the catalogue is part of the prompt');
-  assert.match(questionPrompt('DATA', 'Warum?').user, /Warum\?/);
-  assert.match(reviewPrompt('DATA').user, /DATA/);
+  const chat = chatPrompt('DATA', [{ role: 'user', text: 'Warum?' }]);
+  assert.match(chat.system, /<training_data>\nDATA/);
+  assert.deepEqual(chat.messages, [{ role: 'user', content: 'Warum?' }]);
+  const long = Array.from({ length: 25 }, (_, i) => ({
+    role: i % 2 ? 'assistant' : 'user',
+    text: String(i),
+  }));
+  const trimmed = chatMessages(long);
+  assert.ok(trimmed.length <= 20);
+  assert.equal(trimmed[0].role, 'user', 'a conversation starts with the person');
+  assert.equal(trimmed.at(-1).content, '24');
   const objects = [];
   const walk = (node) => {
     if (node?.type === 'object') objects.push(node);

@@ -430,7 +430,7 @@ const ui = {
   'legal.title': 'Datenschutz & Lizenzen',
   'legal.privacy': 'Datenschutz',
   'legal.privacyText':
-    'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) ausschließlich auf deinem Gerät im Speicher des Browsers. Es gibt kein Konto, keinen Server und keine Übertragung an uns.\nDie KI-Funktionen sind optional und nur aktiv, wenn du einen eigenen Claude-API-Schlüssel einträgst. Der Schlüssel bleibt auf diesem Gerät und kommt nicht ins Backup. Nur wenn du einen KI-Knopf tippst, gehen dein Text und eine Zusammenfassung deiner Trainingsdaten (Plan, Sätze, Körpergewicht, ohne Fotos und Notizen) direkt an Anthropic. Dafür gilt die Datenschutzerklärung von Anthropic.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
+    'Volumora speichert alle Daten (Pläne, Trainings, Körperdaten, Fotos, Einstellungen) ausschließlich auf deinem Gerät im Speicher des Browsers. Es gibt kein Konto, keinen Server und keine Übertragung an uns.\nDie KI-Funktionen sind optional und nur aktiv, wenn du einen eigenen Claude-API-Schlüssel einträgst. Der Schlüssel bleibt auf diesem Gerät und kommt nicht ins Backup. Nur wenn du etwas sendest, gehen deine Nachrichten samt bisherigem Chat und eine Zusammenfassung deiner Trainingsdaten (Plan, Sätze, Körpergewicht, ohne Fotos und Notizen) direkt an Anthropic. Dafür gilt die Datenschutzerklärung von Anthropic. Der Chat bleibt auf diesem Gerät und kommt nicht ins Backup; „Alle Daten löschen“ entfernt ihn.\nÜbungsanimationen werden beim Anzeigen von Drittanbietern geladen: von GitHub (raw.githubusercontent.com) und ExerciseDB (static.exercisedb.dev). Der jeweilige Anbieter erhält dabei technisch bedingt deine IP-Adresse. Ohne Verbindung bleiben die Bildflächen leer; die App funktioniert trotzdem.\nDie App wird über GitHub Pages ausgeliefert. GitHub kann beim Abruf Zugriffsdaten wie die IP-Adresse in Server-Protokollen verarbeiten; es gilt die Datenschutzerklärung von GitHub.\nVolumora nutzt keine Analyse-Werkzeuge, keine Werbung und keine Cookies. Benachrichtigungen zum Pausenende erzeugt dein Gerät lokal.\nBackups sind Dateien, die du selbst exportierst und aufbewahrst. Mit „Alle Daten löschen“ in den Einstellungen entfernst du alles von diesem Gerät.',
   'legal.licenses': 'Quellen und Lizenzen',
   'legal.licensesText':
     'Der Quellcode von Volumora steht unter der MIT-Lizenz.\nÜbungsdaten und Animationen stammen aus dem öffentlichen Datensatz „Exercises Dataset“ (YaKohen, nur für Bildungs- und nicht-kommerzielle Zwecke) sowie von ExerciseDB (nicht-kommerzielle Nutzung). Volumora ist kostenlos und werbefrei; die Medien werden nur verlinkt.',
@@ -1011,10 +1011,25 @@ export default {
   'home.kpiSessions': 'Trainings',
   // KI-Assistent
   'ai.title': 'KI-Assistent',
-  'ai.intro': 'Mit deinem eigenen Claude-Schlüssel. Du entscheidest pro Knopfdruck, was gesendet wird.',
-  'ai.setupTitle': 'Claude-Schlüssel',
   'ai.setupIntro':
-    'Volumora funktioniert ohne KI. Mit einem eigenen API-Schlüssel von Anthropic kommen drei Funktionen dazu: Plan aus einem Satz, Rückblick und Fragen an deine Daten.',
+    'Volumora funktioniert ohne KI. Mit einem eigenen API-Schlüssel von Anthropic kommen ein Chat über dein Training und der Plan aus einem Satz dazu.',
+  'ai.planHint': 'Schreib, was du brauchst, und prüfe den Vorschlag',
+  'ai.sentHint': 'Deine Nachrichten und diese Zusammenfassung. Keine Fotos und keine Notizen.',
+  'ai.menu': 'Mehr Optionen',
+  'ai.chatTitle': 'Frag nach deinem Training',
+  'ai.chatNote':
+    'Claude kennt deinen Plan und deine letzten 8 Wochen. Beim Senden gehen diese Daten an Anthropic.',
+  'ai.chatExamples':
+    'Wie liefen meine letzten Wochen?|Welche Muskelgruppe kommt zu kurz?|Wo mache ich am meisten Fortschritt?|Trainiere ich zu viel oder zu wenig?',
+  'ai.chatPlaceholder': 'Nachricht an Claude',
+  'ai.chatSend': 'Senden',
+  'ai.chatStop': 'Antwort stoppen',
+  'ai.chatNew': 'Neuer Chat',
+  'ai.chatCleared': 'Chat geleert',
+  'ai.reviewQuestion':
+    'Wie liefen meine letzten Wochen? Was läuft gut, was stagniert, und was sollte ich ändern?',
+  'more.aiHint': 'Chat über dein Training',
+  'ai.setupTitle': 'Claude-Schlüssel',
   'ai.keyLabel': 'API-Schlüssel',
   'ai.keySave': 'Prüfen und speichern',
   'ai.checking': 'Wird geprüft …',
@@ -1024,16 +1039,10 @@ export default {
   'ai.keyLink': 'Schlüssel in der Anthropic Console anlegen',
   'ai.setupStays': 'Der Schlüssel bleibt auf diesem Gerät und kommt nicht ins Backup.',
   'ai.setupLimit': 'Leg dafür einen eigenen Schlüssel mit niedrigem Ausgabenlimit an.',
-  'ai.setupSent':
-    'Daten gehen nur an Anthropic, wenn du einen KI-Knopf tippst. Das kostet dein API-Guthaben.',
-  'ai.privacy':
-    'Beim Senden gehen dein Text und eine Zusammenfassung deiner Trainingsdaten direkt an Anthropic.',
+  'ai.setupSent': 'Daten gehen nur an Anthropic, wenn du etwas sendest. Das kostet dein API-Guthaben.',
   'ai.plan': 'Plan aus einem Satz',
-  'ai.planHint': 'Schreib, was du brauchst, und prüfe den Vorschlag',
-  'ai.review': 'Rückblick',
+  'ai.review': 'Rückblick mit KI',
   'ai.reviewHint': 'Was gut läuft und was stagniert',
-  'ai.ask': 'Frage an deine Daten',
-  'ai.askHint': 'Eine Antwort aus deinen eigenen Zahlen',
   'ai.planLabel': 'Was für einen Plan brauchst du?',
   'ai.planPlaceholder': 'Zum Beispiel: 3 Tage, nur Kurzhanteln, Schulter schonen',
   'ai.planExamples':
@@ -1041,18 +1050,9 @@ export default {
   'ai.planSend': 'Plan erstellen',
   'ai.planAgain': 'Anders formulieren',
   'ai.dropped': '{n} Übungen ließen sich nicht zuordnen und wurden weggelassen.',
-  'ai.reviewSend': 'Rückblick erstellen',
-  'ai.reviewAgain': 'Neu erstellen',
-  'ai.askLabel': 'Deine Frage',
-  'ai.askPlaceholder': 'Zum Beispiel: Warum geht mein Bankdrücken nicht hoch?',
-  'ai.askExamples':
-    'Welche Muskelgruppe kommt zu kurz?|Wo mache ich gerade am meisten Fortschritt?|Trainiere ich zu viel oder zu wenig?',
-  'ai.askSend': 'Frage senden',
   'ai.thinking': 'Claude denkt nach …',
   'ai.cut': 'Die Antwort wurde abgeschnitten, weil sie zu lang war.',
-  'ai.noHistory': 'Für einen Rückblick braucht es erst ein paar Trainings.',
   'ai.whatIsSent': 'Was wird gesendet?',
-  'ai.sentHint': 'Dein Text und diese Zusammenfassung. Keine Fotos und keine Notizen.',
   'ai.sentCatalogue': 'Dazu die Liste der Übungen aus der App.',
   'ai.error.key': 'Claude lehnt diesen Schlüssel ab. Prüfe ihn in der Anthropic Console.',
   'ai.error.subscription':
@@ -1070,7 +1070,6 @@ export default {
   'ai.error.aborted': 'Abgebrochen.',
   'plans.withAi': 'Plan mit KI',
   'plans.withAiHint': 'Aus einem Satz, mit deinen Daten',
-  'more.aiHint': 'Plan, Rückblick und Fragen',
   'settings.aiAdd': 'Claude-Schlüssel eintragen',
   'settings.aiManage': 'KI-Assistent öffnen',
   'settings.aiHint': 'Optional. Ohne Schlüssel bleibt alles auf diesem Gerät.',
