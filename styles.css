@@ -6940,7 +6940,8 @@ body {
   font-weight: 500;
 }
 
-/* Plans and other values that line up: one card per group, one row per item, the value right-aligned */
+/* Plans and other values that line up: one card per group, one row per item. A short value sits on the right of the
+   name, a long one moves to its own line below it. */
 .chat-card {
   margin: 0 0 10px;
   padding: 4px 14px;
@@ -6961,9 +6962,10 @@ body {
 }
 .chat-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 2px 12px;
   padding: 9px 0;
   border-top: 1px solid var(--line);
   font-size: 14.5px;
@@ -6973,8 +6975,9 @@ body {
   border-top: 0;
 }
 .chat-row > span {
-  flex: 1;
+  flex: 1 1 55%;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .chat-row small {
   display: block;
@@ -6983,15 +6986,18 @@ body {
   font-size: 12.5px;
 }
 .chat-row > b {
-  flex: none;
+  min-width: 0;
   font-weight: 500;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 
 /* A row that opens an exercise looks like the others, with the faint chevron every tappable row has */
 button.chat-row {
+  position: relative;
   width: 100%;
+  padding-right: 20px;
   border-left: 0;
   border-right: 0;
   border-bottom: 0;
@@ -7002,13 +7008,14 @@ button.chat-row {
   text-align: left;
 }
 button.chat-row > .icon {
-  flex: none;
-  align-self: center;
+  position: absolute;
+  top: 50%;
+  right: 0;
   width: 14px;
   height: 14px;
-  margin-left: -6px;
   color: var(--muted);
   opacity: 0.6;
+  transform: translateY(-50%);
 }
 .chat-sources {
   display: flex;

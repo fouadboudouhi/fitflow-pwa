@@ -1730,6 +1730,42 @@ test('stopping an answer leaves no error and the question returns when nothing a
   assert.equal(await page.inputValue('#aiInput'), 'Hallo');
 });
 
+test('a long value in a chat card moves below its name instead of squeezing it', async () => {
+  await addAiKey();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockClaude({
+    onMessage: () => ({
+      text: '## Über dich\n- Erfahrung | 2–3 Jahre\n- Rechte Schulter | Aktivierte Arthrose im AC-Gelenk, kein Drücken über Kopf\n- Bankdrücken mit der Langhantel auf der Flachbank | 3×8–12',
+    }),
+  });
+  await page.click('[data-nav="ai"]');
+  await page.fill('#aiInput', 'Was weißt du?');
+  await page.click('#aiSend');
+  await page.waitForSelector('.chat-card .chat-row:nth-of-type(3)');
+  const rows = await page.$$eval('.chat-row', (items) =>
+    items.map((row) => {
+      const name = row.querySelector('span').getBoundingClientRect();
+      const value = row.querySelector('b').getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      return {
+        nameWidth: name.width,
+        stacked: value.top >= name.bottom - 1,
+        fits: value.right <= box.right + 0.5,
+      };
+    })
+  );
+  assert.deepEqual(
+    rows.map((r) => r.stacked),
+    [false, true, false],
+    'only the long value gets its own line'
+  );
+  assert.ok(
+    rows.every((r) => r.fits && r.nameWidth > 100),
+    JSON.stringify(rows)
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+});
+
 test('a plan in the chat reads as cards with one row per exercise', async () => {
   await addAiKey();
   await mockClaude({
