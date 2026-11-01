@@ -1344,8 +1344,26 @@ test('chat history keeps text and what was done, and answer buttons come off the
     options: [],
   });
   assert.equal(
-    replyHtml('## Gut\n**Stark** <img src=x>\n\n- eins\n- **zwei**\nEnde'),
-    '<p>Gut</p><p><b>Stark</b> &lt;img src=x&gt;</p><ul><li>eins</li><li><b>zwei</b></li></ul><p>Ende</p>'
+    replyHtml('**Stark** <img src=x>\n\n- eins\n- **zwei**\nEnde'),
+    '<p><b>Stark</b> &lt;img src=x&gt;</p><ul><li>eins</li><li><b>zwei</b></li></ul><p>Ende</p>'
+  );
+  const card = replyHtml(
+    'Dein Plan:\n\n## Tag 1 · <Oben>\n- Brustpresse | 3×8–12\n\n- Kniebeugen | 3×6–10 | 3 Min. Pause\n## Tag 2\n- Latzug | 3×8–12\nPasst das?'
+  );
+  assert.equal(
+    card,
+    '<p>Dein Plan:</p>' +
+      '<section class="chat-card"><h3>Tag 1 · &lt;Oben&gt;</h3>' +
+      '<div class="chat-row"><span>Brustpresse</span><b>3×8–12</b></div>' +
+      '<div class="chat-row"><span>Kniebeugen<small>3 Min. Pause</small></span><b>3×6–10</b></div></section>' +
+      '<section class="chat-card"><h3>Tag 2</h3><div class="chat-row"><span>Latzug</span><b>3×8–12</b></div></section>' +
+      '<p>Passt das?</p>'
+  );
+  assert.equal(replyHtml('## Nur Titel\nText'), '<h3 class="chat-heading">Nur Titel</h3><p>Text</p>');
+  assert.equal(
+    replyHtml('- A | 1\n- B <i> | **2**'),
+    '<section class="chat-card"><div class="chat-row"><span>A</span><b>1</b></div><div class="chat-row"><span>B &lt;i&gt;</span><b><b>2</b></b></div></section>',
+    'rows without a heading, and everything escaped'
   );
   assert.equal(replyHtml('**<script>**'), '<p><b>&lt;script&gt;</b></p>');
 });

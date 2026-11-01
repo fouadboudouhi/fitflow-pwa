@@ -1745,3 +1745,26 @@ test('stopping an answer leaves no error and the question returns when nothing a
   assert.equal(await page.locator('.chat-user').count(), 0);
   assert.equal(await page.inputValue('#aiInput'), 'Hallo');
 });
+
+test('a plan in the chat reads as cards with one row per exercise', async () => {
+  await addAiKey();
+  await mockClaude({
+    onMessage: () => ({
+      text: '## Tag 1 · Oberkörper\n- Brustpresse | 3×8–12\n- Kniebeugen | 3×6–10 | 3 Min. Pause\n\nPasst das?\n\n[[Plan anlegen | Etwas ändern]]',
+    }),
+  });
+  await page.click('[data-nav="more"]');
+  await page.click('#aiRow');
+  await page.fill('#aiInput', 'Zeig mir einen Plan');
+  await page.click('#aiSend');
+  await page.waitForSelector('.chat-replies');
+  assert.equal(await page.textContent('.chat-card h3'), 'Tag 1 · Oberkörper');
+  assert.equal(await page.locator('.chat-row').count(), 2);
+  assert.equal(await page.locator('.chat-row b').first().textContent(), '3×8–12');
+  assert.equal(await page.locator('.chat-row small').textContent(), '3 Min. Pause');
+  for (const scheme of ['dark', 'light']) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.evaluate(async () => (await import('/src/theme.js')).applyTheme());
+    await axeCheck(`chat cards/${scheme}`);
+  }
+});

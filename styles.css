@@ -6941,3 +6941,52 @@ body {
   font-size: 14px;
   font-weight: 500;
 }
+
+/* Plans and other values that line up: one card per group, one row per item, the value right-aligned */
+.chat-card {
+  margin: 0 0 10px;
+  padding: 4px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+.chat-card h3,
+.chat-heading {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.chat-card h3 {
+  padding: 10px 0 8px;
+}
+.chat-heading {
+  margin-bottom: 6px;
+}
+.chat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+.chat-card > .chat-row:first-child {
+  border-top: 0;
+}
+.chat-row > span {
+  flex: 1;
+  min-width: 0;
+}
+.chat-row small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.chat-row > b {
+  flex: none;
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
