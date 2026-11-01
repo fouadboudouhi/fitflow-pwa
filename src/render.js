@@ -42,7 +42,7 @@ const VIEWS = {
   legal,
   ai,
 };
-const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary'];
+const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary', 'ai'];
 const NAV_FOR = {
   calendar: 'analytics',
   session: 'analytics',

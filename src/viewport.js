@@ -19,15 +19,23 @@ export function calibrateInset() {
   document.documentElement.style.setProperty('--status-gap', `${gap}px`);
 }
 
-// iOS moves the whole layout up to make room for the keyboard. --keyboard-shift lets the workout header stay.
+// iOS moves the whole layout up to make room for the keyboard. --keyboard-shift lets the workout header stay;
+// --visible-height is the part of the screen the keyboard leaves, which the chat fills exactly.
 function watchKeyboardShift() {
   const vv = window.visualViewport;
   if (!vv) return;
-  const sync = () =>
-    document.documentElement.style.setProperty(
-      '--keyboard-shift',
-      `${Math.max(0, Math.round(vv.offsetTop))}px`
-    );
+  // Installed on iOS the inner height shrinks along with the keyboard, so the tallest height seen is the reference.
+  let tallest = 0;
+  window.addEventListener('orientationchange', () => {
+    tallest = 0;
+  });
+  const sync = () => {
+    const root = document.documentElement;
+    tallest = Math.max(tallest, vv.height);
+    root.style.setProperty('--keyboard-shift', `${Math.max(0, Math.round(vv.offsetTop))}px`);
+    root.style.setProperty('--visible-height', `${Math.round(vv.height)}px`);
+    root.classList.toggle('keyboard-open', vv.height < tallest - 40);
+  };
   vv.addEventListener('resize', sync);
   vv.addEventListener('scroll', sync);
   sync();
