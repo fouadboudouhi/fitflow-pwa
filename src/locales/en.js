@@ -1054,7 +1054,9 @@ export default {
   'dictate.unclear': 'I did not get that. Tap the microphone and say it again.',
   'dictate.listen': 'Listen',
   'dictate.retry': 'Tap the microphone on the right to try again, or the field for the keyboard.',
-  'dictate.why.not-allowed': 'The microphone is not allowed.',
+  'dictate.why.not-allowed': 'The microphone was refused. Reload the page before you try again.',
+  'dictate.why.mic-blocked':
+    'The microphone is not available to the app. Allow it when the iPhone asks. If it does not ask, set Apps → Safari → Microphone to “Ask” in the iPhone settings.',
   'dictate.why.service-not-allowed':
     'Speech recognition is blocked. Turning on Siri or Dictation in the iPhone settings often helps.',
   'dictate.why.audio-capture': 'The microphone is not available right now.',

@@ -11,10 +11,27 @@ import { esc } from '../util.js';
 // Holds why the recognition last refused; while it is set, listening only starts from a tap.
 const OFF = 'volumora-speech-off';
 const REFUSALS = ['not-allowed', 'service-not-allowed', 'audio-capture'];
+const REASONS = [...REFUSALS, 'mic-blocked', 'silent'];
 // Long enough for someone to answer the microphone question, which pauses everything without telling the page.
 const START_TIMEOUT = 20000;
 
 const Recognition = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+// Safari decides speech recognition by the microphone permission, and a refusal holds until the page is reloaded. Asking
+// for the microphone first shows the phone's real question, or tells at once that it is blocked. Null means it is free.
+let micFree = false;
+async function askForMicrophone() {
+  if (micFree || !navigator.mediaDevices?.getUserMedia) return null;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    micFree = true;
+    return null;
+  } catch (error) {
+    if (error.name === 'NotAllowedError') return 'mic-blocked';
+    return ['NotFoundError', 'NotReadableError'].includes(error.name) ? 'audio-capture' : null;
+  }
+}
+
 const refusal = () => {
   try {
     return localStorage.getItem(OFF);
@@ -55,6 +72,7 @@ export function openDictation({ title, trackType, onValues }) {
   const mic = box.querySelector('#dictateMic');
   let recognition = null;
   let waiting = null;
+  let attempt = 0;
   let done = false;
 
   const parsed = () => parseSet(input.value, trackType);
@@ -68,7 +86,9 @@ export function openDictation({ title, trackType, onValues }) {
     mic?.classList.toggle('listening', on);
     mic?.setAttribute('aria-pressed', String(on));
   };
+  const isListening = () => !!mic?.classList.contains('listening');
   const stop = () => {
+    attempt += 1;
     clearTimeout(waiting);
     showListening(false);
     if (!recognition) return;
@@ -88,15 +108,15 @@ export function openDictation({ title, trackType, onValues }) {
     close();
     onValues(values);
   };
-  const refused = (reason) => {
+  const refused = (reason, detail) => {
     rememberRefusal(reason);
     stop();
-    state.textContent = `${t(`dictate.why.${reason}`)} ${t('dictate.retry')}`;
+    state.textContent = `${t(`dictate.why.${reason}`)}${detail ? ` (${detail})` : ''} ${t('dictate.retry')}`;
   };
 
   // Tapping the field means typing or the keyboard's microphone, whatever the recognition was doing.
   input.addEventListener('focus', () => {
-    if (!recognition) return;
+    if (!isListening()) return;
     stop();
     state.textContent = t('dictate.keyboard');
   });
@@ -117,11 +137,15 @@ export function openDictation({ title, trackType, onValues }) {
     }
   }).observe(document.body, { childList: true });
 
-  function listen() {
+  async function listen() {
     stop();
+    const current = attempt;
     input.blur();
     state.textContent = t('dictate.listening');
     showListening(true);
+    const blocked = await askForMicrophone();
+    if (current !== attempt || !box.isConnected) return;
+    if (blocked) return refused(blocked);
     recognition = new (Recognition())();
     recognition.lang = intlLocale();
     recognition.interimResults = true;
@@ -141,7 +165,7 @@ export function openDictation({ title, trackType, onValues }) {
       }
     };
     recognition.onerror = (e) => {
-      if (REFUSALS.includes(e.error)) return refused(e.error);
+      if (REFUSALS.includes(e.error)) return refused(e.error, e.message);
       stop();
       state.textContent = ['no-speech', 'aborted'].includes(e.error)
         ? t('dictate.unclear')
@@ -160,7 +184,7 @@ export function openDictation({ title, trackType, onValues }) {
     }
   }
   mic?.addEventListener('click', () => {
-    if (!recognition) return listen();
+    if (!isListening()) return listen();
     stop();
     state.textContent = t('dictate.retry');
   });
@@ -170,8 +194,7 @@ export function openDictation({ title, trackType, onValues }) {
     state.textContent = t('dictate.keyboard');
     input.focus();
   } else if (reason) {
-    const known = [...REFUSALS, 'silent'].includes(reason);
-    state.textContent = `${known ? `${t(`dictate.why.${reason}`)} ` : ''}${t('dictate.retry')}`;
+    state.textContent = `${REASONS.includes(reason) ? `${t(`dictate.why.${reason}`)} ` : ''}${t('dictate.retry')}`;
   } else listen();
   return close;
 }
