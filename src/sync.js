@@ -14,6 +14,8 @@ import {
 } from './storage.js';
 
 const KEY = 'volumora-sync';
+// Where everyone's data goes unless they name another server: the one the person behind Volumora runs.
+export const DEFAULT_SYNC_URL = 'https://raspberrypi.tail9d7f95.ts.net';
 const DELAY = 20000;
 const WATCHED = new Set([
   LS.plans,
@@ -35,6 +37,7 @@ export class SyncError extends Error {
 }
 
 export const syncConfig = () => read(KEY, null);
+export const isSignedIn = () => !!syncConfig()?.token;
 const saveConfig = (config) => {
   try {
     localStorage.setItem(KEY, JSON.stringify(config));

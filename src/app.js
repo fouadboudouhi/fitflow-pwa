@@ -19,7 +19,7 @@ import { initGestures } from './gestures.js';
 import { watchInset } from './viewport.js';
 import { updateRest } from './views/workout.js';
 import { reconcileActive, sessionStarted } from './workout.js';
-import { startSync } from './sync.js';
+import { isSignedIn, startSync } from './sync.js';
 
 // The language comes first: migrations may seed the default plan in it.
 setLanguage(getSettings().language);
@@ -30,7 +30,8 @@ startSync();
 applyTheme();
 state.restUntil = getRestUntil();
 const firstRun = needsOnboarding();
-if (firstRun) state.view = 'onboarding';
+if (!isSignedIn()) state.view = 'gate';
+else if (firstRun) state.view = 'onboarding';
 initRouter(applyRoute);
 
 window.addEventListener('beforeinstallprompt', (e) => {

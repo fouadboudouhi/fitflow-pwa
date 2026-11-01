@@ -364,7 +364,7 @@ const ui = {
   'more.installHint': 'Instructions for iPhone and Android',
   'more.installText':
     'iPhone and iPad: in Safari tap “Share”, then “Add to Home Screen”. Android: in the browser menu choose “Install app” or “Add to Home screen”.',
-  'more.about': 'Volumora keeps everything on this device only. No account, no server.',
+  'more.about': 'Volumora keeps everything on this device and saves it to the Volumora server.',
   'more.legal': 'Privacy & licences',
   'more.legalHint': 'Privacy, sources',
   'backup.title': 'Backup',
@@ -440,7 +440,7 @@ const ui = {
   'legal.title': 'Privacy & licences',
   'legal.privacy': 'Privacy',
   'legal.privacyText':
-    'Volumora stores all data (plans, workouts, body data, photos, settings) only on your device, in the browser storage. There is no account, no server and nothing is sent to us.\nThe AI features are optional and only active once you enter your own Claude API key. The key stays on this device and never goes into a backup. Only when you send something do your messages, including the chat so far, and a summary of your training data go directly to Anthropic. To answer, the assistant can also retrieve plans, workouts, records, settings and body data, and your notes on past workouts, but no photos. On your behalf it can change plans, settings, the running workout and entries; every change appears in the chat, and you have to confirm deleting a plan. What it remembers stays on this device, and you can view and delete it in the chat menu. For current information it can search the web.\nWhen you dictate a set, the iPhone or browser handles the speech, so depending on the device recordings may go to its maker, such as Apple. Volumora itself stores and sends no recordings. Anthropic’s privacy policy applies to that. The chat stays on this device and never goes into a backup; “Delete all data” removes it.\nExercise animations are loaded from third parties when shown: GitHub (raw.githubusercontent.com) and ExerciseDB (static.exercisedb.dev). The provider technically receives your IP address. Without a connection the image areas stay empty; the app keeps working.\nThe app is served by GitHub Pages. GitHub may process access data such as the IP address in server logs; GitHub’s privacy statement applies.\nVolumora uses no analytics, no advertising and no cookies. Rest-timer notifications are created locally by your device.\nBackups are files you export and keep yourself. If you sign in to a server, your data including photos, chat and the assistant\u2019s memory goes there by itself, but never your Claude key. Whoever runs the server can see that data; sign in only with someone you trust. “Delete all data” in Settings removes everything from this device.',
+    'Volumora stores all data (plans, workouts, body data, photos, settings) on your device, in the browser storage, and saves it under your account on the Volumora server, a privately run server. The assistant\u2019s chat and memory go there too, your Claude key never does. Whoever runs the server can see that data; passwords are stored only hashed.\nThe AI features are optional and only active once you enter your own Claude API key. The key stays on this device and never goes into a backup. Only when you send something do your messages, including the chat so far, and a summary of your training data go directly to Anthropic. To answer, the assistant can also retrieve plans, workouts, records, settings and body data, and your notes on past workouts, but no photos. On your behalf it can change plans, settings, the running workout and entries; every change appears in the chat, and you have to confirm deleting a plan. What it remembers stays on this device, and you can view and delete it in the chat menu. For current information it can search the web.\nWhen you dictate a set, the iPhone or browser handles the speech, so depending on the device recordings may go to its maker, such as Apple. Volumora itself stores and sends no recordings. Anthropic’s privacy policy applies to that. The chat stays on this device and never goes into a backup; “Delete all data” removes it.\nExercise animations are loaded from third parties when shown: GitHub (raw.githubusercontent.com) and ExerciseDB (static.exercisedb.dev). The provider technically receives your IP address. Without a connection the image areas stay empty; the app keeps working.\nThe app is served by GitHub Pages. GitHub may process access data such as the IP address in server logs; GitHub’s privacy statement applies.\nVolumora uses no analytics, no advertising and no cookies. Rest-timer notifications are created locally by your device.\nBackups are files you export and keep yourself. If you sign in to a server, your data including photos, chat and the assistant\u2019s memory goes there by itself, but never your Claude key. Whoever runs the server can see that data; sign in only with someone you trust. “Delete all data” in Settings removes everything from this device.',
   'legal.licenses': 'Sources and licences',
   'legal.licensesText':
     'Volumora’s source code is MIT-licensed.\nExercise data and animations come from the public “Exercises Dataset” (YaKohen, educational and non-commercial use only) and from ExerciseDB (non-commercial use). Volumora is free and ad-free; the media is linked, not copied.',
@@ -486,10 +486,17 @@ const ui = {
   'deload.weeks':
     'You have trained for {n} weeks without a break. A week with about 10 % less weight can help.',
   'deload.later': 'Not now',
-  'onboarding.haveServer': 'I already have an account on a server',
+  'gate.text':
+    'Your account keeps plans, workouts and body data on the Volumora server, so nothing is lost with a new phone or a reinstall. To register you need an invitation code.',
+  'gate.foot':
+    'Volumora is a private project. Whoever runs the server can see the stored data. Your Claude key always stays on the device.',
+  'sync.serverIs': 'Server: {host}.',
+  'sync.otherServer': 'Use another server',
+  'sync.expiredTitle': 'Please sign in again',
+  'sync.expiredText': 'Your sign-in on the server has expired. Nothing is saved until then.',
   'sync.title': 'Save to your own server',
   'sync.hint':
-    'The app then saves your data by itself to a server you trust, for example your own. After a reinstall you sign in there and get everything back. Without a server, everything stays on this device only.',
+    'The app saves your data by itself to the server. After a reinstall you sign in and get everything back.',
   'sync.open': 'Sign in or register',
   'sync.intro': 'You get the address and an invitation from the person who runs the server.',
   'sync.modeLogin': 'Sign in',

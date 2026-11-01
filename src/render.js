@@ -12,6 +12,7 @@ import * as editor from './views/editor.js';
 import * as home from './views/home.js';
 import * as legal from './views/legal.js';
 import * as more from './views/more.js';
+import * as gate from './views/gate.js';
 import * as onboarding from './views/onboarding.js';
 import * as plans from './views/plans.js';
 import * as records from './views/records.js';
@@ -20,6 +21,8 @@ import { bindShell, nav, topbar } from './views/shell.js';
 import * as summary from './views/summary.js';
 import * as templates from './views/templates.js';
 import * as workout from './views/workout.js';
+import { isSignedIn } from './sync.js';
+import { needsOnboarding } from './storage.js';
 
 const VIEWS = {
   home,
@@ -35,6 +38,7 @@ const VIEWS = {
   backup: more,
   settings: more,
   onboarding,
+  gate,
   summary,
   records,
   templates,
@@ -42,7 +46,7 @@ const VIEWS = {
   legal,
   ai,
 };
-const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary', 'ai'];
+const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary', 'ai', 'gate'];
 const NAV_FOR = {
   calendar: 'analytics',
   session: 'analytics',
@@ -107,6 +111,9 @@ export function redrawCharts() {
 }
 
 export function render() {
+  // Without an account there is only the gate, whatever the route says.
+  if (!isSignedIn()) state.view = 'gate';
+  else if (state.view === 'gate') state.view = needsOnboarding() ? 'onboarding' : 'home';
   const previous = state.lastRenderedView;
   const viewChanged = previous !== state.view;
   state.lastRenderedView = state.view;

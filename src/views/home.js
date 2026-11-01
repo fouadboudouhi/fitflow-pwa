@@ -1,5 +1,6 @@
 import { deloadHint, deloadQuietDate } from '../deload.js';
 import { syncConfig } from '../sync.js';
+import { openSyncForm } from './sync.js';
 import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
@@ -7,7 +8,6 @@ import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import {
   activePlan,
-  backupDue,
   deloadQuietUntil,
   clearActive,
   dismissInstallTip,
@@ -17,7 +17,6 @@ import {
   installTipDue,
   saveActive,
   quietDeload,
-  snoozeBackup,
 } from '../storage.js';
 import { startOfWeek } from '../stats.js';
 import { confirmDialog, infoDialog, undoToast } from '../ui.js';
@@ -106,9 +105,8 @@ export function view() {
         : ''
     }
     ${
-      // With a server of their own the app saves by itself, so nobody needs reminding.
-      backupDue(history) && !syncConfig()
-        ? `<section class="list-section"><div class="list"><div class="row backup-row"><button type="button" class="backup-main" id="backupNow"><span class="row-icon">${icon('backup')}</span><span class="row-main"><b>${t('home.backupTitle')}</b><small>${t('home.backupText')}</small></span></button><button type="button" class="text-btn" id="backupLater">${t('home.backupLater')}</button></div></div></section>`
+      syncConfig()?.problem === 'session'
+        ? `<section class="list-section"><div class="list"><div class="row backup-row"><button type="button" class="backup-main" id="signInAgain"><span class="row-icon">${icon('backup')}</span><span class="row-main"><b>${t('sync.expiredTitle')}</b><small>${t('sync.expiredText')}</small></span></button></div></div></section>`
         : ''
     }
     ${resume ? '' : deloadCard(history, today)}
@@ -135,6 +133,7 @@ async function start(planId, dayId) {
 }
 
 export function bind() {
+  document.querySelector('#signInAgain')?.addEventListener('click', () => openSyncForm({ mode: 'login' }));
   document.querySelector('#deloadLater')?.addEventListener('click', () => {
     quietDeload(deloadQuietDate());
     render();
@@ -150,9 +149,20 @@ export function bind() {
     dismissInstallTip();
     render();
   });
-  document.querySelector('#backupNow')?.addEventListener('click', () => navigate('backup'));
-  document.querySelector('#backupLater')?.addEventListener('click', () => {
-    snoozeBackup();
+  document.querySelector('#signInAgain')?.addEventListener('click', () => openSyncForm({ mode: 'login' }));
+  document.querySelector('#deloadLater')?.addEventListener('click', () => {
+    quietDeload(deloadQuietDate());
+    render();
+  });
+  document
+    .querySelector('#installNow')
+    ?.addEventListener('click', () =>
+      state.installPrompt
+        ? state.installPrompt.prompt()
+        : infoDialog(t('more.install'), t('more.installText'))
+    );
+  document.querySelector('#installLater')?.addEventListener('click', () => {
+    dismissInstallTip();
     render();
   });
   document.querySelector('#editActivePlan')?.addEventListener('click', () =>

@@ -28,8 +28,15 @@ after(async () => {
 });
 beforeEach(async () => {
   context = await browser.newContext({ acceptDownloads: true, locale: 'de-DE' });
-  // Every test starts as an installation that has already passed the first-run flow.
-  await context.addInitScript(() => localStorage.setItem('volumora-onboarded', '1'));
+  // Every test starts as an installation that has already passed the first-run flow and signed in; the server
+  // never answers, so uploads fail quietly.
+  await context.addInitScript(() => {
+    localStorage.setItem('volumora-onboarded', '1');
+    localStorage.setItem(
+      'volumora-sync',
+      JSON.stringify({ url: 'http://127.0.0.1:9', username: 'test', token: 'test.t' })
+    );
+  });
   page = await context.newPage();
   errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -599,7 +606,13 @@ test('touch targets in the workout are at least 44px on a phone', async () => {
 test('the interface follows the device language and the language setting', async () => {
   await context.close();
   context = await browser.newContext({ locale: 'en-US' });
-  await context.addInitScript(() => localStorage.setItem('volumora-onboarded', '1'));
+  await context.addInitScript(() => {
+    localStorage.setItem('volumora-onboarded', '1');
+    localStorage.setItem(
+      'volumora-sync',
+      JSON.stringify({ url: 'http://127.0.0.1:9', username: 'test', token: 'test.t' })
+    );
+  });
   page = await context.newPage();
   await page.goto(baseURL + '/');
   await page.waitForSelector('.next-card');
@@ -660,6 +673,12 @@ test('charts follow the viewport width', async () => {
 test('first run: the onboarding builds a plan from language, unit, goal and days', async () => {
   await context.close();
   context = await browser.newContext({ locale: 'de-DE' });
+  await context.addInitScript(() =>
+    localStorage.setItem(
+      'volumora-sync',
+      JSON.stringify({ url: 'http://127.0.0.1:9', username: 'test', token: 'test.t' })
+    )
+  );
   page = await context.newPage();
   await page.goto(baseURL + '/');
   await page.waitForSelector('#onboardingForm');
@@ -694,6 +713,12 @@ test('first run: the onboarding builds a plan from language, unit, goal and days
 test('first run: skipping the onboarding starts with the default plan', async () => {
   await context.close();
   context = await browser.newContext({ locale: 'de-DE' });
+  await context.addInitScript(() =>
+    localStorage.setItem(
+      'volumora-sync',
+      JSON.stringify({ url: 'http://127.0.0.1:9', username: 'test', token: 'test.t' })
+    )
+  );
   page = await context.newPage();
   await page.goto(baseURL + '/');
   await page.waitForSelector('#onboardingSkip');
@@ -1062,6 +1087,12 @@ test('legal page in both languages, then deleting all data returns to the first-
   // A context without the onboarding seed, so the wipe really lands on the first-run flow.
   await context.close();
   context = await browser.newContext({ locale: 'de-DE' });
+  await context.addInitScript(() =>
+    localStorage.setItem(
+      'volumora-sync',
+      JSON.stringify({ url: 'http://127.0.0.1:9', username: 'test', token: 'test.t' })
+    )
+  );
   page = await context.newPage();
   await page.goto(baseURL + '/');
   await page.waitForSelector('#onboardingForm');
@@ -1075,7 +1106,7 @@ test('legal page in both languages, then deleting all data returns to the first-
   await page.waitForSelector('#onboardingForm');
   const left = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('volumora')));
   assert.deepEqual(
-    left.filter((k) => !['volumora-settings-v2', 'volumora-schema-version'].includes(k)),
+    left.filter((k) => !['volumora-settings-v2', 'volumora-schema-version', 'volumora-sync'].includes(k)),
     [],
     'only the fresh defaults remain'
   );
@@ -1196,34 +1227,6 @@ test('an action that navigates from a sheet leaves the history in order', async 
   await page.waitForFunction(() => document.querySelector('#planName')?.value === 'Getippt');
   await page.goBack();
   await page.waitForSelector('[data-edit-plan]');
-});
-
-test('the reminder asks for a backup after five workouts, and "later" keeps it quiet', async () => {
-  await page.evaluate(() => {
-    const day = (i) => `2026-0${i + 1}-10`;
-    const history = [0, 1, 2, 3, 4].map((i) => ({
-      id: `s${i}`,
-      planId: 'x',
-      dayName: 'A',
-      day: day(i),
-      finishedAt: `${day(i)}T10:00:00.000Z`,
-      startedAt: `${day(i)}T09:00:00.000Z`,
-      duration: 3600,
-      totalSets: 0,
-      volume: 0,
-      entries: [],
-    }));
-    localStorage.setItem('volumora-history-v2', JSON.stringify(history));
-  });
-  await page.reload();
-  await page.waitForSelector('#backupNow');
-  await page.click('#backupLater');
-  await page.waitForSelector('#backupNow', { state: 'detached' });
-  await page.evaluate(() => localStorage.removeItem('volumora-backup-snooze'));
-  await page.reload();
-  await page.click('#backupNow');
-  await page.waitForSelector('#exportJson');
-  assert.match(await page.textContent('#lastBackup'), /Noch keine Sicherung/);
 });
 
 test('a decimal typed with a comma stays a decimal and a saved weight can be corrected', async () => {
@@ -2427,7 +2430,7 @@ test('progress lists exercises and muscle groups side by side, and a tap opens t
   assert.equal(wide, false);
 });
 
-test('a reinstall gets everything back from the server account, and the key stays out', async () => {
+test('the gate: register with an invitation, lose the phone, sign in and get everything back', async () => {
   const { createSyncServer, store } = await import('../sync-server/server.js');
   const { mkdtemp, rm, readdir, readFile } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
@@ -2436,31 +2439,26 @@ test('a reinstall gets everything back from the server account, and the key stay
   await new Promise((resolve) => syncServer.listen(0, '127.0.0.1', resolve));
   const address = `http://127.0.0.1:${syncServer.address().port}`;
   const invite = await store(dir).createInvite();
-  try {
-    await seedHistory();
+  const fresh = async () => {
+    await context.close();
+    context = await browser.newContext({ locale: 'de-DE' });
+    page = await context.newPage();
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.evaluate(async () => {
-      localStorage.setItem('volumora-ai-key', 'sk-ant-api-test-secret');
-      const { saveAiMemory, saveAiChat } = await import('/src/storage.js');
-      saveAiMemory([{ id: 'm', fact: 'Trainiert im Studio', at: '2026-11-01' }]);
-      saveAiChat([
-        { role: 'user', text: 'Hallo' },
-        { role: 'assistant', text: 'Hi' },
-      ]);
-      (await import('/src/render.js')).navigate('backup');
-    });
-    await page.click('#syncOpen');
-    await page.waitForSelector('.sheet-backdrop.show #syncUrl');
-    await axeCheck('server form');
-    await page.click('[data-sync-mode="register"]');
-    await page.waitForSelector('#syncInviteRow:not([hidden])');
-    await page.fill('#syncUrl', 'http://insecure.example');
+    await page.goto(baseURL + '/');
+    await page.waitForSelector('#gateForm');
+    await page.click('#syncOther');
+    await page.fill('#syncUrl', address);
+  };
+  try {
+    await fresh();
+    assert.equal(
+      await page.locator('.bottom-nav').count(),
+      0,
+      'nothing else is reachable without an account'
+    );
+    await axeCheck('gate');
     await page.fill('#syncUser', 'fouad');
     await page.fill('#syncPassword', 'ein-gutes-passwort');
-    await page.fill('#syncInvite', invite);
-    await page.click('#syncConnect');
-    await page.waitForSelector('#syncError:not([hidden])');
-    await page.fill('#syncUrl', address);
     await page.fill('#syncInvite', 'xxxx-xxxx-xxxx');
     await page.click('#syncConnect');
     await page.waitForFunction(() =>
@@ -2468,40 +2466,47 @@ test('a reinstall gets everything back from the server account, and the key stay
     );
     await page.fill('#syncInvite', invite);
     await page.click('#syncConnect');
-    await page.waitForSelector('.sync-on');
-    assert.match(await page.textContent('.sync-on'), /fouad/);
-    await axeCheck('server connected');
-    const files = await readdir(path.join(dir, 'users', 'fouad', 'snapshots'));
-    assert.equal(files.length, 1);
-    const stored = await readFile(path.join(dir, 'users', 'fouad', 'snapshots', files[0]), 'utf8');
-    assert.ok(!stored.includes('sk-ant-api-test-secret'), 'the Claude key never leaves the device');
-    assert.ok(!stored.includes('ein-gutes-passwort'));
-    assert.match(stored, /Trainiert im Studio/);
-
-    // A second device with an old state may not replace what is newer.
-    const staleConfig = await page.evaluate(() => localStorage.getItem('volumora-sync'));
+    // A new account continues with the first-run flow.
+    await page.waitForSelector('#onboardingSkip');
+    await page.click('#onboardingSkip');
+    await page.waitForSelector('.next-card');
+    await seedHistory();
     await page.evaluate(async () => {
-      const { getHistory, saveHistory } = await import('/src/storage.js');
+      localStorage.setItem('volumora-ai-key', 'sk-ant-api-test-secret');
+      const { saveAiMemory, saveAiChat, getHistory, saveHistory } = await import('/src/storage.js');
+      saveAiMemory([{ id: 'm', fact: 'Trainiert im Studio', at: '2026-11-01' }]);
+      saveAiChat([
+        { role: 'user', text: 'Hallo' },
+        { role: 'assistant', text: 'Hi' },
+      ]);
       const history = getHistory();
       history[0].dayName = 'Geändert';
       saveHistory(history);
-      const { uploadNow } = await import('/src/sync.js');
-      await uploadNow();
+      await (await import('/src/sync.js')).uploadNow();
+      (await import('/src/render.js')).navigate('backup');
     });
-    assert.equal((await readdir(path.join(dir, 'users', 'fouad', 'snapshots'))).length, 2);
-    const conflict = await page.evaluate(async (old) => {
+    await page.waitForSelector('.sync-on');
+    assert.match(await page.textContent('.sync-on'), /fouad/);
+    assert.equal(await page.locator('#syncOpen').count(), 0);
+    await axeCheck('backup screen with account');
+    const files = await readdir(path.join(dir, 'users', 'fouad', 'snapshots'));
+    const stored = await readFile(path.join(dir, 'users', 'fouad', 'snapshots', files.at(-1)), 'utf8');
+    assert.ok(!stored.includes('sk-ant-api-test-secret'), 'the Claude key never leaves the device');
+    assert.ok(!stored.includes('ein-gutes-passwort'));
+    assert.match(stored, /Trainiert im Studio/);
+    assert.match(stored, /Geändert/);
+    // A second device with an old state may not replace what is newer.
+    const conflict = await page.evaluate(async () => {
       const { uploadNow } = await import('/src/sync.js');
-      return uploadNow({ ...JSON.parse(old), hash: '' }).catch((err) => err.code);
-    }, staleConfig);
+      const old = JSON.parse(localStorage.getItem('volumora-sync'));
+      return uploadNow({ ...old, hash: '', version: 'old' }).catch((err) => err.code);
+    });
     assert.equal(conflict, 'newer');
 
-    // Reinstall: a fresh installation, nothing left on this device.
-    await context.close();
-    context = await browser.newContext({ locale: 'de-DE' });
-    page = await context.newPage();
-    await page.goto(baseURL + '/');
-    await page.click('#onboardingServer');
-    await page.fill('#syncUrl', address);
+    // The phone is gone: a fresh installation signs in and restores.
+    await fresh();
+    await page.click('[data-sync-mode="login"]');
+    await page.waitForSelector('#syncInviteRow', { state: 'hidden' });
     await page.fill('#syncUser', 'fouad');
     await page.fill('#syncPassword', 'falsches-passwort');
     await page.click('#syncConnect');
@@ -2529,16 +2534,17 @@ test('a reinstall gets everything back from the server account, and the key stay
     assert.ok(JSON.stringify(back.memory).includes('Trainiert im Studio'));
     assert.equal(back.onboarded, true);
     assert.equal(back.key, null);
-    // Signing out ends the session on the server too.
+    // Signing out ends the session on the server and shows the gate again; the data stays on the device.
     await page.evaluate(async () => (await import('/src/render.js')).navigate('backup'));
     await page.click('#syncOff');
     await page.waitForSelector('.sheet-backdrop.show [data-ok]');
     await page.click('.sheet-backdrop.show [data-ok]');
-    await page.waitForSelector('#syncOpen');
+    await page.waitForSelector('#gateForm');
     const sessions = JSON.parse(
       await readFile(path.join(dir, 'users', 'fouad', 'account.json'), 'utf8')
     ).sessions;
     assert.equal(sessions.length, 1, 'only the first device stays signed in');
+    assert.equal(await page.evaluate(async () => (await import('/src/storage.js')).getHistory().length), 2);
   } finally {
     syncServer.close();
     syncServer.closeAllConnections?.();

@@ -9,7 +9,6 @@ import { EQUIPMENT_CHOICES, pickTemplate, planFromTemplate } from '../templates.
 import { LB_PER_KG } from '../units.js';
 import { esc, number } from '../util.js';
 import { importBackupFile } from './more.js';
-import { openSyncFromStart } from './sync.js';
 
 const STEPS = 5;
 const draft = () =>
@@ -36,7 +35,7 @@ const form = (inner, label = t('wizard.next')) =>
 function step1(d) {
   return `${hero(t('onboarding.welcomeTitle'), t('onboarding.welcomeText'))}${form(
     `<fieldset>${LANGUAGES.map((code) => card('language', code, languageLabel(code), '', d.language === code)).join('')}</fieldset>`
-  )}<p class="onboarding-foot"><button type="button" class="text-btn" id="onboardingImport">${t('onboarding.haveBackup')}</button><button type="button" class="text-btn" id="onboardingServer">${t('onboarding.haveServer')}</button><input type="file" id="onboardingFile" accept="application/json,.json" hidden></p>`;
+  )}<p class="onboarding-foot"><button type="button" class="text-btn" id="onboardingImport">${t('onboarding.haveBackup')}</button><input type="file" id="onboardingFile" accept="application/json,.json" hidden></p>`;
 }
 function step2(d) {
   return `${hero(t('onboarding.unitTitle'), t('onboarding.unitText'))}${form(
@@ -142,7 +141,6 @@ export function bind() {
   document
     .querySelector('#onboardingCustomize')
     ?.addEventListener('click', () => finish(state.onboardingPreview, true));
-  document.querySelector('#onboardingServer')?.addEventListener('click', openSyncFromStart);
   document
     .querySelector('#onboardingImport')
     ?.addEventListener('click', () => document.querySelector('#onboardingFile')?.click());
