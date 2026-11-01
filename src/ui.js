@@ -114,7 +114,7 @@ export const infoDialog = (title, text) =>
   confirmDialog({ title, text, confirmLabel: t('common.understood'), cancelLabel: null });
 
 // Non-blocking bottom sheet with arbitrary content (an element, or trusted markup from the app's own templates).
-export function sheet({ title, content, closeLabel = t('common.close') }) {
+export function sheet({ title, content, closeLabel = t('common.close'), autoFocus = true }) {
   const backdrop = document.createElement('div');
   backdrop.className = 'sheet-backdrop';
   backdrop.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="infoSheetTitle"><div class="sheet-head"><h2 id="infoSheetTitle"></h2><button type="button" class="icon-btn" data-close aria-label="${closeLabel}">${icon('close')}</button></div><div class="sheet-body"></div></div>`;
@@ -147,7 +147,7 @@ export function sheet({ title, content, closeLabel = t('common.close') }) {
   document.body.append(backdrop);
   requestAnimationFrame(() => {
     backdrop.classList.add('show');
-    backdrop.querySelector('[data-close]').focus({ preventScroll: true });
+    if (autoFocus) backdrop.querySelector('[data-close]').focus({ preventScroll: true });
   });
   return close;
 }

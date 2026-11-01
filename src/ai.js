@@ -6,6 +6,8 @@ const TIMEOUT = 180000;
 const RETRY_DELAY = 1500;
 const MAX_STEPS = 12;
 export const MODEL = 'claude-opus-5-5';
+// Dollars per million tokens and per search, for the rough monthly figure in the chat menu.
+const PRICE = { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2, search: 0.01 };
 
 // `code` selects the message shown to the person, see `ai.error.*` in the dictionaries.
 export class AiError extends Error {
@@ -32,6 +34,14 @@ export function errorCode(status, message = '') {
   );
 }
 const retryable = (code) => code === 'rate' || code === 'server';
+
+export const costOf = (usage = {}) =>
+  ((usage.input_tokens || 0) * PRICE.input +
+    (usage.output_tokens || 0) * PRICE.output +
+    (usage.cache_creation_input_tokens || 0) * PRICE.cacheWrite +
+    (usage.cache_read_input_tokens || 0) * PRICE.cacheRead) /
+    1e6 +
+  (usage.server_tool_use?.web_search_requests || 0) * PRICE.search;
 
 async function post(path, key, body, signal) {
   let response;
@@ -89,7 +99,8 @@ export async function readStream(response, onText = () => {}) {
   const blocks = [];
   let buffer = '';
   let stopReason = null;
-  const textDeltas = { text_delta: 'text', thinking_delta: 'thinking', signature_delta: 'signature' };
+  let usage = {};
+  const fields = { text_delta: 'text', thinking_delta: 'thinking', signature_delta: 'signature' };
   const textOf = () =>
     blocks
       .filter((b) => b?.type === 'text')
@@ -103,20 +114,22 @@ export async function readStream(response, onText = () => {}) {
     } catch {
       return;
     }
-    if (event.type === 'content_block_start') {
+    if (event.type === 'message_start') usage = { ...event.message?.usage };
+    else if (event.type === 'content_block_start') {
       blocks[event.index] = { ...event.content_block };
-      if (blocks[event.index].type === 'tool_use') blocks[event.index].partial = '';
+      if (/tool_use$/.test(blocks[event.index].type)) blocks[event.index].partial = '';
     } else if (event.type === 'content_block_delta') {
       const block = blocks[event.index];
       if (!block) return;
-      const field = textDeltas[event.delta?.type];
+      const field = fields[event.delta?.type];
       if (field) {
         block[field] = (block[field] || '') + event.delta[field];
         if (field === 'text') onText(textOf());
       } else if (event.delta?.type === 'input_json_delta') block.partial += event.delta.partial_json;
+      else if (event.delta?.type === 'citations_delta') (block.citations ||= []).push(event.delta.citation);
     } else if (event.type === 'content_block_stop') {
       const block = blocks[event.index];
-      if (block?.type !== 'tool_use') return;
+      if (block?.partial === undefined) return;
       try {
         block.input = block.partial ? JSON.parse(block.partial) : {};
       } catch {
@@ -124,8 +137,10 @@ export async function readStream(response, onText = () => {}) {
         block.input = {};
       }
       delete block.partial;
-    } else if (event.type === 'message_delta') stopReason = event.delta?.stop_reason || stopReason;
-    else if (event.type === 'error') throw new AiError('server', event.error?.message);
+    } else if (event.type === 'message_delta') {
+      stopReason = event.delta?.stop_reason || stopReason;
+      usage = { ...usage, ...event.usage };
+    } else if (event.type === 'error') throw new AiError('server', event.error?.message);
   };
   for (;;) {
     const { done, value } = await reader.read();
@@ -135,15 +150,11 @@ export async function readStream(response, onText = () => {}) {
     lines.forEach(handle);
     if (done) break;
   }
-  return { content: blocks.filter(Boolean), text: textOf(), stopReason };
+  return { content: blocks.filter(Boolean), text: textOf(), stopReason, usage };
 }
 
 // What goes back to the API: the reply as received, without what only this client added.
-const asSent = (block) => {
-  if (block.type !== 'tool_use') return block;
-  const { invalid, partial, ...sent } = block;
-  return sent;
-};
+const asSent = ({ invalid, partial, ...sent }) => sent;
 
 async function requestStep({ key, body, signal, onText }) {
   let started = false;
@@ -169,47 +180,80 @@ async function requestStep({ key, body, signal, onText }) {
   }
 }
 
+const sourcesIn = (content) =>
+  content.flatMap((block) =>
+    (block.citations || [])
+      .filter((c) => /^https:\/\//.test(c.url || ''))
+      .map((c) => ({ url: c.url, title: c.title || c.url }))
+  );
+
 // One turn of the assistant: asks Claude, runs the tools it calls, sends the results back and repeats until it
 // answers. `execute(name, input)` returns the tool's result. System prompt and tools stay the same for the whole
 // turn and the transcript only grows, as the API requires for thinking blocks to stay valid. Between turns only the
-// visible text is kept, so nothing earlier has to match.
+// visible text is kept, so nothing earlier has to match. `serverTools` run at Anthropic; if the first request is refused
+// with them, for instance because web search is switched off for the account, the turn goes on without them.
 export async function runTurn({
   key,
   system,
   messages,
   tools = [],
+  serverTools = [],
   maxTokens = 8000,
   signal,
   onText = () => {},
+  onUsage = () => {},
   execute,
 }) {
   const transcript = [...messages];
   let shown = '';
+  let extra = serverTools;
+  const sources = [];
   const join = (text) => [shown, text.trim()].filter(Boolean).join('\n\n');
+  const finished = (stopReason) => ({
+    text: shown,
+    stopReason,
+    sources: [...new Map(sources.map((source) => [source.url, source])).values()],
+  });
   for (let step = 0; step < MAX_STEPS; step++) {
-    const reply = await requestStep({
-      key,
-      signal,
-      onText: (text) => onText(join(text)),
-      body: {
-        model: MODEL,
-        max_tokens: maxTokens,
-        stream: true,
-        cache_control: { type: 'ephemeral' },
-        system,
-        ...(tools.length ? { tools } : {}),
-        messages: transcript,
-      },
-    });
+    const ask = () =>
+      requestStep({
+        key,
+        signal,
+        onText: (text) => onText(join(text)),
+        body: {
+          model: MODEL,
+          max_tokens: maxTokens,
+          stream: true,
+          cache_control: { type: 'ephemeral' },
+          system,
+          ...(tools.length || extra.length ? { tools: [...tools, ...extra] } : {}),
+          messages: transcript,
+        },
+      });
+    let reply;
+    try {
+      reply = await ask();
+    } catch (err) {
+      if (step > 0 || err.code !== 'request' || !extra.length) throw err;
+      extra = [];
+      reply = await ask();
+    }
+    onUsage(reply.usage);
     shown = join(reply.text);
+    sources.push(...sourcesIn(reply.content));
     const calls = reply.content.filter((block) => block.type === 'tool_use');
     if (reply.stopReason === 'refusal') throw new AiError('refusal');
     if (reply.stopReason === 'max_tokens') {
       if (calls.length || !shown) throw new AiError('truncated');
-      return { text: shown, stopReason: reply.stopReason };
+      return finished(reply.stopReason);
     }
-    if (reply.stopReason !== 'tool_use' || !calls.length)
-      return { text: shown, stopReason: reply.stopReason };
+    // Anthropic paused its own search; the same conversation sent again lets it go on.
+    if (reply.stopReason === 'pause_turn') {
+      transcript.push({ role: 'assistant', content: reply.content.map(asSent) });
+      shown = '';
+      continue;
+    }
+    if (reply.stopReason !== 'tool_use' || !calls.length) return finished(reply.stopReason);
     transcript.push({ role: 'assistant', content: reply.content.map(asSent) });
     const results = [];
     for (const call of calls) {

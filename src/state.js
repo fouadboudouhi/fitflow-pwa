@@ -26,6 +26,7 @@ export const state = {
   aiInput: '',
   aiError: '',
   aiErrorDetail: '',
+  aiAutoSend: false,
   aiChecking: false,
   restUntil: 0,
 };

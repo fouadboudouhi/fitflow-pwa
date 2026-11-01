@@ -3,21 +3,27 @@ import { t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
+import { hasAiKey } from '../storage.js';
 
 const NAV = [
   ['home', 'nav.home', 'home'],
   ['plans', 'nav.plans', 'plan'],
   ['analytics', 'nav.history', 'chart'],
+  ['ai', 'nav.ai', 'spark'],
   ['more', 'nav.more', 'more'],
 ];
 
 export const topbar = () => '';
 
 export const nav = (active) =>
-  `<nav class="bottom-nav" aria-label="${t('nav.aria')}"><div class="bottom-nav-inner">${NAV.map(
-    ([view, label, ic]) =>
-      `<button class="nav-btn ${active === view ? 'active' : ''}" data-nav="${view}" ${active === view ? 'aria-current="page"' : ''}><span>${icon(ic)}</span>${t(label)}</button>`
-  ).join('')}</div></nav>`;
+  `<nav class="bottom-nav" aria-label="${t('nav.aria')}"><div class="bottom-nav-inner">${NAV.filter(
+    ([view]) => view !== 'ai' || hasAiKey()
+  )
+    .map(
+      ([view, label, ic]) =>
+        `<button class="nav-btn ${active === view ? 'active' : ''}" data-nav="${view}" ${active === view ? 'aria-current="page"' : ''}><span>${icon(ic)}</span>${t(label)}</button>`
+    )
+    .join('')}</div></nav>`;
 
 export const mediaCredit = () =>
   `<footer class="media-credit">${t('credit.media')} <a href="https://github.com/YaKohen/exercises-dataset" target="_blank" rel="noopener">Exercises Dataset</a> · <a href="https://exercisedb.dev" target="_blank" rel="noopener">ExerciseDB</a></footer>`;
@@ -42,6 +48,7 @@ export function bindShell() {
   document.querySelectorAll('[data-nav]').forEach((b) => {
     b.onclick = () => {
       if (b.dataset.nav === 'calendar' && state.view !== 'calendar') state.calendarOffset = 0;
+      if (b.dataset.nav === 'ai') state.aiReturn = state.view;
       navigate(b.dataset.nav);
     };
   });

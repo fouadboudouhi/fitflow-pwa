@@ -88,6 +88,26 @@ export function toggleSet(session, exerciseIndex, setIndex, lastWork = []) {
   session.lastSetAt = session.lastActivityAt;
   return true;
 }
+// The set that comes next for an exercise: the first open working set, or a new one when all are done.
+export function nextOpenSet(session, exerciseIndex) {
+  const entry = session.entries[exerciseIndex];
+  const open = entry.sets.findIndex((set) => !set.done && isWorkSet(set));
+  if (open >= 0) return open;
+  entry.sets.push(newSetFor(entryTrackType(entry)));
+  return entry.sets.length - 1;
+}
+// Writes values into a set and ticks it. Weight in kilograms, time in seconds, distance in kilometres.
+export function logSet(session, exerciseIndex, setIndex, values) {
+  const entry = session.entries[exerciseIndex];
+  const set = entry.sets[setIndex];
+  for (const key of ['weight', 'reps', 'distance'])
+    if (values[key] !== undefined) set[key] = String(values[key]);
+  if (values.time !== undefined) set.time = values.time;
+  const ex = sessionExercises(session)[exerciseIndex];
+  if (!toggleSet(session, exerciseIndex, setIndex, previousWork(ex))) return false;
+  set.pr = isRecord(ex, set, entry);
+  return true;
+}
 // The clock starts with the first thing logged, not with opening the screen.
 export function touchSession(session, at = new Date().toISOString()) {
   if (!session.begun) {

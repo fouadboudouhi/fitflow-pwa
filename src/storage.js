@@ -22,6 +22,8 @@ export const LS = {
   installTip: 'volumora-install-tip',
   aiKey: 'volumora-ai-key',
   aiChat: 'volumora-ai-chat',
+  aiMemory: 'volumora-ai-memory',
+  aiUsage: 'volumora-ai-usage',
 };
 export const DEFAULT_SETTINGS = {
   language: 'auto',
@@ -181,6 +183,19 @@ export const getAiChat = () => {
   return Array.isArray(chat) ? chat : [];
 };
 export const saveAiChat = (messages) => write(LS.aiChat, messages.slice(-MAX_CHAT));
+// What the assistant keeps across chats. Like the chat, it stays on this device and out of backups.
+export const getAiMemory = () => {
+  const memory = read(LS.aiMemory, []);
+  return Array.isArray(memory) ? memory : [];
+};
+export const saveAiMemory = (memory) => write(LS.aiMemory, memory);
+const usageMonth = () => new Date().toISOString().slice(0, 7);
+export const getAiCost = () => {
+  const usage = read(LS.aiUsage, null);
+  return usage?.month === usageMonth() ? Number(usage.dollars) || 0 : 0;
+};
+export const addAiCost = (dollars) =>
+  write(LS.aiUsage, { month: usageMonth(), dollars: getAiCost() + dollars });
 export const getRestUntil = () => Number(localStorage.getItem(LS.rest)) || 0;
 export const saveRestUntil = (until) =>
   until ? localStorage.setItem(LS.rest, String(until)) : localStorage.removeItem(LS.rest);
