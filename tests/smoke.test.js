@@ -2149,3 +2149,151 @@ test('no field is small enough for an iPhone to zoom into it', async () => {
   await page.waitForSelector('.sheet-backdrop.show');
   assert.deepEqual(await small(), [], 'workout menu');
 });
+
+test('a reply that dies in the background starts again on return, without repeating a change', async () => {
+  await addAiKey();
+  await page.evaluate(() => {
+    let hidden = false;
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => (hidden ? 'hidden' : 'visible'),
+    });
+    window.setHidden = (value) => {
+      hidden = value;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    const encoder = new TextEncoder();
+    const events = (list) => list.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('');
+    const respond = (text) =>
+      new Response(encoder.encode(text), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    const realFetch = window.fetch;
+    window.requests = [];
+    window.fetch = (url, options) => {
+      if (!String(url).includes('api.anthropic.com')) return realFetch(url, options);
+      const body = JSON.parse(options.body);
+      window.requests.push(body);
+      const number = window.requests.length;
+      if (number === 1)
+        return Promise.resolve(
+          respond(
+            events([
+              {
+                type: 'content_block_start',
+                index: 0,
+                content_block: { type: 'tool_use', id: 'tool1', name: 'remember', input: {} },
+              },
+              {
+                type: 'content_block_delta',
+                index: 0,
+                delta: { type: 'input_json_delta', partial_json: JSON.stringify({ fact: 'Mag Kabelzug' }) },
+              },
+              { type: 'content_block_stop', index: 0 },
+              { type: 'message_delta', delta: { stop_reason: 'tool_use' } },
+            ])
+          )
+        );
+      // The second request hangs in the background until the app comes back, then the connection is gone.
+      if (number === 2) {
+        window.setHidden(true);
+        return new Promise((_, reject) => {
+          options.signal.addEventListener('abort', () => reject(new DOMException('gone', 'AbortError')));
+        });
+      }
+      return Promise.resolve(
+        respond(
+          events([
+            { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+            { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Wieder da.' } },
+            { type: 'content_block_stop', index: 0 },
+            { type: 'message_delta', delta: { stop_reason: 'end_turn' } },
+          ])
+        )
+      );
+    };
+  });
+  await page.click('[data-nav="ai"]');
+  await page.fill('#aiInput', 'Merk dir das');
+  await page.click('#aiSend');
+  await page.waitForFunction(() => window.requests.length === 2);
+  await page.evaluate(() => window.setHidden(false));
+  await page.waitForFunction(
+    () => document.querySelector('#chatScroll').textContent.includes('Wieder da.'),
+    null,
+    {
+      timeout: 12000,
+    }
+  );
+  const { sent, memory, actions } = await page.evaluate(async () => {
+    const { getAiMemory } = await import('/src/storage.js');
+    return {
+      sent: window.requests.map((r) => r.messages.length),
+      memory: getAiMemory(),
+      actions: document.querySelectorAll('.chat-action').length,
+    };
+  });
+  assert.deepEqual(sent, [1, 3, 3], 'the same conversation goes out again');
+  assert.equal(memory.length, 1, 'the tool ran once');
+  assert.equal(actions, 1);
+});
+
+test('a question left open by a closed app goes back into the field', async () => {
+  await addAiKey();
+  await page.evaluate(async () => {
+    const { saveAiChat } = await import('/src/storage.js');
+    saveAiChat([{ role: 'user', text: 'Noch offen' }]);
+  });
+  await page.click('[data-nav="ai"]');
+  assert.equal(await page.inputValue('#aiInput'), 'Noch offen');
+  assert.match(await page.textContent('.ai-error'), /unterbrochen/);
+  assert.equal(await page.evaluate(async () => (await import('/src/storage.js')).getAiChat().length), 0);
+});
+
+test('the assistant reads notes, links into the app and draws charts from real data', async () => {
+  await seedHistory();
+  await addAiKey();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { key, id } = await page.evaluate(async () => {
+    const { getHistory, saveHistory } = await import('/src/storage.js');
+    const { exerciseKey } = await import('/src/util.js');
+    const history = getHistory();
+    history[0].entries[0].note = 'Schulter zwickt';
+    saveHistory(history);
+    return { key: exerciseKey(history[0].entries[0]), id: history[0].id };
+  });
+  const tools = await page.evaluate(async () => {
+    const { runTool } = await import('/src/aiTools.js');
+    return (await runTool('get_training_history', {}, {})).result;
+  });
+  assert.equal(tools.sessions[0].exercises[0].note, 'Schulter zwickt');
+  assert.equal(tools.sessions[0].id, id);
+  await mockClaude({
+    onMessage: () => ({
+      text: `Hier dein Verlauf.\n>> chart:strength:${key}\n>> chart:sets\n>> chart:body\n>> workout:${id}\n>> records\n>> chart:unknown\n>> nothing`,
+    }),
+  });
+  await page.click('[data-nav="ai"]');
+  await page.fill('#aiInput', 'Wie läuft es?');
+  await page.click('#aiSend');
+  await page.waitForSelector('.chat-link');
+  const shown = await page.evaluate(() => ({
+    canvases: document.querySelectorAll('.chat-chart canvas').length,
+    width: document.querySelector('.chat-chart canvas').width,
+    sections: [...document.querySelectorAll('.chat-chart h3')].map((h) => h.textContent),
+    thin: document.querySelector('.chat-chart p.muted')?.textContent,
+    links: [...document.querySelectorAll('.chat-link')].map((b) => b.textContent),
+    leftover: document.querySelector('#chatScroll').textContent.includes('>>'),
+  }));
+  assert.equal(shown.canvases, 1);
+  assert.ok(shown.width > 0, 'the chart is drawn');
+  assert.equal(shown.sections.length, 3);
+  assert.match(shown.thin, /zu wenig Daten/);
+  assert.equal(shown.links.length, 2);
+  assert.equal(shown.leftover, false);
+  await axeCheck('chat with charts and links');
+  await page.click('[data-chat-session]');
+  await page.waitForSelector('.coach-note');
+  await page.click('.backrow .back');
+  await page.waitForSelector('#chatScroll');
+  await page.click('[data-chat-nav="records"]');
+  await page.waitForFunction(async () => (await import('/src/state.js')).state.view === 'records');
+});

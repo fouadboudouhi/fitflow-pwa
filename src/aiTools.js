@@ -101,6 +101,7 @@ function historyData({ days, exercise_id, limit }) {
   const sessions = getHistory()
     .filter((s) => (parseDate(s.finishedAt || s.day)?.getTime() || 0) >= since)
     .map((s) => ({
+      id: s.id,
       date: dayKey(s.day || s.finishedAt),
       plan: s.planName || '',
       day: s.dayName || '',
@@ -112,6 +113,7 @@ function historyData({ days, exercise_id, limit }) {
           exercise_id: exerciseKey(e),
           name: exerciseName(e),
           sets: e.sets.filter((x) => x.done).map((x) => setText(x, entryTrackType(e))),
+          ...(e.note ? { note: e.note } : {}),
         }))
         .filter((e) => e.sets.length),
     }))
@@ -659,7 +661,7 @@ const DEFINITIONS = [
   ],
   [
     'get_training_history',
-    'Finished workouts, newest first, with every set as weight×reps, marked sets, RIR and records. Optionally for one exercise.',
+    'Finished workouts, newest first, with their id, every set as weight×reps, marked sets, RIR and records, and the notes the person wrote on an exercise. Optionally for one exercise.',
     object({
       days: { type: 'integer', description: 'How far back, default 56.' },
       exercise_id: { type: 'string', description: 'Only this exercise.' },

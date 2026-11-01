@@ -215,28 +215,19 @@ export function volumeByMuscle(history) {
   return [...totals].map(([group, volume]) => ({ group, volume })).sort((a, b) => b.volume - a.volume);
 }
 
-const weightPoints = (range) =>
+export const weightPoints = (range) =>
   bodyInRange(range)
     .filter((x) => x.weight)
     .slice()
     .reverse()
     .map((x) => ({ label: fmtDate(x.day || x.date), value: toDisplay(x.weight) }));
 
-export function drawAnalytics(selectedKey, range) {
-  const history = historyInRange(range).slice().reverse();
-  lineChart(
-    document.querySelector('#volumeChart'),
-    history.slice(-16).map((h) => ({
-      label: fmtDate(h.day || h.finishedAt),
-      value: Math.round(toDisplay(h.volume || volumeOf(h))),
-    })),
-    { suffix: ` ${unit()}` }
-  );
-  // Best score per session: estimated 1RM for weighted exercises, otherwise reps, seconds or kilometres.
+// Best score per session, oldest first: estimated 1RM for weighted exercises, otherwise reps, seconds or kilometres.
+export function strengthSeries(history, key) {
   let suffix = ` ${unit()}`;
-  const strength = history
+  const points = history
     .map((h) => {
-      const e = h.entries?.find((x) => exerciseKey(x) === selectedKey);
+      const e = h.entries?.find((x) => exerciseKey(x) === key);
       if (!e) return null;
       const type = e.trackType || trackTypeOf(e);
       const best = Math.max(0, ...e.sets.map((s) => setScore(s, type)));
@@ -253,6 +244,20 @@ export function drawAnalytics(selectedKey, range) {
       return { label: fmtDate(h.day || h.finishedAt), value };
     })
     .filter(Boolean);
+  return { points, suffix };
+}
+
+export function drawAnalytics(selectedKey, range) {
+  const history = historyInRange(range).slice().reverse();
+  lineChart(
+    document.querySelector('#volumeChart'),
+    history.slice(-16).map((h) => ({
+      label: fmtDate(h.day || h.finishedAt),
+      value: Math.round(toDisplay(h.volume || volumeOf(h))),
+    })),
+    { suffix: ` ${unit()}` }
+  );
+  const { points: strength, suffix } = strengthSeries(history, selectedKey);
   lineChart(document.querySelector('#strengthChart'), strength.slice(-16), {
     color: token('--orange'),
     suffix,

@@ -37,6 +37,7 @@ const PARENT_LABEL = {
   more: 'nav.more',
   templates: 'templates.title',
   calendar: 'calendar.title',
+  ai: 'nav.ai',
 };
 export const parentRow = (target) =>
   `<div class="backrow"><button class="back" data-nav="${target}" aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${t(PARENT_LABEL[target] || 'common.back')}</span></div>`;

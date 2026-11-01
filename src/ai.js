@@ -4,6 +4,9 @@ const API = 'https://api.anthropic.com/v1';
 const API_VERSION = '2026-10-21';
 const TIMEOUT = 180000;
 const RETRY_DELAY = 1500;
+// How long a request may stay silent after the app is back from the background, and how often it starts over.
+const RETURN_GRACE = 6000;
+const MAX_RESUMES = 3;
 const MAX_STEPS = 12;
 export const MODEL = 'claude-opus-5-5';
 // Dollars per million tokens and per search, for the rough monthly figure in the chat menu.
@@ -93,7 +96,7 @@ export async function verifyKey(key) {
 // Rebuilds the reply's content blocks from the server-sent events. Thinking blocks and their signatures stay exactly
 // as received, because a turn with tool calls has to be sent back unchanged. Tool input whose JSON cannot be read
 // is marked, not guessed at.
-export async function readStream(response, onText = () => {}) {
+export async function readStream(response, onText = () => {}, onData = () => {}) {
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
   const blocks = [];
@@ -144,6 +147,7 @@ export async function readStream(response, onText = () => {}) {
   };
   for (;;) {
     const { done, value } = await reader.read();
+    onData();
     buffer += decoder.decode(value, { stream: !done });
     const lines = buffer.split(/\r?\n/);
     buffer = done ? '' : lines.pop();
@@ -156,27 +160,91 @@ export async function readStream(response, onText = () => {}) {
 // What goes back to the API: the reply as received, without what only this client added.
 const asSent = ({ invalid, partial, ...sent }) => sent;
 
-async function requestStep({ key, body, signal, onText }) {
+const pageVisible = () =>
+  new Promise((resolve) => {
+    if (document.visibilityState !== 'hidden') return resolve();
+    const seen = () => {
+      if (document.visibilityState === 'hidden') return;
+      document.removeEventListener('visibilitychange', seen);
+      resolve();
+    };
+    document.addEventListener('visibilitychange', seen);
+  });
+
+// iPhones suspend a page in the background and its connection dies with it, sometimes silently. So a request that was
+// in the background and fails, or stays silent after the return, is sent again. Tools that already ran are part of the
+// transcript and do not run twice.
+function backgroundWatch(signal) {
+  const stopper = new AbortController();
+  const stop = () => stopper.abort();
+  if (signal?.aborted) stop();
+  signal?.addEventListener('abort', stop);
+  const watch = { signal: stopper.signal, away: false, cut: false, data: () => clearTimeout(timer), end };
+  let timer;
+  const change = () => {
+    clearTimeout(timer);
+    if (document.visibilityState === 'hidden') watch.away = true;
+    else if (watch.away)
+      timer = setTimeout(() => {
+        watch.cut = true;
+        stop();
+      }, RETURN_GRACE);
+  };
+  function end() {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', stop);
+    globalThis.document?.removeEventListener('visibilitychange', change);
+  }
+  globalThis.document?.addEventListener('visibilitychange', change);
+  return watch;
+}
+
+async function requestStep({ key, body, signal, onText, onResume = () => {} }) {
   let started = false;
-  const attempt = () =>
-    withTimeout(TIMEOUT, signal, async (combined) => {
-      try {
-        const response = await post('/messages', key, body, combined);
-        return await readStream(response, (text) => {
-          started = true;
-          onText(text);
-        });
-      } catch (err) {
-        if (err instanceof AiError) throw err;
-        throw new AiError(err?.name === 'AbortError' ? 'aborted' : 'network');
+  const attempt = async () => {
+    const watch = backgroundWatch(signal);
+    try {
+      return await withTimeout(TIMEOUT, watch.signal, async (combined) => {
+        try {
+          const response = await post('/messages', key, body, combined);
+          watch.data();
+          return await readStream(
+            response,
+            (text) => {
+              started = true;
+              onText(text);
+            },
+            watch.data
+          );
+        } catch (err) {
+          if (err instanceof AiError) throw err;
+          throw new AiError(err?.name === 'AbortError' ? 'aborted' : 'network');
+        }
+      });
+    } catch (err) {
+      if (!signal?.aborted && (watch.cut || (watch.away && err.code === 'network'))) err.resume = true;
+      throw err;
+    } finally {
+      watch.end();
+    }
+  };
+  for (let resumes = 0; ; resumes++) {
+    try {
+      return await attempt();
+    } catch (err) {
+      if (err.resume && resumes < MAX_RESUMES) {
+        await pageVisible();
+        if (signal?.aborted) throw new AiError('aborted');
+        started = false;
+        onText('');
+        onResume();
+        continue;
       }
-    });
-  try {
-    return await attempt();
-  } catch (err) {
-    if (started || !retryable(err.code)) throw err;
-    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
-    return attempt();
+      if (err.resume) throw new AiError('network');
+      if (started || !retryable(err.code)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      return attempt();
+    }
   }
 }
 
@@ -202,6 +270,7 @@ export async function runTurn({
   signal,
   onText = () => {},
   onUsage = () => {},
+  onResume,
   execute,
 }) {
   const transcript = [...messages];
@@ -219,6 +288,7 @@ export async function runTurn({
       requestStep({
         key,
         signal,
+        onResume,
         onText: (text) => onText(join(text)),
         body: {
           model: MODEL,
