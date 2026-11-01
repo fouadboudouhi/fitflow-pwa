@@ -23,6 +23,8 @@ import { reconcileActive, sessionStarted } from './workout.js';
 // The language comes first: migrations may seed the default plan in it.
 setLanguage(getSettings().language);
 runMigrations();
+// Ask the browser not to clear the data under storage pressure. It decides by itself and never asks the person.
+navigator.storage?.persist?.().catch(() => {});
 applyTheme();
 state.restUntil = getRestUntil();
 const firstRun = needsOnboarding();
