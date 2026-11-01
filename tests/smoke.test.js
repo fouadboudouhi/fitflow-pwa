@@ -1838,20 +1838,48 @@ test('a workout set can be said, with the field as the way that always works', a
   assert.deepEqual([sets[1].weight, sets[1].reps], ['62.5', '10']);
   await page.waitForSelector('#dictateInput', { state: 'detached' });
 
-  // A phone that refuses is remembered: from then on the field opens directly.
+  // A phone that refuses says why, and from then on listening waits for a tap on the microphone in the field.
   await page.evaluate(() => {
+    window.starts = 0;
     window.webkitSpeechRecognition = class {
       start() {
+        window.starts += 1;
         setTimeout(() => this.onerror?.({ error: 'service-not-allowed' }), 10);
       }
       abort() {}
     };
   });
   await page.click('[data-dictate="0"]');
-  await page.waitForFunction(() =>
-    document.querySelector('.dictate-state')?.textContent.includes('Mikrofon')
+  await page.waitForFunction(() => document.querySelector('.dictate-state')?.textContent.includes('Siri'));
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-speech-off')), 'service-not-allowed');
+  await page.waitForSelector('.sheet-backdrop.show');
+  await axeCheck('dictation refused');
+  await page.click('.sheet-head button');
+  await page.waitForSelector('#dictateInput', { state: 'detached' });
+  await page.click('[data-dictate="0"]');
+  await page.waitForSelector('#dictateMic');
+  assert.match(await page.textContent('.dictate-state'), /Siri/);
+  assert.equal(await page.evaluate(() => window.starts), 1, 'it does not start by itself again');
+
+  // A tap tries again, and once it works it starts by itself again.
+  await page.evaluate(() => {
+    window.webkitSpeechRecognition = class {
+      start() {
+        setTimeout(() => {
+          this.onstart?.();
+          this.onresult?.({ results: [Object.assign([{ transcript: '65 kg acht' }], { isFinal: true })] });
+        }, 10);
+      }
+      abort() {}
+    };
+  });
+  await page.click('#dictateMic');
+  await page.waitForFunction(
+    () => JSON.parse(localStorage.getItem('volumora-active-v2')).entries[0].sets[2].done
   );
-  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-speech-off')), '1');
+  sets = await first();
+  assert.deepEqual([sets[2].weight, sets[2].reps], ['65', '8']);
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-speech-off')), null);
 });
 
 test('the assistant knows the running workout, the summary and what it remembers', async () => {

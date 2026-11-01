@@ -5724,6 +5724,7 @@ strong,
 .rest-timer span {
   font-size: 10.5px;
   color: var(--muted);
+  opacity: 1;
 }
 .rest-timer b {
   font-size: 20px;
@@ -7064,9 +7065,21 @@ button.chat-row > .icon {
   display: grid;
   gap: 10px;
 }
+.dictate-field {
+  position: relative;
+  display: grid;
+}
+.dictate-field .icon-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+.dictate-field .icon-btn.listening {
+  color: var(--green-ink);
+}
 .dictate input {
   min-height: 48px;
-  padding: 12px 14px;
+  padding: 12px 48px 12px 14px;
   border: 0;
   border-radius: 12px;
   background: var(--cloud);
