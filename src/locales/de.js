@@ -1062,7 +1062,10 @@ export default {
   'dictate.unclear': 'Das habe ich nicht verstanden. Tippe aufs Mikrofon und sag es noch einmal.',
   'dictate.listen': 'Zuhören',
   'dictate.retry': 'Tippe rechts aufs Mikrofon für einen neuen Versuch oder ins Feld für die Tastatur.',
-  'dictate.why.not-allowed': 'Das Mikrofon ist nicht erlaubt.',
+  'dictate.why.not-allowed':
+    'Das Mikrofon wurde abgelehnt. Lade die Seite neu, bevor du es noch einmal versuchst.',
+  'dictate.why.mic-blocked':
+    'Das Mikrofon ist nicht freigegeben. Erlaube es bei der Frage des iPhones. Kommt keine Frage, stelle in den iPhone-Einstellungen unter Apps → Safari → Mikrofon „Fragen“ ein.',
   'dictate.why.service-not-allowed':
     'Die Spracherkennung ist gesperrt. Oft hilft es, in den iPhone-Einstellungen Siri oder die Diktierfunktion einzuschalten.',
   'dictate.why.audio-capture': 'Das Mikrofon ist gerade nicht verfügbar.',

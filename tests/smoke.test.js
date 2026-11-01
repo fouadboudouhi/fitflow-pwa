@@ -1818,8 +1818,35 @@ test('a workout set can be said, with the field as the way that always works', a
     'the rest timer starts like after a tap'
   );
 
+  // A blocked microphone is told at once, without starting the recognition.
+  await page.evaluate(() => {
+    window.starts = 0;
+    window.webkitSpeechRecognition = class {
+      start() {
+        window.starts += 1;
+      }
+      abort() {}
+    };
+    navigator.mediaDevices.getUserMedia = async () => {
+      throw new DOMException('no', 'NotAllowedError');
+    };
+  });
+  await page.click('[data-dictate="0"]');
+  await page.waitForFunction(() =>
+    document.querySelector('.dictate-state')?.textContent.includes('nicht freigegeben')
+  );
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-speech-off')), 'mic-blocked');
+  assert.equal(await page.evaluate(() => window.starts), 0);
+  await page.click('.sheet-head button');
+  await page.waitForSelector('#dictateInput', { state: 'detached' });
+
   // The next one goes into the next set; a recognizer that hears something finishes on its own.
   await page.evaluate(() => {
+    localStorage.removeItem('volumora-speech-off');
+    window.micStops = 0;
+    navigator.mediaDevices.getUserMedia = async () => ({
+      getTracks: () => [{ stop: () => (window.micStops += 1) }],
+    });
     window.webkitSpeechRecognition = class {
       start() {
         setTimeout(() => {
@@ -1836,6 +1863,7 @@ test('a workout set can be said, with the field as the way that always works', a
   );
   sets = await first();
   assert.deepEqual([sets[1].weight, sets[1].reps], ['62.5', '10']);
+  assert.equal(await page.evaluate(() => window.micStops), 1, 'the microphone check does not keep it open');
   await page.waitForSelector('#dictateInput', { state: 'detached' });
 
   // A phone that refuses says why, and from then on listening waits for a tap on the microphone in the field.
