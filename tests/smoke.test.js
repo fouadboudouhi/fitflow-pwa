@@ -1825,7 +1825,9 @@ test('a workout set can be said, with the field as the way that always works', a
       start() {
         window.starts += 1;
       }
-      abort() {}
+      stop() {
+        this.onend?.();
+      }
     };
     navigator.mediaDevices.getUserMedia = async () => {
       throw new DOMException('no', 'NotAllowedError');
@@ -1854,7 +1856,9 @@ test('a workout set can be said, with the field as the way that always works', a
           this.onresult?.({ results: [Object.assign([{ transcript: '62,5 kg zehn' }], { isFinal: true })] });
         }, 10);
       }
-      abort() {}
+      stop() {
+        this.onend?.();
+      }
     };
   });
   await page.click('[data-dictate="0"]');
@@ -1874,7 +1878,9 @@ test('a workout set can be said, with the field as the way that always works', a
         window.starts += 1;
         setTimeout(() => this.onerror?.({ error: 'service-not-allowed' }), 10);
       }
-      abort() {}
+      stop() {
+        this.onend?.();
+      }
     };
   });
   await page.click('[data-dictate="0"]');
@@ -1898,7 +1904,9 @@ test('a workout set can be said, with the field as the way that always works', a
           this.onresult?.({ results: [Object.assign([{ transcript: '65 kg acht' }], { isFinal: true })] });
         }, 10);
       }
-      abort() {}
+      stop() {
+        this.onend?.();
+      }
     };
   });
   await page.click('#dictateMic');
@@ -1908,6 +1916,28 @@ test('a workout set can be said, with the field as the way that always works', a
   sets = await first();
   assert.deepEqual([sets[2].weight, sets[2].reps], ['65', '8']);
   assert.equal(await page.evaluate(() => localStorage.getItem('volumora-speech-off')), null);
+  assert.equal(await page.evaluate(() => window.micStops), 3, 'every attempt starts with the microphone');
+  await page.waitForSelector('#dictateInput', { state: 'detached' });
+
+  // A phone that listens and never answers does not leave the person waiting.
+  await page.evaluate(() => {
+    window.webkitSpeechRecognition = class {
+      start() {
+        setTimeout(() => this.onstart?.(), 10);
+      }
+      stop() {
+        this.onend?.();
+      }
+    };
+  });
+  await page.click('[data-add-set="0"]');
+  await page.click('[data-dictate="0"]');
+  await page.waitForFunction(
+    () => document.querySelector('.dictate-state')?.textContent.includes('nicht verstanden'),
+    null,
+    { timeout: 12000 }
+  );
+  assert.equal(await page.locator('#dictateMic.listening').count(), 0);
 });
 
 test('the assistant knows the running workout, the summary and what it remembers', async () => {

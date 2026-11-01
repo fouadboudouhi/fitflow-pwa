@@ -14,17 +14,21 @@ const REFUSALS = ['not-allowed', 'service-not-allowed', 'audio-capture'];
 const REASONS = [...REFUSALS, 'mic-blocked', 'silent'];
 // Long enough for someone to answer the microphone question, which pauses everything without telling the page.
 const START_TIMEOUT = 20000;
+// How long the phone may stay silent once it listens, before the person gets a way forward.
+const RESULT_TIMEOUT = 8000;
+// A new attempt waits for the last one to end, but not forever.
+const END_TIMEOUT = 1500;
+let ending = Promise.resolve();
 
 const Recognition = () => window.SpeechRecognition || window.webkitSpeechRecognition;
 // Safari decides speech recognition by the microphone permission, and a refusal holds until the page is reloaded. Asking
 // for the microphone first shows the phone's real question, or tells at once that it is blocked. Null means it is free.
-let micFree = false;
+// On iPhones only the first listening of a page worked without this, so every attempt starts the same way.
 async function askForMicrophone() {
-  if (micFree || !navigator.mediaDevices?.getUserMedia) return null;
+  if (!navigator.mediaDevices?.getUserMedia) return null;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach((track) => track.stop());
-    micFree = true;
     return null;
   } catch (error) {
     if (error.name === 'NotAllowedError') return 'mic-blocked';
@@ -94,9 +98,13 @@ export function openDictation({ title, trackType, onValues }) {
     if (!recognition) return;
     const running = recognition;
     recognition = null;
-    running.onresult = running.onerror = running.onend = running.onstart = null;
+    running.onresult = running.onerror = running.onstart = null;
+    ending = new Promise((resolve) => {
+      running.onend = resolve;
+      setTimeout(resolve, END_TIMEOUT);
+    });
     try {
-      running.abort();
+      running.stop();
     } catch {
       // It had already ended.
     }
@@ -143,6 +151,8 @@ export function openDictation({ title, trackType, onValues }) {
     input.blur();
     state.textContent = t('dictate.listening');
     showListening(true);
+    await ending;
+    if (current !== attempt) return;
     const blocked = await askForMicrophone();
     if (current !== attempt || !box.isConnected) return;
     if (blocked) return refused(blocked);
@@ -152,9 +162,19 @@ export function openDictation({ title, trackType, onValues }) {
     recognition.continuous = false;
     // Some phones offer the API and then simply do nothing.
     waiting = setTimeout(() => refused('silent'), START_TIMEOUT);
-    recognition.onstart = () => clearTimeout(waiting);
-    recognition.onresult = (e) => {
+    // A phone can also listen and never answer. What was understood by then still counts.
+    const waitForResult = () => {
       clearTimeout(waiting);
+      waiting = setTimeout(() => {
+        const values = parsed();
+        if (values) return finish(values);
+        stop();
+        state.textContent = t('dictate.unclear');
+      }, RESULT_TIMEOUT);
+    };
+    recognition.onstart = waitForResult;
+    recognition.onresult = (e) => {
+      waitForResult();
       rememberRefusal(null);
       const result = e.results[e.results.length - 1];
       input.value = result[0].transcript;
@@ -175,7 +195,10 @@ export function openDictation({ title, trackType, onValues }) {
       clearTimeout(waiting);
       recognition = null;
       showListening(false);
-      if (!done && !parsed()) state.textContent = t('dictate.unclear');
+      if (done) return;
+      const values = parsed();
+      if (values) finish(values);
+      else state.textContent = t('dictate.unclear');
     };
     try {
       recognition.start();
