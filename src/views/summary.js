@@ -14,6 +14,7 @@ import { toast } from '../ui.js';
 import { fmtVolume } from '../units.js';
 import { esc, exerciseKey, number } from '../util.js';
 import { openAi } from './ai.js';
+import { bindEffort, effortHtml } from './effort.js';
 import * as home from './home.js';
 
 // Headline records of the session with the set that achieved them.
@@ -40,6 +41,7 @@ export function view() {
   const max = groups[0]?.sets || 1;
   return `<main class="shell narrow summary"><section class="page-head compact"><div><span class="next-label">${t('summary.title')}</span><h1>${esc(session.dayName)}</h1></div></section>
     <div class="stat-row"><div><b>${fmtVolume(session.volume || 0)}</b><span>${t('session.volume')}</span></div><div><b>${number(session.totalSets)}</b><span>${t('session.sets')}</span></div><div><b>${t('session.minutes', { n: Math.round(number(session.duration) / 60) })}</b><span>${t('session.duration')}</span></div></div>
+    ${effortHtml(session)}
     <section class="list-section"><h2>${t('summary.newRecords')}</h2>${
       records.length
         ? `<div class="list">${records.map((r) => `<div class="row"><span class="row-main"><b>${esc(exerciseName(r.item))}</b><small>${esc(describeSet(r.set, r.trackType))}</small></span><span class="chip chip-green">${t('workout.pr')}</span></div>`).join('')}</div>`
@@ -53,6 +55,7 @@ export function view() {
 const savedAsDay = new Set();
 
 export function bind() {
+  bindEffort(state.sessionId);
   document.querySelector('#summaryDone')?.addEventListener('click', () =>
     // Straight back to where the workout started, without a second "Heute" in the history.
     previousView() === 'home' ? history.back() : navigate('home', {}, { replace: true })

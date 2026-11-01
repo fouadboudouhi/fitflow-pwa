@@ -42,6 +42,7 @@ import {
   newSet,
   nextOpenSet,
   previousWork,
+  repsStart,
   removeSessionExercise,
   repsAtPercent,
   replaceSessionExercise,
@@ -101,6 +102,7 @@ function exerciseSection(ex, index, entry, exercises, letters, showRir) {
         trackType,
         workNumber: entry.sets.slice(0, i).filter(isWorkSet).length + 1,
         last: setReference(entry, i, prevSets),
+        repsHint: repsStart(ex, prevSets),
         showRir,
       })
     )
@@ -248,7 +250,8 @@ function refreshHints(exerciseIndex) {
     if (input.dataset.setField === 'rir') return;
     input.placeholder = placeholderFor(
       input.dataset.setField,
-      setReference(entry, number(input.dataset.index), last)
+      setReference(entry, number(input.dataset.index), last),
+      repsStart(sessionExercises(session)[exerciseIndex], last)
     );
     const sizer = input.previousElementSibling;
     if (!input.value && sizer?.classList.contains('set-sizer')) sizer.textContent = input.placeholder;

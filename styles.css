@@ -7171,3 +7171,41 @@ textarea,
 .chat-chart p {
   margin: 0;
 }
+
+.session-extras {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.session-extras h2 {
+  margin: 14px 0 8px;
+  font-size: 15px;
+}
+.session-calories {
+  margin: 0;
+  line-height: 1.4;
+}
+.session-calories .text-btn {
+  min-height: 44px;
+  padding: 0;
+  text-align: left;
+}
+.effort-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+.effort-steps button {
+  min-height: 48px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.2;
+}
+.effort-steps button[aria-pressed='true'] {
+  background: var(--green);
+  color: #06140b;
+  font-weight: 600;
+}

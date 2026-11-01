@@ -463,6 +463,23 @@ const ui = {
 
   // Summary, records, sharing
   'summary.title': 'Training abgeschlossen',
+  'calories.value': 'ca. {n} kcal',
+  'calories.hint': 'grobe Schätzung aus Dauer und Körpergewicht',
+  'calories.needWeight': 'Trag dein Körpergewicht ein, dann schätzt die App deinen Kalorienverbrauch',
+  'effort.title': 'Wie anstrengend war es?',
+  'effort.1': 'Sehr leicht',
+  'effort.2': 'Leicht',
+  'effort.3': 'Okay',
+  'effort.4': 'Hart',
+  'effort.5': 'Am Limit',
+  'deload.title': 'Vielleicht eine leichtere Woche?',
+  'deload.stall':
+    '{n} Übungen kommen gerade nicht voran. Eine Woche mit etwa 10 % weniger Gewicht kann helfen.',
+  'deload.effort':
+    'Deine letzten Trainings waren sehr hart. Eine Woche mit etwa 10 % weniger Gewicht kann helfen.',
+  'deload.weeks':
+    'Du trainierst seit {n} Wochen ohne Pause. Eine Woche mit etwa 10 % weniger Gewicht kann helfen.',
+  'deload.later': 'Nicht jetzt',
   'summary.newRecords': 'Neue Bestwerte',
   'summary.noRecords': 'Diesmal keine neuen Bestwerte.',
   'summary.muscles': 'Sätze pro Muskelgruppe',

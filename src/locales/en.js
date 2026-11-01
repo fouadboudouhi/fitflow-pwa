@@ -459,6 +459,21 @@ const ui = {
   'onboarding.use': 'Let’s go',
 
   // Summary, records, sharing
+  'calories.value': 'about {n} kcal',
+  'calories.hint': 'rough estimate from duration and body weight',
+  'calories.needWeight': 'Enter your body weight and the app estimates the calories you burned',
+  'effort.title': 'How hard was it?',
+  'effort.1': 'Very easy',
+  'effort.2': 'Easy',
+  'effort.3': 'Okay',
+  'effort.4': 'Hard',
+  'effort.5': 'At the limit',
+  'deload.title': 'Maybe a lighter week?',
+  'deload.stall': '{n} exercises are not moving right now. A week with about 10 % less weight can help.',
+  'deload.effort': 'Your last workouts were very hard. A week with about 10 % less weight can help.',
+  'deload.weeks':
+    'You have trained for {n} weeks without a break. A week with about 10 % less weight can help.',
+  'deload.later': 'Not now',
   'summary.title': 'Workout finished',
   'summary.newRecords': 'New records',
   'summary.noRecords': 'No new records this time.',

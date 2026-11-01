@@ -1,6 +1,7 @@
 // What the assistant can look up and change in the app. Each tool checks its input itself and answers with plain
 // data; a failed check goes back to Claude as an error it can correct, and a change is applied completely or not at
 // all. Changes report an `action` for the chat, with an undo that only works while nothing else has changed since.
+import { caloriesOf } from './calories.js';
 import { LANGUAGES, setLanguage, t } from './i18n.js';
 import { EQUIPMENT_KEYS, GROUPS, allExercises, exerciseName, libraryOf } from './library.js';
 import { planExerciseFromLibrary, scheduleSlots } from './plans.js';
@@ -106,6 +107,8 @@ function historyData({ days, exercise_id, limit }) {
       plan: s.planName || '',
       day: s.dayName || '',
       minutes: Math.round(number(s.duration) / 60),
+      ...(s.effort ? { effort_1_to_5: s.effort } : {}),
+      kcal_rough_estimate: caloriesOf(s),
       marked: Object.keys(s.markers || {}).filter((key) => s.markers[key]),
       exercises: (s.entries || [])
         .filter((e) => !exercise_id || exerciseKey(e) === exercise_id)

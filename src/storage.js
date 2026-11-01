@@ -18,6 +18,7 @@ export const LS = {
   onboarded: 'volumora-onboarded',
   customExercises: 'volumora-custom-exercises-v1',
   lastBackup: 'volumora-last-backup',
+  deloadQuiet: 'volumora-deload-quiet',
   backupSnooze: 'volumora-backup-snooze',
   installTip: 'volumora-install-tip',
   aiKey: 'volumora-ai-key',
@@ -154,6 +155,8 @@ export function promoteCustomExercises() {
 const DAY = 86400000;
 export const getLastBackup = () => read(LS.lastBackup, null);
 export const markBackup = () => write(LS.lastBackup, new Date().toISOString());
+export const deloadQuietUntil = () => read(LS.deloadQuiet, 0);
+export const quietDeload = (until) => write(LS.deloadQuiet, until);
 export const snoozeBackup = (now = Date.now()) => write(LS.backupSnooze, now + 14 * DAY);
 export function backupDue(history = getHistory(), now = Date.now()) {
   if (history.length < 5 || read(LS.backupSnooze, 0) > now) return false;

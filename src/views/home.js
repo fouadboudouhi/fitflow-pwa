@@ -1,3 +1,4 @@
+import { deloadHint, deloadQuietDate } from '../deload.js';
 import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { nextSession, setCount, weekStats } from '../plans.js';
@@ -6,6 +7,7 @@ import { state } from '../state.js';
 import {
   activePlan,
   backupDue,
+  deloadQuietUntil,
   clearActive,
   dismissInstallTip,
   getActive,
@@ -13,6 +15,7 @@ import {
   getSettings,
   installTipDue,
   saveActive,
+  quietDeload,
   snoozeBackup,
 } from '../storage.js';
 import { startOfWeek } from '../stats.js';
@@ -30,6 +33,14 @@ function weekRing(done, goal) {
 
 const dayRow = (plan, d) =>
   `<button type="button" class="row" data-start="${d.id}" data-plan="${plan.id}"><span class="row-main"><b>${esc(d.name)}</b><small>${plural(d.exercises.length, 'exercises')}</small></span>${icon('chevron-right')}</button>`;
+
+// A suggestion, not a task: it can be waved away and then stays quiet for weeks.
+function deloadCard(history, today) {
+  if (deloadQuietUntil() > today.getTime()) return '';
+  const hint = deloadHint(history, today);
+  if (!hint) return '';
+  return `<section class="list-section"><div class="list"><div class="row backup-row" id="deloadCard"><span class="backup-main"><span class="row-icon">${icon('trend')}</span><span class="row-main"><b>${t('deload.title')}</b><small>${esc(t(`deload.${hint.reason}`, { n: hint.count }))}</small></span></span><button type="button" class="text-btn" id="deloadLater">${t('deload.later')}</button></div></div></section>`;
+}
 
 export function view() {
   const today = new Date();
@@ -98,6 +109,7 @@ export function view() {
         ? `<section class="list-section"><div class="list"><div class="row backup-row"><button type="button" class="backup-main" id="backupNow"><span class="row-icon">${icon('backup')}</span><span class="row-main"><b>${t('home.backupTitle')}</b><small>${t('home.backupText')}</small></span></button><button type="button" class="text-btn" id="backupLater">${t('home.backupLater')}</button></div></div></section>`
         : ''
     }
+    ${resume ? '' : deloadCard(history, today)}
     <section class="list-section">${others.length ? `<h2>${t('home.otherSessions')}</h2>` : ''}<div class="list">${others.map((d) => dayRow(plan, d)).join('')}${freeRow}</div></section>
   </main>`;
 }
@@ -121,6 +133,10 @@ async function start(planId, dayId) {
 }
 
 export function bind() {
+  document.querySelector('#deloadLater')?.addEventListener('click', () => {
+    quietDeload(deloadQuietDate());
+    render();
+  });
   document
     .querySelector('#installNow')
     ?.addEventListener('click', () =>

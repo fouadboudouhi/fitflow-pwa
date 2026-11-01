@@ -31,6 +31,11 @@ export const rangeMin = (range) => {
   const nums = String(range).match(/\d+/g)?.map(Number) || [];
   return nums.length > 1 ? Math.min(...nums) : 0;
 };
+// The middle of a range such as 8–12, as a starting point for an exercise without any history.
+export const rangeMid = (range) => {
+  const nums = String(range).match(/\d+/g)?.map(Number) || [];
+  return nums.length ? Math.round((Math.min(...nums) + Math.max(...nums)) / 2) : null;
+};
 export const titleCase = (value) =>
   String(value)
     .replace(/\b\w/g, (c) => c.toUpperCase())
