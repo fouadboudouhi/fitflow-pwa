@@ -1184,8 +1184,21 @@ test('assistant tools: plans change completely or not at all, deleting asks, und
     querySelector: () => null,
   };
   const { runTool, aiTools } = await import('../src/aiTools.js');
-  const { allPlans, savePlans, getSettings, saveSettings, saveHistory, saveBody } =
-    await import('../src/storage.js');
+  const {
+    allPlans,
+    clearActive,
+    getActive,
+    getAiMemory,
+    getBody,
+    getHistory,
+    getSettings,
+    saveActive,
+    saveBody,
+    saveHistory,
+    savePlans,
+    saveSettings,
+  } = await import('../src/storage.js');
+  const { assistantSystem } = await import('../src/aiPrompts.js');
   const { defaultPlan } = await import('../src/library.js');
   const first = defaultPlan();
   savePlans({ activePlanId: first.id, items: [first] });
@@ -1196,6 +1209,7 @@ test('assistant tools: plans change completely or not at all, deleting asks, und
     runTool(name, input, { confirm });
 
   assert.ok(aiTools().every((tool) => tool.input_schema.type === 'object' && tool.eager_input_streaming));
+  assert.equal(new Set(aiTools().map((tool) => tool.name)).size, aiTools().length);
   const listed = (await run('list_plans')).result;
   assert.equal(listed.active_plan_id, first.id);
   assert.equal(listed.plans[0].days[0].exercises[0].exercise_id, 'chest-press');
@@ -1307,9 +1321,224 @@ test('assistant tools: plans change completely or not at all, deleting asks, und
   assert.match(changed.action.label, /RIR/);
   assert.equal(changed.action.undo(), true);
   assert.deepEqual(getSettings(), before);
+  setLanguage('de');
+
+  // Memory: kept, removable, with an undo.
+  const kept = await run('remember', { fact: 'Schulter links empfindlich' });
+  assert.deepEqual(
+    getAiMemory().map((m) => m.text),
+    ['Schulter links empfindlich']
+  );
+  assert.match(kept.action.label, /Gemerkt/);
+  assert.match((await run('forget', { id: 'nope' })).error, /Unknown/);
+  const gone = await run('forget', { id: kept.result.id });
+  assert.deepEqual(getAiMemory(), []);
+  assert.equal(gone.action.undo(), true);
+  assert.equal(getAiMemory().length, 1);
+  assert.match((await run('remember', { fact: ' ' })).error, /empty/);
+  assert.match(assistantSystem('X'), /Schulter links empfindlich/);
+
+  // Body data and a workout told in the chat.
+  assert.match((await run('add_body_entry', {})).error, /at least one/);
+  const body = await run('add_body_entry', { weight: 82, date: '2026-10-30' });
+  assert.equal(getBody()[0].day, '2026-10-30');
+  assert.equal(body.action.undo(), true);
+  assert.deepEqual(getBody(), []);
+  assert.match((await run('log_past_workout', { date: '2999-01-01', exercises: [] })).error, /future/);
+  assert.match(
+    (await run('log_past_workout', { date: '2026-10-30', exercises: [{ exercise_id: 'x', sets: [] }] }))
+      .error,
+    /Unknown/
+  );
+  const past = await run('log_past_workout', {
+    date: '2026-10-30',
+    name: 'Nachtrag',
+    exercises: [
+      {
+        exercise_id: '0025',
+        sets: [
+          { weight: 60, reps: 10 },
+          { weight: 60, reps: 8 },
+        ],
+      },
+    ],
+  });
+  const [saved] = getHistory();
+  assert.deepEqual(
+    [saved.day, saved.dayName, saved.totalSets, saved.volume],
+    ['2026-10-30', 'Nachtrag', 2, 1080]
+  );
+  assert.equal((await run('get_training_history', { days: 3650 })).result.sessions.length, 1);
+  assert.equal(past.action.undo(), true);
+  assert.deepEqual(getHistory(), []);
+
+  // The running workout.
+  assert.match((await run('update_active_workout', { action: 'log', index: 0 })).error, /No workout/);
+  assert.equal((await run('get_active_workout')).result.running, false);
+  const { freshFreeSession, addSessionExercise } = await import('../src/workout.js');
+  const { planExerciseFromLibrary } = await import('../src/plans.js');
+  const { libraryExercise } = await import('../src/library.js');
+  const session = freshFreeSession();
+  addSessionExercise(session, planExerciseFromLibrary(libraryExercise('0025')));
+  saveActive(session);
+  assert.equal((await run('get_active_workout')).result.exercises[0].exercise_id, '0025');
+  const logged = await run('update_active_workout', {
+    action: 'log',
+    index: 0,
+    sets: [{ weight: 50, reps: 12 }],
+  });
+  let live = getActive();
+  assert.deepEqual(
+    [live.entries[0].sets[0].weight, live.entries[0].sets[0].reps, live.entries[0].sets[0].done],
+    ['50', '12', true]
+  );
+  assert.equal(logged.action.undo(), true);
+  assert.equal(getActive().entries[0].sets[0].done, false);
+  assert.match(
+    (await run('update_active_workout', { action: 'replace', index: 0, exercise_id: 'x' })).error,
+    /Unknown/
+  );
+  await run('update_active_workout', { action: 'replace', index: 0, exercise_id: '0003' });
+  assert.equal(getActive().entries[0].libraryId, '0003');
+  await run('update_active_workout', { action: 'add', exercise_id: '0025' });
+  await run('update_active_workout', { action: 'remove', index: 0 });
+  live = getActive();
+  assert.deepEqual(
+    live.entries.map((e) => e.libraryId),
+    ['0025']
+  );
+  clearActive();
+
   delete globalThis.matchMedia;
   delete globalThis.document;
   setLanguage('de');
+});
+
+test('a spoken or typed set becomes its values', async () => {
+  const { parseSet } = await import('../src/speech.js');
+  const cases = [
+    ['60 Kilo, 12 Wiederholungen', { weight: 60, reps: 12 }],
+    ['12 Wiederholungen mit 60 kg', { weight: 60, reps: 12 }],
+    ['sechzig Kilo zwölf Wiederholungen', { weight: 60, reps: 12 }],
+    ['zweiundsechzig Komma fünf Kilo acht Wiederholungen', { weight: 62.5, reps: 8 }],
+    ['62,5 kg 8', { weight: 62.5, reps: 8 }],
+    ['12 mal 60', { weight: 60, reps: 12 }],
+    ['60 x 12', { weight: 60, reps: 12 }],
+    ['60×12', { weight: 60, reps: 12 }],
+    ['zehn Wiederholungen', { reps: 10 }],
+    ['10', { reps: 10 }],
+    ['70 Kilo', { weight: 70 }],
+    ['ten reps with 100 pounds', { weight: 100, reps: 10 }],
+    ['hundert Kilo fünf Wiederholungen', { weight: 100, reps: 5 }],
+    ['einhundertzwanzig Kilo drei', { weight: 120, reps: 3 }],
+  ];
+  for (const [text, expected] of cases) assert.deepEqual(parseSet(text), expected, text);
+  assert.equal(parseSet('keine Ahnung'), null);
+  assert.equal(parseSet(''), null);
+  assert.deepEqual(parseSet('15 Wiederholungen', 'reps'), { reps: 15 });
+  assert.deepEqual(parseSet('10 Kilo, 15 Wiederholungen', 'reps'), { weight: 10, reps: 15 });
+  assert.deepEqual(parseSet('20', 'reps'), { reps: 20 });
+  assert.deepEqual(parseSet('45 Sekunden', 'time'), { time: 45 });
+  assert.deepEqual(parseSet('eine Minute 30 Sekunden', 'time'), { time: 90 });
+  assert.deepEqual(parseSet('1:15', 'time'), { time: 75 });
+  assert.deepEqual(parseSet('60', 'time'), { time: 60 });
+  assert.deepEqual(parseSet('5 km in 25 Minuten', 'distance_time'), { distance: 5, time: 1500 });
+  assert.deepEqual(parseSet('fünf Kilometer', 'distance_time'), { distance: 5 });
+});
+
+test('cost, search and citations: paid searches are counted, a refused search tool does not stop the chat', async () => {
+  const { runTurn, costOf } = await import('../src/ai.js');
+  assert.ok(
+    Math.abs(
+      costOf({
+        input_tokens: 1000000,
+        output_tokens: 1000000,
+        cache_creation_input_tokens: 1000000,
+        cache_read_input_tokens: 1000000,
+        server_tool_use: { web_search_requests: 2 },
+      }) - 29.22
+    ) < 1e-9
+  );
+  assert.equal(costOf(undefined), 0);
+  const original = globalThis.fetch;
+  try {
+    const bodies = [];
+    globalThis.fetch = async (url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      if (body.tools?.some((tool) => tool.name === 'web_search'))
+        return new Response(JSON.stringify({ error: { message: 'web search is not enabled' } }), {
+          status: 400,
+        });
+      return sse(...textEvents('Ohne Suche'));
+    };
+    const plain = await runTurn({
+      key: 'k',
+      system: 'S',
+      messages: USER,
+      serverTools: [{ type: 'web_search_20260209', name: 'web_search' }],
+    });
+    assert.equal(plain.text, 'Ohne Suche');
+    assert.equal(bodies.length, 2);
+
+    // A paused search goes on with the same conversation; sources come from the citations.
+    const paused = [
+      { type: 'message_start', message: { usage: { input_tokens: 10 } } },
+      {
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'server_tool_use', id: 's1', name: 'web_search', input: {} },
+      },
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'input_json_delta', partial_json: '{"query":"kreatin"}' },
+      },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', delta: { stop_reason: 'pause_turn' }, usage: { output_tokens: 5 } },
+    ];
+    const cited = [
+      { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Belegt.' } },
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'citations_delta', citation: { url: 'https://a.example/x', title: 'Studie' } },
+      },
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'citations_delta', citation: { url: 'https://a.example/x', title: 'Studie' } },
+      },
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'citations_delta', citation: { url: 'javascript:alert(1)', title: 'Nein' } },
+      },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' } },
+    ];
+    const replies = [paused, cited];
+    const sent = [];
+    globalThis.fetch = async (url, init) => {
+      sent.push(JSON.parse(init.body));
+      return sse(...replies.shift());
+    };
+    const usage = [];
+    const reply = await runTurn({ key: 'k', system: 'S', messages: USER, onUsage: (u) => usage.push(u) });
+    assert.equal(reply.text, 'Belegt.');
+    assert.deepEqual(reply.sources, [{ url: 'https://a.example/x', title: 'Studie' }]);
+    assert.deepEqual(usage[0], { input_tokens: 10, output_tokens: 5 });
+    assert.equal(sent[1].messages.length, 2, 'no extra user message');
+    assert.deepEqual(sent[1].messages[1].content[0], {
+      type: 'server_tool_use',
+      id: 's1',
+      name: 'web_search',
+      input: { query: 'kreatin' },
+    });
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test('chat history keeps text and what was done, and answer buttons come off the text', async () => {
@@ -1348,15 +1577,15 @@ test('chat history keeps text and what was done, and answer buttons come off the
     '<p><b>Stark</b> &lt;img src=x&gt;</p><ul><li>eins</li><li><b>zwei</b></li></ul><p>Ende</p>'
   );
   const card = replyHtml(
-    'Dein Plan:\n\n## Tag 1 · <Oben>\n- Brustpresse | 3×8–12\n\n- Kniebeugen | 3×6–10 | 3 Min. Pause\n## Tag 2\n- Latzug | 3×8–12\nPasst das?'
+    'Dein Plan:\n\n## Tag 1 · <Oben>\n- Übung A | 3×8–12\n\n- Übung B | 3×6–10 | 3 Min. Pause\n## Tag 2\n- Übung C | 3×8–12\nPasst das?'
   );
   assert.equal(
     card,
     '<p>Dein Plan:</p>' +
       '<section class="chat-card"><h3>Tag 1 · &lt;Oben&gt;</h3>' +
-      '<div class="chat-row"><span>Brustpresse</span><b>3×8–12</b></div>' +
-      '<div class="chat-row"><span>Kniebeugen<small>3 Min. Pause</small></span><b>3×6–10</b></div></section>' +
-      '<section class="chat-card"><h3>Tag 2</h3><div class="chat-row"><span>Latzug</span><b>3×8–12</b></div></section>' +
+      '<div class="chat-row"><span>Übung A</span><b>3×8–12</b></div>' +
+      '<div class="chat-row"><span>Übung B<small>3 Min. Pause</small></span><b>3×6–10</b></div></section>' +
+      '<section class="chat-card"><h3>Tag 2</h3><div class="chat-row"><span>Übung C</span><b>3×8–12</b></div></section>' +
       '<p>Passt das?</p>'
   );
   assert.equal(replyHtml('## Nur Titel\nText'), '<h3 class="chat-heading">Nur Titel</h3><p>Text</p>');
@@ -1366,6 +1595,8 @@ test('chat history keeps text and what was done, and answer buttons come off the
     'rows without a heading, and everything escaped'
   );
   assert.equal(replyHtml('**<script>**'), '<p><b>&lt;script&gt;</b></p>');
+  const tappable = replyHtml('## Tag\n- brustpresse | 3×8–12');
+  assert.match(tappable, /<button type="button" class="chat-row" data-exercise="/, 'found by its name');
 });
 
 test('the system prompt carries the data and the language', async () => {

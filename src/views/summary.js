@@ -9,10 +9,11 @@ import { describeSet } from '../sets.js';
 import { shareText, summaryText } from '../share.js';
 import { state } from '../state.js';
 import { setsByGroup } from '../stats.js';
-import { activePlan, getHistory, persistPlan } from '../storage.js';
+import { activePlan, getHistory, hasAiKey, persistPlan } from '../storage.js';
 import { toast } from '../ui.js';
 import { fmtVolume } from '../units.js';
 import { esc, exerciseKey, number } from '../util.js';
+import { openAi } from './ai.js';
 import * as home from './home.js';
 
 // Headline records of the session with the set that achieved them.
@@ -45,7 +46,7 @@ export function view() {
         : `<p class="muted">${t('summary.noRecords')}</p>`
     }</section>
     ${groups.length ? `<section class="chart-section"><h2>${t('summary.muscles')}</h2><div class="bar-list">${groups.map((g) => `<div class="bar-row"><span>${esc(groupLabel(g.group))}</span><div class="bar-track"><i style="width:${Math.max(4, (g.sets / max) * 100)}%"></i></div><b>${plural(g.sets, 'sets')}</b></div>`).join('')}</div></section>` : ''}
-    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button><button type="button" class="text-btn" id="summaryView">${t('summary.view')}</button>${session.detached && session.exercises?.length && !savedAsDay.has(session.id) ? `<button class="secondary" id="summarySaveDay">${t('summary.saveDay')}</button>` : ''}</div></main>`;
+    <div class="preview-actions"><button class="primary" id="summaryDone">${t('summary.done')}</button><button class="secondary" id="summaryShare">${t('summary.share')}</button>${hasAiKey() ? `<button type="button" class="text-btn" id="summaryAi">${t('summary.ai')}</button>` : ''}<button type="button" class="text-btn" id="summaryView">${t('summary.view')}</button>${session.detached && session.exercises?.length && !savedAsDay.has(session.id) ? `<button class="secondary" id="summarySaveDay">${t('summary.saveDay')}</button>` : ''}</div></main>`;
 }
 
 // Sessions already turned into a plan day during this visit, so the button does not offer it twice.
@@ -60,6 +61,11 @@ export function bind() {
     .querySelector('#summaryView')
     ?.addEventListener('click', () =>
       navigate('session', { sessionId: getHistory()[0]?.id, sessionFrom: 'analytics' }, { replace: true })
+    );
+  document
+    .querySelector('#summaryAi')
+    ?.addEventListener('click', () =>
+      openAi('summary', { aiInput: t('summary.aiQuestion'), aiAutoSend: true })
     );
   document.querySelector('#summaryShare')?.addEventListener('click', () => {
     const session = getHistory().find((h) => h.id === state.sessionId);

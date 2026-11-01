@@ -1397,7 +1397,11 @@ async function mockClaude({ onMessage, verifyStatus = 200 } = {}) {
   });
   return calls;
 }
-const addAiKey = () => page.evaluate(() => localStorage.setItem('volumora-ai-key', 'sk-ant-api-test-secret'));
+const addAiKey = () =>
+  page.evaluate(async () => {
+    localStorage.setItem('volumora-ai-key', 'sk-ant-api-test-secret');
+    (await import('/src/render.js')).render();
+  });
 
 test('without a key no AI feature shows and nothing is sent', async () => {
   const calls = await mockClaude();
@@ -1407,9 +1411,8 @@ test('without a key no AI feature shows and nothing is sent', async () => {
   assert.equal(await page.getByText('Mit dem KI-Assistenten').count(), 0);
   await page.keyboard.press('Escape');
   await page.click('[data-nav="analytics"]');
-  assert.equal(await page.locator('#aiReview').count(), 0);
+  assert.equal(await page.locator('[data-nav="ai"]').count(), 0, 'no tab without a key');
   await page.click('[data-nav="more"]');
-  assert.equal(await page.locator('#aiRow').count(), 0);
   await page.click('[data-nav="settings"]');
   assert.match(await page.textContent('#openAi'), /Claude-Schlüssel eintragen/);
   assert.equal(calls.length, 0);
@@ -1446,14 +1449,14 @@ test('a Claude key is checked before saving and stays out of the backup', async 
   await axeCheck('ai home');
 
   await page.click('#aiBack');
+  assert.equal(await page.locator('#openAi').count(), 0, 'settings no longer offer it once it has its tab');
+  await page.waitForSelector('[data-nav="ai"]');
   await page.click('[data-nav="more"]');
-  await page.waitForSelector('#aiRow');
   await page.click('[data-nav="backup"]');
   const [download] = await Promise.all([page.waitForEvent('download'), page.click('#exportJson')]);
   assert.equal(fs.readFileSync(await download.path(), 'utf8').includes('sk-ant'), false);
 
-  await page.click('[data-nav="more"]');
-  await page.click('#aiRow');
+  await page.click('[data-nav="ai"]');
   await page.click('#aiMenu');
   await page.getByRole('button', { name: 'Schlüssel entfernen' }).click();
   await page.waitForSelector('#aiKey');
@@ -1465,19 +1468,14 @@ test('a Claude key is checked before saving and stays out of the backup', async 
 
 test('the assistant asks, creates a plan, and the change can be undone from the chat', async () => {
   await addAiKey();
-  let answers = [];
+  // A question with answer buttons.
+  let answers = [{ text: 'Wie viele Tage pro Woche?\n\n[[2 Tage | 3 Tage | 4 Tage]]' }];
   const calls = await mockClaude({ onMessage: () => answers.shift() });
   await page.click('[data-nav="plans"]');
   await page.click('#newPlan');
   await page.getByText('Mit dem KI-Assistenten').click();
-  await page.waitForSelector('#aiInput');
-  assert.match(await page.inputValue('#aiInput'), /neuen Trainingsplan/);
-  assert.equal(calls.length, 0, 'the prepared question waits for a tap');
-
-  // A question with answer buttons.
-  answers = [{ text: 'Wie viele Tage pro Woche?\n\n[[2 Tage | 3 Tage | 4 Tage]]' }];
-  await page.click('#aiSend');
   await page.waitForSelector('.chat-replies button');
+  assert.match(calls[0].body.messages[0].content, /neuen Trainingsplan/);
   assert.equal(await page.locator('.chat-replies button').count(), 3);
   assert.equal((await page.textContent('.chat-assistant')).includes('[['), false);
   await axeCheck('ai chat with answer buttons');
@@ -1517,8 +1515,12 @@ test('the assistant asks, creates a plan, and the change can be undone from the 
     turn.every((b) => b.system === turn[0].system),
     'one system prompt for the whole turn'
   );
-  assert.equal(turn[0].tools.length, 12);
-  assert.ok(turn[0].tools.every((tool) => tool.eager_input_streaming === true));
+  assert.equal(turn[0].tools.filter((tool) => tool.input_schema).length, 18);
+  assert.equal(turn[0].tools.at(-1).name, 'web_search');
+  assert.ok(
+    turn[0].tools.filter((tool) => tool.input_schema).every((tool) => tool.eager_input_streaming === true)
+  );
+  assert.equal(turn[0].tools.at(-1).eager_input_streaming, undefined);
   assert.deepEqual(turn[1].messages.at(-2).content[0], { type: 'thinking', thinking: '', signature: 'sig' });
   assert.equal(turn[1].messages.at(-1).content[0].type, 'tool_result');
   const refused = turn[2].messages.at(-1).content[0];
@@ -1563,8 +1565,7 @@ test('deleting a plan needs a yes, and settings change right away', async () => 
   });
   let answers = [];
   const calls = await mockClaude({ onMessage: () => answers.shift() });
-  await page.click('[data-nav="more"]');
-  await page.click('#aiRow');
+  await page.click('[data-nav="ai"]');
   const say = async (text) => {
     await page.fill('#aiInput', text);
     await page.click('#aiSend');
@@ -1612,8 +1613,7 @@ test('the chat keeps the conversation, sends the history and survives a reload',
     onMessage: () =>
       status ? { status } : { text: `Antwort ${++count}\n- Mehr **Rücken** <b>trainieren</b>` },
   });
-  await page.click('[data-nav="more"]');
-  await page.click('#aiRow');
+  await page.click('[data-nav="ai"]');
   await page.waitForSelector('.chat-empty');
   assert.equal(calls.length, 0, 'opening the chat sends nothing');
   assert.equal(await page.isDisabled('#aiSend'), true);
@@ -1662,8 +1662,7 @@ test('the chat keeps the conversation, sends the history and survives a reload',
   status = 0;
   await page.reload();
   await page.waitForSelector('.next-card');
-  await page.click('[data-nav="more"]');
-  await page.click('#aiRow');
+  await page.click('[data-nav="ai"]');
   await page.waitForSelector('.chat-user');
   assert.equal(await page.locator('.chat-user').count(), 2, 'the chat is still there');
 
@@ -1675,6 +1674,7 @@ test('the chat keeps the conversation, sends the history and survives a reload',
   assert.equal(await page.locator('.chat-user').count(), 2, 'a new chat can be undone');
 
   await page.click('.chat-head #aiBack');
+  await page.click('[data-nav="more"]');
   await page.click('[data-nav="backup"]');
   const [download] = await Promise.all([page.waitForEvent('download'), page.click('#exportJson')]);
   assert.equal(fs.readFileSync(await download.path(), 'utf8').includes('Warum stagniere'), false);
@@ -1688,21 +1688,6 @@ test('the chat keeps the conversation, sends the history and survives a reload',
     localStorage.getItem('volumora-ai-chat'),
   ]);
   assert.deepEqual(left, [null, null], 'delete all includes key and chat');
-});
-
-test('the review from the history is a prepared question that waits for a tap', async () => {
-  await seedHistory();
-  await addAiKey();
-  const calls = await mockClaude();
-  await page.click('[data-nav="analytics"]');
-  await page.click('#aiReview');
-  await page.waitForSelector('#aiInput');
-  assert.match(await page.inputValue('#aiInput'), /Wie liefen meine letzten Wochen/);
-  assert.equal(calls.length, 0);
-  await page.click('#aiSend');
-  await page.waitForSelector('.chat-assistant');
-  await page.click('#aiBack');
-  await page.waitForSelector('#aiReview');
 });
 
 test('replacing an exercise offers matching ones first', async () => {
@@ -1732,8 +1717,7 @@ test('stopping an answer leaves no error and the question returns when nothing a
   await seedHistory();
   await addAiKey();
   await page.route('https://api.anthropic.com/**', () => {});
-  await page.click('[data-nav="more"]');
-  await page.click('#aiRow');
+  await page.click('[data-nav="ai"]');
   await page.fill('#aiInput', 'Hallo');
   await page.click('#aiSend');
   await page.waitForSelector('#aiStop:not([hidden])');
@@ -1753,8 +1737,7 @@ test('a plan in the chat reads as cards with one row per exercise', async () => 
       text: '## Tag 1 · Oberkörper\n- Brustpresse | 3×8–12\n- Kniebeugen | 3×6–10 | 3 Min. Pause\n\nPasst das?\n\n[[Plan anlegen | Etwas ändern]]',
     }),
   });
-  await page.click('[data-nav="more"]');
-  await page.click('#aiRow');
+  await page.click('[data-nav="ai"]');
   await page.fill('#aiInput', 'Zeig mir einen Plan');
   await page.click('#aiSend');
   await page.waitForSelector('.chat-replies');
@@ -1767,4 +1750,138 @@ test('a plan in the chat reads as cards with one row per exercise', async () => 
     await page.evaluate(async () => (await import('/src/theme.js')).applyTheme());
     await axeCheck(`chat cards/${scheme}`);
   }
+});
+
+test('a workout set can be said, with the field as the way that always works', async () => {
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  // No speech recognition in this browser: the field opens right away.
+  await page.evaluate(() => {
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+  });
+  await page.click('[data-dictate="0"]');
+  await page.waitForSelector('#dictateInput');
+  assert.match(await page.textContent('.sheet-head h2'), /Brustpresse · Satz 1/);
+  assert.equal(await page.isDisabled('#dictateSave'), true);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'dictateInput');
+  await page.waitForSelector('.sheet-backdrop.show');
+  await axeCheck('dictation');
+  await page.fill('#dictateInput', 'keine Ahnung');
+  assert.equal(await page.isDisabled('#dictateSave'), true);
+  await page.fill('#dictateInput', '60 Kilo, 12 Wiederholungen');
+  assert.match(await page.textContent('.dictate-state'), /60 kg · 12 Wdh\./);
+  await page.click('#dictateSave');
+  await page.waitForSelector('#dictateInput', { state: 'detached' });
+  const first = () =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('volumora-active-v2')).entries[0].sets);
+  let sets = await first();
+  assert.deepEqual([sets[0].weight, sets[0].reps, sets[0].done], ['60', '12', true]);
+  assert.ok(
+    await page.locator('.rest-bar, [class*="rest"]').count(),
+    'the rest timer starts like after a tap'
+  );
+
+  // The next one goes into the next set; a recognizer that hears something finishes on its own.
+  await page.evaluate(() => {
+    window.webkitSpeechRecognition = class {
+      start() {
+        setTimeout(() => {
+          this.onstart?.();
+          this.onresult?.({ results: [Object.assign([{ transcript: '62,5 kg zehn' }], { isFinal: true })] });
+        }, 10);
+      }
+      abort() {}
+    };
+  });
+  await page.click('[data-dictate="0"]');
+  await page.waitForFunction(
+    () => JSON.parse(localStorage.getItem('volumora-active-v2')).entries[0].sets[1].done
+  );
+  sets = await first();
+  assert.deepEqual([sets[1].weight, sets[1].reps], ['62.5', '10']);
+  await page.waitForSelector('#dictateInput', { state: 'detached' });
+
+  // A phone that refuses is remembered: from then on the field opens directly.
+  await page.evaluate(() => {
+    window.webkitSpeechRecognition = class {
+      start() {
+        setTimeout(() => this.onerror?.({ error: 'service-not-allowed' }), 10);
+      }
+      abort() {}
+    };
+  });
+  await page.click('[data-dictate="0"]');
+  await page.waitForFunction(() =>
+    document.querySelector('.dictate-state')?.textContent.includes('Mikrofon')
+  );
+  assert.equal(await page.evaluate(() => localStorage.getItem('volumora-speech-off')), '1');
+});
+
+test('the assistant knows the running workout, the summary and what it remembers', async () => {
+  await seedHistory();
+  await addAiKey();
+  let answers = [];
+  const calls = await mockClaude({ onMessage: () => answers.shift() });
+  await page.reload();
+  await page.waitForSelector('.next-card');
+  await page.click('.next-card [data-start]');
+  await page.waitForSelector('.workout-exercise');
+  await page.click('[data-exercise-menu="0"]');
+  await page.getByRole('button', { name: 'KI fragen' }).click();
+  await page.waitForSelector('#aiInput');
+  assert.match(await page.inputValue('#aiInput'), /^Zu .+: $/);
+  assert.equal(calls.length, 0);
+  answers = [
+    { tool: 'update_active_workout', input: { action: 'replace', index: 0, exercise_id: '0025' } },
+    { tool: 'remember', input: { fact: 'Schulter links empfindlich' } },
+    { text: '## Heute\n- Bankdrücken mit Langhantel | 3×8–12\n\nErledigt.' },
+  ];
+  await page.fill('#aiInput', 'Die Schulter zwickt, ersetze die Übung');
+  await page.click('#aiSend');
+  await page.waitForSelector('.chat-row[data-exercise]');
+  assert.match(calls[0].body.system, /A workout is running right now/);
+  assert.equal(await page.locator('.chat-action').count(), 2);
+  const active = () => page.evaluate(() => JSON.parse(localStorage.getItem('volumora-active-v2')));
+  assert.equal((await active()).entries[0].libraryId, '0025');
+
+  // A row opens the exercise.
+  await page.click('.chat-row[data-exercise]');
+  await page.waitForSelector('.exercise-sheet');
+  await page.keyboard.press('Escape');
+
+  // Menu: memory and the rough cost.
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+  await page.click('#aiMenu');
+  await page.getByRole('button', { name: /Gedächtnis/ }).click();
+  await page.waitForSelector('.memory-row');
+  await page.waitForSelector('.sheet-backdrop.show');
+  assert.match(await page.textContent('.memory-row'), /Schulter links/);
+  await axeCheck('memory');
+  await page.click('[data-forget]');
+  await page.waitForFunction(() => !document.querySelector('.memory-row'));
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+  await page.click('#aiMenu');
+  assert.match(await page.textContent('.sheet'), /Diesen Monat ca\. /);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet-backdrop', { state: 'detached' });
+
+  // Back to the workout, finish it, and let the summary send its question.
+  await page.click('#aiBack');
+  await page.waitForSelector('.workout-exercise');
+  await page.fill('[data-set-field="weight"][data-exercise="0"][data-index="0"]', '50');
+  await page.fill('[data-set-field="reps"][data-exercise="0"][data-index="0"]', '10');
+  await page.click('[data-set-done="0"][data-exercise="0"]');
+  await page.click('#finishWorkout');
+  await page.click('.sheet-actions [data-ok]').catch(() => {});
+  await page.waitForSelector('#summaryAi');
+  answers = [{ text: 'Starkes Training.' }];
+  await page.click('#summaryAi');
+  await page.waitForFunction(() =>
+    document.querySelector('#chatScroll')?.textContent.includes('Starkes Training.')
+  );
+  assert.match(calls.at(-1).body.messages.at(-1).content, /gerade beendetes Training/);
+  await page.click('#aiBack');
+  await page.waitForSelector('#summaryAi');
 });

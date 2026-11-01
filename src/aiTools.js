@@ -4,15 +4,29 @@
 import { LANGUAGES, setLanguage, t } from './i18n.js';
 import { EQUIPMENT_KEYS, GROUPS, allExercises, exerciseName, libraryOf } from './library.js';
 import { planExerciseFromLibrary, scheduleSlots } from './plans.js';
-import { recordsFor } from './records.js';
-import { shortSet, trackTypeOf } from './sets.js';
+import { annotateAll, recordsFor } from './records.js';
+import { newSetFor, shortSet, trackTypeOf } from './sets.js';
 import { frequency, recordTimeline, weeklySets, weeklyVolume } from './stats.js';
-import { allPlans, getBody, getHistory, getSettings, saveSettings, savePlans } from './storage.js';
+import {
+  allPlans,
+  clearActive,
+  getAiMemory,
+  getBody,
+  getHistory,
+  getSettings,
+  saveActive,
+  saveAiMemory,
+  saveBody,
+  saveHistory,
+  savePlans,
+  saveSettings,
+} from './storage.js';
 import { applyTheme } from './theme.js';
 import { fromDisplay, inUnit, toDisplay, unit } from './units.js';
 import {
   clone,
   dayKey,
+  doneSets,
   exerciseKey,
   fold,
   isWorkSet,
@@ -21,12 +35,26 @@ import {
   parseDate,
   setsCount,
   uid,
+  volumeOf,
 } from './util.js';
-import { entryTrackType, stalled, strengthTrend, suggestion } from './workout.js';
+import {
+  addSessionExercise,
+  entryTrackType,
+  logSet,
+  nextOpenSet,
+  reconcileActive,
+  removeSessionExercise,
+  replaceSessionExercise,
+  sessionExercises,
+  stalled,
+  strengthTrend,
+  suggestion,
+} from './workout.js';
 
 const DAY_MS = 86400000;
 const MAX_DAYS = 14;
 const MAX_EXERCISES_PER_DAY = 16;
+const MAX_MEMORY = 40;
 const clean = (value, max) =>
   String(value ?? '')
     .trim()
@@ -206,6 +234,27 @@ function settingsData() {
   };
 }
 
+function activeWorkoutData() {
+  const session = reconcileActive();
+  if (!session) return { running: false };
+  const exercises = sessionExercises(session);
+  return {
+    running: true,
+    weights_in: unit(),
+    name: session.dayName || '',
+    exercises: session.entries.map((entry, index) => ({
+      index,
+      exercise_id: exerciseKey(entry),
+      name: exerciseName(entry),
+      target: exercises[index] ? `${setsCount(exercises[index].sets)}x${exercises[index].range}` : '',
+      sets: entry.sets.map((set) => ({
+        done: !!set.done,
+        ...(set.done ? { value: setText(set, entryTrackType(entry)) } : {}),
+      })),
+    })),
+  };
+}
+
 // Changes
 
 // An undo restores the state from before the change, unless something has changed it since.
@@ -356,6 +405,152 @@ async function deletePlan({ plan_id }, confirm) {
   };
 }
 
+function sourceFor(id) {
+  return libraryOf({ id: String(id ?? '') });
+}
+// Sets as Claude gives them: weights in the person's unit, stored in kilograms.
+const setValues = (set) => ({
+  ...(set?.weight !== undefined ? { weight: fromDisplay(set.weight) } : {}),
+  ...(set?.reps !== undefined ? { reps: bounded(set.reps, 0, 0, 999) } : {}),
+  ...(set?.time_seconds !== undefined ? { time: bounded(set.time_seconds, 0, 0, 86400) } : {}),
+  ...(set?.distance_km !== undefined ? { distance: Math.max(0, number(set.distance_km)) } : {}),
+});
+const undoActive = () =>
+  undoable(reconcileActive, (session) => (session ? saveActive(session) : clearActive()));
+
+function updateActiveWorkout({ action, index, exercise_id, sets, range }) {
+  const session = reconcileActive();
+  if (!session) return { error: 'No workout is running.' };
+  const known = Number.isInteger(index) && session.entries[index];
+  const named = () => exerciseName(session.entries[index]);
+  if (action !== 'add' && !known) return { error: 'Unknown index. Use get_active_workout.' };
+  const undo = undoActive();
+  let label;
+  if (action === 'log') {
+    const list = Array.isArray(sets) ? sets : [];
+    if (!list.length) return { error: 'log needs sets.' };
+    const name = named();
+    for (const set of list) {
+      if (!logSet(session, index, nextOpenSet(session, index), setValues(set)))
+        return { error: 'A set needs its values, for example weight and reps.' };
+    }
+    label = t('ai.action.workoutLogged', { n: list.length, name });
+  } else if (action === 'remove') {
+    label = t('ai.action.workoutRemoved', { name: named() });
+    removeSessionExercise(session, index);
+  } else {
+    const source = sourceFor(exercise_id);
+    if (!source) return { error: `Unknown exercise_id ${exercise_id}. Use search_exercises.` };
+    const next = planExerciseFromLibrary(source);
+    if (action === 'add') {
+      if (typeof sets === 'number') next.sets = setsCount(sets);
+      if (range !== undefined) next.range = normalizeRange(range, next.range);
+      addSessionExercise(session, next);
+      label = t('ai.action.workoutAdded', { name: exerciseName(source) });
+    } else if (action === 'replace') {
+      label = t('ai.action.workoutReplaced', { from: named(), to: exerciseName(source) });
+      replaceSessionExercise(session, index, next);
+    } else return { error: 'action must be log, add, remove or replace.' };
+  }
+  saveActive(session);
+  return { result: { done: true, workout: activeWorkoutData() }, action: undo(label) };
+}
+
+function addBodyEntry({ date, weight, waist_cm, chest_cm, arm_cm, thigh_cm }) {
+  const day = dayKey(date || new Date());
+  if (!day) return { error: 'date must be YYYY-MM-DD.' };
+  const positive = (value) => Math.max(0, number(value)) || '';
+  const entry = {
+    id: uid(),
+    date: new Date(`${day}T12:00:00`).toISOString(),
+    day,
+    weight: Math.max(0, number(fromDisplay(weight))) || '',
+    waist: positive(waist_cm),
+    chest: positive(chest_cm),
+    arm: positive(arm_cm),
+    thigh: positive(thigh_cm),
+    hasPhoto: false,
+  };
+  if (!['weight', 'waist', 'chest', 'arm', 'thigh'].some((key) => entry[key]))
+    return { error: 'Give at least one value.' };
+  const undo = undoable(getBody, saveBody);
+  saveBody([entry, ...getBody()]);
+  return { result: { saved: true, date: day }, action: undo(t('ai.action.bodySaved', { date: day })) };
+}
+
+function logPastWorkout({ date, name, minutes, exercises }) {
+  const start = parseDate(date);
+  if (!start) return { error: 'date must be YYYY-MM-DD.' };
+  if (dayKey(start) > dayKey()) return { error: 'The date lies in the future.' };
+  const list = Array.isArray(exercises) ? exercises : [];
+  const unknown = list.filter((x) => !sourceFor(x?.exercise_id)).map((x) => String(x?.exercise_id));
+  if (unknown.length) return { error: `Unknown exercise_id: ${unknown.join(', ')}. Use search_exercises.` };
+  const entries = list
+    .map((x) => {
+      const source = sourceFor(x.exercise_id);
+      const trackType = trackTypeOf(source);
+      return {
+        exerciseId: uid(),
+        libraryId: source.id,
+        name: exerciseName(source),
+        trackType,
+        note: '',
+        sets: (Array.isArray(x.sets) ? x.sets : []).map((set) => ({
+          ...newSetFor(trackType),
+          ...Object.fromEntries(Object.entries(setValues(set)).map(([key, value]) => [key, String(value)])),
+          done: true,
+        })),
+      };
+    })
+    .filter((entry) => entry.sets.length);
+  if (!entries.length) return { error: 'A workout needs at least one exercise with sets.' };
+  const seconds = bounded(minutes, 60, 1, 360) * 60;
+  const finished = new Date(`${dayKey(start)}T12:00:00`);
+  const session = {
+    id: uid(),
+    planId: null,
+    planName: '',
+    dayId: null,
+    dayName: clean(name, 60) || t('workout.freeName'),
+    startedAt: new Date(finished.getTime() - seconds * 1000).toISOString(),
+    finishedAt: finished.toISOString(),
+    day: dayKey(finished),
+    duration: seconds,
+    markers: { deload: false, ill: false, pain: false },
+    entries,
+  };
+  session.totalSets = doneSets(session);
+  session.volume = volumeOf(session);
+  const undo = undoable(getHistory, saveHistory);
+  const history = [session, ...getHistory()].sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+  annotateAll(history);
+  saveHistory(history);
+  return {
+    result: { saved: true, date: session.day, sets: session.totalSets },
+    action: undo(t('ai.action.workoutSaved', { date: session.day })),
+  };
+}
+
+function remember({ fact }) {
+  const text = clean(fact, 300);
+  if (!text) return { error: 'fact is empty.' };
+  const memory = getAiMemory();
+  if (memory.length >= MAX_MEMORY) return { error: `Memory is full (${MAX_MEMORY}). Use forget first.` };
+  const undo = undoable(getAiMemory, saveAiMemory);
+  const id = uid().slice(0, 8);
+  saveAiMemory([...memory, { id, text }]);
+  return { result: { saved: true, id }, action: undo(t('ai.action.remembered', { text })) };
+}
+
+function forget({ id }) {
+  const memory = getAiMemory();
+  const item = memory.find((m) => m.id === id);
+  if (!item) return { error: `Unknown memory id ${id}.` };
+  const undo = undoable(getAiMemory, saveAiMemory);
+  saveAiMemory(memory.filter((m) => m.id !== id));
+  return { result: { forgotten: true }, action: undo(t('ai.action.forgotten', { text: item.text })) };
+}
+
 const SETTING_NAMES = {
   language: 'settings.language',
   theme: 'settings.theme',
@@ -494,6 +689,88 @@ const DEFINITIONS = [
   ['get_body_data', 'Body weight and measurements, newest first.', object({ limit: { type: 'integer' } })],
   ['get_settings', 'The current app settings.', object()],
   [
+    'get_active_workout',
+    'The workout running right now, with each exercise and which sets are done. Says when none is running.',
+    object(),
+  ],
+  [
+    'update_active_workout',
+    'Change the running workout: log sets of an exercise (fills its next open sets and ticks them), add, replace or remove an exercise. The plan itself stays as it is. The person can undo this in the chat.',
+    object(
+      {
+        action: { type: 'string', enum: ['log', 'add', 'replace', 'remove'] },
+        index: {
+          type: 'integer',
+          description: 'Position of the exercise from get_active_workout; not for add.',
+        },
+        exercise_id: { type: 'string', description: 'For add and replace.' },
+        sets: {
+          type: 'array',
+          description: 'For log.',
+          items: object({
+            weight: { type: 'number', description: 'In the currently set unit.' },
+            reps: { type: 'integer' },
+            time_seconds: { type: 'integer' },
+            distance_km: { type: 'number' },
+          }),
+        },
+      },
+      ['action']
+    ),
+  ],
+  [
+    'add_body_entry',
+    'Save body weight or measurements. Weight is in the currently set unit, the date defaults to today. The person can undo this in the chat.',
+    object({
+      date: { type: 'string', description: 'YYYY-MM-DD' },
+      weight: { type: 'number' },
+      waist_cm: { type: 'number' },
+      chest_cm: { type: 'number' },
+      arm_cm: { type: 'number' },
+      thigh_cm: { type: 'number' },
+    }),
+  ],
+  [
+    'log_past_workout',
+    'Add a finished workout to the history, for a session the person did not log. Records are recalculated. The person can undo this in the chat.',
+    object(
+      {
+        date: { type: 'string', description: 'YYYY-MM-DD, not in the future.' },
+        name: { type: 'string' },
+        minutes: { type: 'integer', description: 'Duration, default 60.' },
+        exercises: {
+          type: 'array',
+          items: object(
+            {
+              exercise_id: { type: 'string' },
+              sets: {
+                type: 'array',
+                items: object({
+                  weight: { type: 'number', description: 'In the currently set unit.' },
+                  reps: { type: 'integer' },
+                  time_seconds: { type: 'integer' },
+                  distance_km: { type: 'number' },
+                }),
+              },
+            },
+            ['exercise_id', 'sets']
+          ),
+        },
+      },
+      ['date', 'exercises']
+    ),
+  ],
+  [
+    'remember',
+    'Keep a lasting fact about this person for future chats: goals, injuries, available equipment, preferences. One fact per call, in their language. Not for things that are already in their data.',
+    object({ fact: { type: 'string' } }, ['fact']),
+  ],
+  [
+    'forget',
+    'Remove a remembered fact that is out of date or that the person wants gone, by its id from <memory>.',
+    object({ id: { type: 'string' } }, ['id']),
+  ],
+  [
     'create_plan',
     'Create a new training plan. It becomes the active plan unless activate is false. The person can undo this in the chat.',
     object(
@@ -550,6 +827,9 @@ const DEFINITIONS = [
   ],
 ];
 
+// Runs at Anthropic and is paid per search, so it stays capped.
+export const webSearchTool = { type: 'web_search_20260209', name: 'web_search', max_uses: 3 };
+
 // Streaming tool input keeps long plans moving; each tool above checks what arrives.
 export const aiTools = () =>
   DEFINITIONS.map(([name, description, input_schema]) => ({
@@ -567,6 +847,7 @@ const LOOKUPS = {
   get_stats: statsData,
   get_body_data: bodyData,
   get_settings: settingsData,
+  get_active_workout: activeWorkoutData,
 };
 const CHANGES = {
   create_plan: createPlan,
@@ -574,6 +855,11 @@ const CHANGES = {
   delete_plan: deletePlan,
   set_active_plan: activatePlan,
   update_settings: updateSettings,
+  update_active_workout: updateActiveWorkout,
+  add_body_entry: addBodyEntry,
+  log_past_workout: logPastWorkout,
+  remember,
+  forget,
 };
 
 // `confirm` asks the person and resolves to true or false. Returns { result } or { error }, plus an `action` for a change.

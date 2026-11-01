@@ -152,7 +152,8 @@ a {
   max-width: 600px;
   margin: auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
 }
 .nav-btn {
   border: 0;
@@ -6574,9 +6575,6 @@ body {
 .ai-intro {
   margin: 4px 0 16px;
 }
-.ai-entry {
-  margin-top: 16px;
-}
 .ai-field {
   margin-top: 8px;
 }
@@ -6989,4 +6987,92 @@ body {
   font-weight: 500;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+/* A row that opens an exercise looks like the others, with the faint chevron every tappable row has */
+button.chat-row {
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.chat-row > .icon {
+  flex: none;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  margin-left: -6px;
+  color: var(--muted);
+  opacity: 0.6;
+}
+.chat-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+.chat-sources a {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The menu's memory: one line per fact, removable */
+.memory-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+.memory-row:first-child {
+  border-top: 0;
+}
+.memory-row > span {
+  flex: 1;
+  min-width: 0;
+}
+.ai-cost {
+  line-height: 1.5;
+}
+
+/* Saying a set: the microphone sits quietly next to the menu, the sheet holds one field */
+.exercise-tools .exercise-mic {
+  margin-left: auto;
+}
+.exercise-mic + .icon-btn {
+  margin-left: 0;
+}
+.dictate {
+  display: grid;
+  gap: 10px;
+}
+.dictate input {
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--cloud);
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 500;
+}
+.dictate-state {
+  min-height: 20px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.dictate .primary:disabled {
+  opacity: 0.45;
 }

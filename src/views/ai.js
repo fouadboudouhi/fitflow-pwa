@@ -1,24 +1,39 @@
 // AI assistant with the person's own Claude key: one chat that answers, analyses and changes plans and settings.
 // Without a key this is only the screen to add one; nothing is sent before the person sends something.
-import { AiError, runTurn, verifyKey } from '../ai.js';
+import { AiError, costOf, runTurn, verifyKey } from '../ai.js';
 import { assistantSystem, chatMessages, replyHtml, splitReplies, trainingSummary } from '../aiPrompts.js';
-import { aiTools, runTool } from '../aiTools.js';
-import { t } from '../i18n.js';
+import { aiTools, runTool, webSearchTool } from '../aiTools.js';
+import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
+import { libraryOf } from '../library.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { clearAiKey, getAiChat, getAiKey, hasAiKey, saveAiChat, saveAiKey } from '../storage.js';
+import {
+  addAiCost,
+  clearAiKey,
+  getAiChat,
+  getAiCost,
+  getAiKey,
+  getAiMemory,
+  hasAiKey,
+  saveAiChat,
+  saveAiKey,
+  saveAiMemory,
+} from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
 import { esc, uid } from '../util.js';
+import { openExerciseSheet } from './exercise.js';
 
 const LABELS = {
   plans: 'nav.plans',
   analytics: 'nav.history',
   more: 'nav.more',
   settings: 'settings.title',
+  home: 'nav.home',
 };
-const CLEAN = { aiInput: '', aiError: '', aiErrorDetail: '' };
+const CLEAN = { aiInput: '', aiError: '', aiErrorDetail: '', aiAutoSend: false };
 const NEAR_BOTTOM = 80;
+const MAX_SOURCES = 5;
 
 // One turn at a time. It keeps running while the person looks elsewhere; the answer waits in the chat.
 let running = null;
@@ -34,7 +49,7 @@ export function openAi(from, patch = {}) {
   navigate('ai', { ...CLEAN, aiReturn: from, ...patch });
 }
 
-const backTarget = () => state.aiReturn || 'more';
+const backTarget = () => state.aiReturn || 'home';
 const backButton = () =>
   `<button class="back" id="aiBack" aria-label="${t('common.back')}">${icon('chevron-left')}</button>`;
 const errorText = () =>
@@ -45,7 +60,7 @@ const errorLine = (extra = '') =>
   state.aiError ? `<p class="ai-error ${extra}" role="alert">${esc(errorText())}</p>` : '';
 
 const setupView = () =>
-  `<main class="shell narrow"><div class="backrow">${backButton()}<span>${t(LABELS[backTarget()])}</span></div><section class="page-head compact"><h1>${t('ai.setupTitle')}</h1></section><p class="muted ai-intro">${t('ai.setupIntro')}</p>
+  `<main class="shell narrow"><div class="backrow">${backButton()}<span>${t(LABELS[backTarget()] || 'common.back')}</span></div><section class="page-head compact"><h1>${t('ai.setupTitle')}</h1></section><p class="muted ai-intro">${t('ai.setupIntro')}</p>
   <form class="settings-form" id="aiKeyForm" novalidate><label><span>${t('ai.keyLabel')}</span><input id="aiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-api…"></label>${errorLine()}<button class="primary full" id="aiKeySave">${state.aiChecking ? t('ai.checking') : t('ai.keySave')}</button></form>
   <ul class="ai-notes"><li>${t('ai.setupStays')}</li><li>${t('ai.setupLimit')}</li><li>${t('ai.setupSent')}</li></ul>
   <p class="settings-hint"><a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">${t('ai.keyLink')}</a></p></main>`;
@@ -66,7 +81,10 @@ const messageHtml = (message, last) => {
     last && options.length
       ? `<div class="chat-replies">${options.map((option) => `<button type="button" data-chat-reply>${esc(option)}</button>`).join('')}</div>`
       : '';
-  return `<div class="chat-msg chat-assistant">${replyHtml(body)}${(message.actions || []).map(actionHtml).join('')}${message.cut ? `<p class="muted">${t('ai.cut')}</p>` : ''}${replies}</div>`;
+  const sources = (message.sources || []).length
+    ? `<p class="chat-sources">${message.sources.map((source) => `<a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.title)}</a>`).join('')}</p>`
+    : '';
+  return `<div class="chat-msg chat-assistant">${replyHtml(body)}${sources}${(message.actions || []).map(actionHtml).join('')}${message.cut ? `<p class="muted">${t('ai.cut')}</p>` : ''}${replies}</div>`;
 };
 
 const dots = () => `<span class="chat-dots" aria-hidden="true"><i></i><i></i><i></i></span>`;
@@ -172,13 +190,14 @@ async function sendChat(text) {
     }
     return outcome.error ? { error: outcome.error } : outcome.result;
   };
-  const finish = (reply) =>
+  const finish = (reply, extra = {}) =>
     saveAiChat([
       ...messages,
       {
         role: 'assistant',
         text: reply,
         ...(live.actions.length ? { actions: live.actions } : {}),
+        ...extra,
       },
     ]);
   try {
@@ -187,7 +206,9 @@ async function sendChat(text) {
       system: assistantSystem(trainingSummary()),
       messages: chatMessages(messages),
       tools: aiTools(),
+      serverTools: [webSearchTool],
       signal: job.signal,
+      onUsage: (usage) => addAiCost(costOf(usage)),
       execute,
       onText: (current) => {
         if (running !== job) return;
@@ -197,12 +218,10 @@ async function sendChat(text) {
     });
     if (running !== job) return;
     if (!reply.text.trim() && !live.actions.length) throw new AiError('server');
-    finish(reply.text.trim());
-    if (reply.stopReason === 'max_tokens') {
-      const saved = getAiChat();
-      saved[saved.length - 1].cut = true;
-      saveAiChat(saved);
-    }
+    finish(reply.text.trim(), {
+      ...(reply.stopReason === 'max_tokens' ? { cut: true } : {}),
+      ...(reply.sources.length ? { sources: reply.sources.slice(0, MAX_SOURCES) } : {}),
+    });
   } catch (err) {
     if (running !== job) return;
     // What already happened stays in the chat. A question without any result goes back into the field, so the
@@ -268,15 +287,43 @@ function removeKey() {
   });
 }
 
+function openMemory() {
+  const box = document.createElement('div');
+  const draw = () => {
+    const memory = getAiMemory();
+    box.innerHTML = memory.length
+      ? `<div class="memory-list">${memory.map((m) => `<div class="memory-row"><span>${esc(m.text)}</span><button type="button" class="icon-btn quiet" data-forget="${esc(m.id)}" aria-label="${t('ai.memoryRemove')}">${icon('close')}</button></div>`).join('')}</div>`
+      : `<p class="muted">${t('ai.memoryEmpty')}</p>`;
+    box.querySelectorAll('[data-forget]').forEach((b) => {
+      b.onclick = () => {
+        saveAiMemory(getAiMemory().filter((m) => m.id !== b.dataset.forget));
+        draw();
+      };
+    });
+  };
+  draw();
+  sheet({ title: t('ai.memory'), content: box });
+}
+
+const costText = () =>
+  t('ai.cost', { amount: fmtNumber(getAiCost(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
+
 function openMenu() {
+  const memory = getAiMemory().length;
   actionSheet(t('ai.title'), [
     getAiChat().length > 0 && { label: t('ai.chatNew'), onClick: newChat },
     {
-      label: t('ai.whatIsSent'),
+      label: t('ai.memory'),
+      hint: memory ? plural(memory, 'ai.memoryCount') : t('ai.memoryHint'),
+      onClick: openMemory,
+    },
+    {
+      label: t('ai.dataAndCost'),
+      hint: costText(),
       onClick: () => {
         const box = document.createElement('div');
-        box.innerHTML = `<p class="muted">${t('ai.sentHint')}</p><pre class="ai-sent">${esc(trainingSummary())}</pre>`;
-        sheet({ title: t('ai.whatIsSent'), content: box });
+        box.innerHTML = `<p class="ai-cost"><b>${costText()}</b><br><span class="muted">${t('ai.costHint')}</span></p><p class="muted">${t('ai.sentHint')}</p><pre class="ai-sent">${esc(trainingSummary())}</pre>`;
+        sheet({ title: t('ai.dataAndCost'), content: box });
       },
     },
     { label: t('ai.removeKey'), danger: true, onClick: removeKey },
@@ -341,6 +388,7 @@ function bindChat() {
     const button = e.target.closest('button');
     if (!button) return;
     if (button.dataset.aiUndo) undoAction(button.dataset.aiUndo);
+    else if (button.dataset.exercise) openExerciseSheet(libraryOf({ id: button.dataset.exercise }));
     else if (button.matches('[data-chat-starter], [data-chat-reply]')) sendChat(button.textContent);
   });
   input.addEventListener('input', () => {
@@ -365,6 +413,11 @@ function bindChat() {
   });
   document.querySelector('#aiStop').addEventListener('click', () => running?.abort());
   document.querySelector('#aiMenu').addEventListener('click', openMenu);
+  // Entries such as "analyse this workout" already are the tap that sends.
+  if (state.aiAutoSend) {
+    state.aiAutoSend = false;
+    sendChat(input.value);
+  }
 }
 
 export function bind() {

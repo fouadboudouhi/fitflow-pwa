@@ -5,10 +5,9 @@ import { exerciseName, groupLabel } from '../library.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
 import { recordTimeline, weeklySets } from '../stats.js';
-import { getBody, getHistory, hasAiKey } from '../storage.js';
+import { getBody, getHistory } from '../storage.js';
 import { fmtVolume, toDisplay, unit } from '../units.js';
 import { esc, exerciseKey, fmtLong, number, volumeOf } from '../util.js';
-import { openAi } from './ai.js';
 import { empty } from './shell.js';
 
 const RANGES = ['4w', '3m', '1y', 'all'];
@@ -74,7 +73,6 @@ export function view() {
   return `<main class="shell">${head}
     ${rangeControl}
     <div class="stat-row"><div><b>${history.length}</b><span>${t('history.sessions')}</span></div><div><b>${fmtNumber(Math.round(toDisplay(totalVolume)))}</b><span>${t('history.volume', { unit: unit() })}</span></div><div><b>${history.reduce((n, h) => n + number(h.totalSets), 0)}</b><span>${t('history.sets')}</span></div></div>
-    ${hasAiKey() ? `<div class="list ai-entry"><button type="button" class="row" id="aiReview"><span class="row-icon">${icon('spark')}</span><span class="row-main"><b>${t('ai.review')}</b><small>${t('ai.reviewHint')}</small></span>${icon('chevron-right')}</button></div>` : ''}
     ${weeklySetsSection()}
     <section class="chart-section"><h2>${t('history.volumeChart')}</h2><canvas id="volumeChart" height="200" role="img" aria-label="${t('history.volumeChartAria')}"></canvas></section>
     <section class="chart-section"><div class="section-head"><h2>${t('history.strength')}</h2><select id="analyticsExercise" aria-label="${t('history.chooseExercise')}">${[...exercises].map(([key, name]) => `<option value="${esc(key)}" ${key === selected ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></div><canvas id="strengthChart" height="200" role="img" aria-label="${t('history.strengthAria')}"></canvas></section>
@@ -87,9 +85,6 @@ export function view() {
 }
 
 export function bind() {
-  document
-    .querySelector('#aiReview')
-    ?.addEventListener('click', () => openAi('analytics', { aiInput: t('ai.reviewQuestion') }));
   document.querySelector('#analyticsExercise')?.addEventListener('change', (e) => {
     state.analyticsExercise = e.target.value;
     drawAnalytics(state.analyticsExercise, state.analyticsRange || '3m');

@@ -15,7 +15,15 @@ import {
   setSetType,
 } from '../sets.js';
 import { state } from '../state.js';
-import { clearActive, getActive, getSettings, saveActive, saveRestUntil, saveSettings } from '../storage.js';
+import {
+  clearActive,
+  getActive,
+  getSettings,
+  hasAiKey,
+  saveActive,
+  saveRestUntil,
+  saveSettings,
+} from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
 import { fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
 import { esc, isWorkSet, number } from '../util.js';
@@ -28,9 +36,11 @@ import {
   finishCounts,
   finishSession,
   isRecord,
+  logSet,
   moveSessionExercise,
   mutateSession,
   newSet,
+  nextOpenSet,
   previousWork,
   removeSessionExercise,
   repsAtPercent,
@@ -47,6 +57,8 @@ import {
   warmupSets,
   workSets,
 } from '../workout.js';
+import { openAi } from './ai.js';
+import { openDictation } from './dictate.js';
 import { openExerciseSheet } from './exercise.js';
 import * as home from './home.js';
 import { openPicker } from './picker.js';
@@ -110,7 +122,7 @@ function exerciseSection(ex, index, entry, exercises, letters, showRir) {
       <div class="workout-exercise-head">${tile}<div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${work.length} × ${esc(ex.range)}${last}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}${superset}</p></div><span class="exercise-count ${complete ? 'complete' : ''}">${complete ? icon('check') : `${done}/${work.length}`}</span></div>
       ${suggest.weight ? `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${icon('trend')}<span>${esc(suggestionText(suggest))}</span><small>${t('workout.apply')}</small></button>` : ''}
       <div class="set-table ${showRir ? '' : 'no-rir'}">${setHead(trackType, showRir)}<div class="set-list">${rows}</div></div>
-      <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">${t('workout.addSet')}</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="${esc(t('exercise.more', { name }))}">${icon('more')}</button></div>
+      <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">${t('workout.addSet')}</button><button class="icon-btn quiet exercise-mic" data-dictate="${index}" aria-label="${esc(t('dictate.open', { name }))}">${icon('mic')}</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="${esc(t('exercise.more', { name }))}">${icon('more')}</button></div>
       ${entry.note || state.openNotes?.has(entry.exerciseId) ? `<label class="exercise-note"><span>${t('workout.note')}</span><textarea data-exercise-note="${index}" placeholder="${t('workout.notePlaceholder')}">${esc(entry.note || '')}</textarea></label>` : ''}
     </section>`;
 }
@@ -264,6 +276,75 @@ function replaceExercise(index) {
   });
 }
 
+function tickSet(exerciseIndex, setIndex, values) {
+  let record = null;
+  let recordType = 'weight_reps';
+  let empty = null;
+  primeAudio();
+  mutate((s) => {
+    const entry = s.entries[exerciseIndex];
+    const set = entry.sets[setIndex];
+    const exercises = sessionExercises(s);
+    const ex = exercises[exerciseIndex];
+    if (values) logSet(s, exerciseIndex, setIndex, values);
+    else if (!toggleSet(s, exerciseIndex, setIndex, previousWork(ex))) {
+      empty = missingField(set, entryTrackType(entry));
+      return;
+    } else set.pr = set.done && isRecord(ex, set, entry);
+    if (!set.done) return;
+    if (set.pr) {
+      record = set;
+      recordType = entryTrackType(entry);
+    }
+    const settings = getSettings();
+    // Inside a superset the rest comes after the round, i.e. after the last exercise of the group.
+    const position = supersetPosition(exercises, exerciseIndex);
+    if (settings.restTimer && (position === 'single' || position === 'last')) {
+      state.restUntil = Date.now() + (number(ex.rest) || number(settings.rest) || 90) * 1000;
+      saveRestUntil(state.restUntil);
+      armRestNotification();
+    }
+    buzz(40);
+  }, true);
+  if (empty) {
+    toast(t('workout.enterValues'));
+    document
+      .querySelector(
+        `[data-set-field="${empty}"][data-exercise="${exerciseIndex}"][data-index="${setIndex}"]`
+      )
+      ?.focus();
+    return;
+  }
+  if (record) toast(t('workout.record', { set: describeSet(record, recordType) }), { duration: 4000 });
+}
+
+// Saying a set fills the next open one and ticks it, the same as tapping its check.
+function dictateSet(exerciseIndex) {
+  const entry = current().entries[exerciseIndex];
+  const trackType = entryTrackType(entry);
+  let setIndex = entry.sets.findIndex((set) => !set.done && isWorkSet(set));
+  const before = setIndex < 0 ? entry.sets : entry.sets.slice(0, setIndex);
+  openDictation({
+    title: t('dictate.title', {
+      name: exerciseName(exerciseAt(exerciseIndex)),
+      n: before.filter(isWorkSet).length + 1,
+    }),
+    trackType,
+    onValues: (spoken) => {
+      mutate((s) => {
+        setIndex = nextOpenSet(s, exerciseIndex);
+      });
+      const values = {
+        ...spoken,
+        ...(spoken.weight !== undefined ? { weight: fromDisplay(spoken.weight) } : {}),
+      };
+      tickSet(exerciseIndex, setIndex, values);
+      const done = current().entries[exerciseIndex].sets[setIndex];
+      if (!done?.done) toast(t('workout.enterValues'));
+    },
+  });
+}
+
 export function bind() {
   document.querySelectorAll('[data-marker]').forEach((x) => {
     x.onchange = () =>
@@ -298,49 +379,10 @@ export function bind() {
     };
   });
   document.querySelectorAll('[data-set-done]').forEach((b) => {
-    b.onclick = () => {
-      const exerciseIndex = number(b.dataset.exercise);
-      const setIndex = number(b.dataset.setDone);
-      let record = null;
-      let recordType = 'weight_reps';
-      let empty = null;
-      primeAudio();
-      mutate((s) => {
-        const entry = s.entries[exerciseIndex];
-        const set = entry.sets[setIndex];
-        const exercises = sessionExercises(s);
-        const ex = exercises[exerciseIndex];
-        if (!toggleSet(s, exerciseIndex, setIndex, previousWork(ex))) {
-          empty = missingField(set, entryTrackType(entry));
-          return;
-        }
-        set.pr = set.done && isRecord(ex, set, entry);
-        if (!set.done) return;
-        if (set.pr) {
-          record = set;
-          recordType = entryTrackType(entry);
-        }
-        const settings = getSettings();
-        // Inside a superset the rest comes after the round, i.e. after the last exercise of the group.
-        const position = supersetPosition(exercises, exerciseIndex);
-        if (settings.restTimer && (position === 'single' || position === 'last')) {
-          state.restUntil = Date.now() + (number(ex.rest) || number(settings.rest) || 90) * 1000;
-          saveRestUntil(state.restUntil);
-          armRestNotification();
-        }
-        buzz(40);
-      }, true);
-      if (empty) {
-        toast(t('workout.enterValues'));
-        document
-          .querySelector(
-            `[data-set-field="${empty}"][data-exercise="${exerciseIndex}"][data-index="${setIndex}"]`
-          )
-          ?.focus();
-        return;
-      }
-      if (record) toast(t('workout.record', { set: describeSet(record, recordType) }), { duration: 4000 });
-    };
+    b.onclick = () => tickSet(number(b.dataset.exercise), number(b.dataset.setDone));
+  });
+  document.querySelectorAll('[data-dictate]').forEach((b) => {
+    b.onclick = () => dictateSet(number(b.dataset.dictate));
   });
   // The set number opens the type picker: working, warm-up, drop or failure set.
   document.querySelectorAll('[data-set-type]').forEach((b) => {
@@ -469,6 +511,13 @@ export function bind() {
           },
         },
         { label: t('workout.replace'), onClick: () => replaceExercise(index) },
+        hasAiKey() && {
+          label: t('workout.askAi'),
+          onClick: () =>
+            openAi('workout', {
+              aiInput: t('workout.askAiDraft', { name: exerciseName(exerciseAt(index)) }),
+            }),
+        },
         index > 0 && {
           label: t('editor.moveUp'),
           onClick: () => mutate((s) => moveSessionExercise(s, index, index - 1), true),
