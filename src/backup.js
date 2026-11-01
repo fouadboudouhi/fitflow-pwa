@@ -36,7 +36,7 @@ export function download(name, text, type) {
 }
 const stamp = () => new Date().toISOString().slice(0, 10);
 
-export async function exportBackup() {
+export async function backupData() {
   const photoMap = await photos.entries().catch(() => ({}));
   const body = getBody().map(({ hasPhoto, ...e }) => ({
     ...e,
@@ -52,6 +52,11 @@ export async function exportBackup() {
     exercisePrefs: getPrefs(),
     customExercises: getCustomExercises(),
   };
+  return backup;
+}
+
+export async function exportBackup() {
+  const backup = await backupData();
   download(`volumora-backup-${stamp()}.json`, JSON.stringify(backup, null, 2), 'application/json');
 }
 

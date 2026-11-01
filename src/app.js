@@ -19,12 +19,14 @@ import { initGestures } from './gestures.js';
 import { watchInset } from './viewport.js';
 import { updateRest } from './views/workout.js';
 import { reconcileActive, sessionStarted } from './workout.js';
+import { startSync } from './sync.js';
 
 // The language comes first: migrations may seed the default plan in it.
 setLanguage(getSettings().language);
 runMigrations();
 // Ask the browser not to clear the data under storage pressure. It decides by itself and never asks the person.
 navigator.storage?.persist?.().catch(() => {});
+startSync();
 applyTheme();
 state.restUntil = getRestUntil();
 const firstRun = needsOnboarding();

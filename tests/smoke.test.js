@@ -2426,3 +2426,103 @@ test('progress lists exercises and muscle groups side by side, and a tap opens t
   const wide = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
   assert.equal(wide, false);
 });
+
+test('a reinstall gets everything back from the own server, and the key stays out', async () => {
+  const { createSyncServer } = await import('../sync-server/server.js');
+  const { mkdtemp, rm, readdir, readFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const dir = await mkdtemp(path.join(tmpdir(), 'volumora-sync-'));
+  const syncServer = createSyncServer({ dataDir: dir, origins: [baseURL] });
+  await new Promise((resolve) => syncServer.listen(0, '127.0.0.1', resolve));
+  const address = `http://127.0.0.1:${syncServer.address().port}`;
+  try {
+    await seedHistory();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(async () => {
+      localStorage.setItem('volumora-ai-key', 'sk-ant-api-test-secret');
+      const { saveAiMemory, saveAiChat } = await import('/src/storage.js');
+      saveAiMemory([{ id: 'm', fact: 'Trainiert im Studio', at: '2026-11-01' }]);
+      saveAiChat([
+        { role: 'user', text: 'Hallo' },
+        { role: 'assistant', text: 'Hi' },
+      ]);
+      (await import('/src/render.js')).navigate('backup');
+    });
+    await page.click('#syncOpen');
+    await page.waitForSelector('.sheet-backdrop.show #syncUrl');
+    await axeCheck('server form');
+    await page.fill('#syncUrl', 'http://insecure.example');
+    await page.click('#syncConnect');
+    await page.waitForSelector('#syncError:not([hidden])');
+    await page.fill('#syncUrl', address);
+    await page.click('#syncConnect');
+    await page.waitForSelector('#syncCode');
+    const code = await page.textContent('#syncCode');
+    assert.ok(code.length >= 20);
+    await axeCheck('server code');
+    await page.click('.sheet-backdrop.show [data-close]');
+    await page.waitForSelector('.sync-on');
+    await axeCheck('server connected');
+    const files = await readdir(path.join(dir, 'snapshots'));
+    assert.equal(files.length, 1);
+    const stored = await readFile(path.join(dir, 'snapshots', files[0]), 'utf8');
+    assert.ok(!stored.includes('sk-ant-api-test-secret'), 'the Claude key never leaves the device');
+    assert.match(stored, /Trainiert im Studio/);
+
+    // A second device with an old state may not replace what is newer.
+    const staleConfig = await page.evaluate(() => localStorage.getItem('volumora-sync'));
+    await page.evaluate(async () => {
+      const { getHistory, saveHistory } = await import('/src/storage.js');
+      const history = getHistory();
+      history[0].dayName = 'Geändert';
+      saveHistory(history);
+      const { uploadNow } = await import('/src/sync.js');
+      await uploadNow();
+    });
+    assert.equal((await readdir(path.join(dir, 'snapshots'))).length, 2);
+    const conflict = await page.evaluate(async (old) => {
+      const { uploadNow } = await import('/src/sync.js');
+      return uploadNow({ ...JSON.parse(old), hash: '' }).catch((err) => err.code);
+    }, staleConfig);
+    assert.equal(conflict, 'newer');
+    assert.equal((await readdir(path.join(dir, 'snapshots'))).length, 2);
+
+    // Reinstall: a fresh installation, nothing left on this device.
+    await context.close();
+    context = await browser.newContext({ locale: 'de-DE' });
+    page = await context.newPage();
+    await page.goto(baseURL + '/');
+    await page.click('#onboardingServer');
+    await page.fill('#syncUrl', address);
+    await page.fill('#syncCodeInput', 'falscher-code-der-lang-genug-ist');
+    await page.click('#syncConnect');
+    await page.waitForFunction(() =>
+      /passt nicht/.test(document.querySelector('#syncError')?.textContent || '')
+    );
+    await page.fill('#syncCodeInput', code);
+    await page.click('#syncConnect');
+    await page.waitForSelector('.sheet-backdrop.show [data-ok]');
+    await page.click('.sheet-backdrop.show [data-ok]');
+    await page.waitForFunction(async () => (await import('/src/storage.js')).getHistory().length > 0);
+    const back = await page.evaluate(async () => {
+      const { getHistory, getAiMemory, getAiChat, isOnboarded } = await import('/src/storage.js');
+      return {
+        day: getHistory()[0].dayName,
+        memory: getAiMemory(),
+        chat: getAiChat().length,
+        onboarded: isOnboarded(),
+        key: localStorage.getItem('volumora-ai-key'),
+      };
+    });
+    await page.waitForSelector('.next-card');
+    assert.equal(back.day, 'Geändert');
+    assert.equal(back.chat, 2);
+    assert.ok(JSON.stringify(back.memory).includes('Trainiert im Studio'));
+    assert.equal(back.onboarded, true);
+    assert.equal(back.key, null);
+  } finally {
+    syncServer.close();
+    syncServer.closeAllConnections?.();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -114,7 +114,7 @@ export const infoDialog = (title, text) =>
   confirmDialog({ title, text, confirmLabel: t('common.understood'), cancelLabel: null });
 
 // Non-blocking bottom sheet with arbitrary content (an element, or trusted markup from the app's own templates).
-export function sheet({ title, content, closeLabel = t('common.close'), autoFocus = true }) {
+export function sheet({ title, content, closeLabel = t('common.close'), autoFocus = true, onClose }) {
   const backdrop = document.createElement('div');
   backdrop.className = 'sheet-backdrop';
   backdrop.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="infoSheetTitle"><div class="sheet-head"><h2 id="infoSheetTitle"></h2><button type="button" class="icon-btn" data-close aria-label="${closeLabel}">${icon('close')}</button></div><div class="sheet-body"></div></div>`;
@@ -130,6 +130,7 @@ export function sheet({ title, content, closeLabel = t('common.close'), autoFocu
     setTimeout(() => backdrop.remove(), 200);
     previous?.focus?.({ preventScroll: true });
     popOverlay(entry);
+    onClose?.();
   };
   entry = pushOverlay(close);
   const onKey = (e) => {

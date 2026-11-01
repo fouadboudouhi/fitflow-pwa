@@ -22,6 +22,8 @@ import { viewportReport } from '../viewport.js';
 import { emptySessionCount, removeEmptySessions, restoreHistory } from '../workout.js';
 import { openAi } from './ai.js';
 import { mediaCredit, parentRow } from './shell.js';
+import { syncConfig } from '../sync.js';
+import { bindSync, syncSection } from './sync.js';
 
 const menuRow = (attrs, ic, title, text, chevron = true) =>
   `<button type="button" class="row" ${attrs}><span class="row-icon">${icon(ic)}</span><span class="row-main"><b>${title}</b><small>${text}</small></span>${chevron ? icon('chevron-right') : ''}</button>`;
@@ -30,7 +32,7 @@ const moreView = () =>
   `<main class="shell"><section class="page-head"><h1>${t('more.title')}</h1></section><div class="list">${menuRow('data-nav="body"', 'person', t('more.body'), t('more.bodyHint'))}${menuRow('data-nav="backup"', 'backup', t('more.backup'), t('more.backupHint'))}${menuRow('data-nav="customExercises"', 'dumbbell', t('more.customExercises'), t('more.customExercisesHint'))}${menuRow('data-nav="settings"', 'settings', t('more.settings'), t('more.settingsHint'))}${menuRow('id="installRow"', 'install', t('more.install'), state.installPrompt ? t('more.installApp') : t('more.installHint'), false)}${menuRow('data-nav="legal"', 'shield', t('more.legal'), t('more.legalHint'))}</div><p class="about">${t('more.about')}</p>${mediaCredit()}</main>`;
 
 const backupView = () =>
-  `<main class="shell narrow">${parentRow('more')}<section class="page-head compact"><h1>${t('backup.title')}</h1></section><div class="list">${menuRow('id="exportJson"', 'share', t('backup.export'), t('backup.exportHint'), false)}${menuRow('id="exportCsv"', 'chart', t('backup.csv'), t('backup.csvHint'), false)}<label class="row" for="importJson"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.import')}</b><small>${t('backup.importHint')}</small></span><input type="file" id="importJson" accept="application/json,.json" hidden></label><label class="row" for="importCsv"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.csvImport')}</b><small>${t('backup.csvImportHint')}</small></span><input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></div><p class="muted settings-hint" id="lastBackup">${getLastBackup() ? t('backup.lastDone', { date: fmtDate(getLastBackup()) }) : t('backup.never')}</p></main>`;
+  `<main class="shell narrow">${parentRow('more')}<section class="page-head compact"><h1>${t('backup.title')}</h1></section><div class="list">${menuRow('id="exportJson"', 'share', t('backup.export'), t('backup.exportHint'), false)}${menuRow('id="exportCsv"', 'chart', t('backup.csv'), t('backup.csvHint'), false)}<label class="row" for="importJson"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.import')}</b><small>${t('backup.importHint')}</small></span><input type="file" id="importJson" accept="application/json,.json" hidden></label><label class="row" for="importCsv"><span class="row-icon">${icon('download')}</span><span class="row-main"><b>${t('backup.csvImport')}</b><small>${t('backup.csvImportHint')}</small></span><input type="file" id="importCsv" accept=".csv,text/csv,text/plain" hidden></label></div><p class="muted settings-hint" id="lastBackup">${getLastBackup() ? t('backup.lastDone', { date: fmtDate(getLastBackup()) }) : syncConfig() ? '' : t('backup.never')}</p>${syncSection()}</main>`;
 
 function settingsView() {
   const s = getSettings();
@@ -208,6 +210,7 @@ export async function importCsvFile(input) {
 }
 
 export function bind() {
+  bindSync();
   const diag = document.querySelector('#viewportDiag');
   if (diag) diag.textContent = viewportReport();
   document.querySelector('#exportJson')?.addEventListener('click', async () => {
