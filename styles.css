@@ -7270,16 +7270,6 @@ textarea,
   display: grid;
   gap: 12px;
 }
-.sync-code {
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--surface);
-  font-size: 16px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  user-select: all;
-  -webkit-user-select: all;
-}
 .onboarding-foot {
   display: grid;
   justify-items: center;

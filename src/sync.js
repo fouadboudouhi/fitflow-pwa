@@ -1,6 +1,6 @@
-// Optional automatic copy of everything on the person's own server (sync-server/). Off unless they connect one. The
-// Claude key never leaves this device. Each upload names the version it builds on, so a device with old data can not
-// silently replace newer data, and the server keeps older versions.
+// Optional automatic copy of everything on a server of someone the person trusts (sync-server/). Off unless they sign
+// in to one. The Claude key never leaves this device. Each upload names the version it builds on, so a device with old
+// data can not silently replace newer data, and the server keeps older versions.
 import { backupData, importBackup, validateBackup } from './backup.js';
 import {
   LS,
@@ -48,12 +48,6 @@ const update = (changes) => {
   if (config) saveConfig({ ...config, ...changes });
 };
 
-export function newSyncCode() {
-  const bytes = crypto.getRandomValues(new Uint8Array(20));
-  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
-  return hex.match(/.{1,8}/g).join('-');
-}
-
 export function cleanSyncUrl(text) {
   const raw = String(text).trim().replace(/\/+$/, '');
   try {
@@ -65,22 +59,52 @@ export function cleanSyncUrl(text) {
   }
 }
 
+const ERRORS = { 401: 'session', 403: 'invite', 429: 'blocked', 413: 'size' };
 async function call(config, path, options = {}) {
   let response;
   try {
     response = await fetch(`${config.url}${path}`, {
       ...options,
-      headers: { authorization: `Bearer ${config.code}`, ...options.headers },
+      headers: {
+        ...(config.token ? { authorization: `Bearer ${config.token}` } : {}),
+        ...(options.body ? { 'content-type': 'application/json' } : {}),
+        ...options.headers,
+      },
     });
   } catch {
     throw new SyncError('network');
   }
-  if (response.status === 401) throw new SyncError('code');
-  if (response.status === 429) throw new SyncError('blocked');
-  if (response.status === 413) throw new SyncError('size');
   if (response.status === 412) throw new SyncError('newer', (await response.json().catch(() => ({}))).latest);
-  if (!response.ok && response.status !== 404) throw new SyncError('server');
-  return response;
+  if (response.ok || response.status === 404) return response;
+  const detail = (await response.json().catch(() => ({}))).error;
+  if (response.status === 400 || response.status === 401 || response.status === 403)
+    throw new SyncError(
+      ['user', 'invite', 'taken', 'username', 'password', 'session'].includes(detail)
+        ? detail
+        : ERRORS[response.status] || 'server'
+    );
+  throw new SyncError(ERRORS[response.status] || 'server');
+}
+
+// Both give a signed-in config for the account; nothing is stored until the first exchange of data worked.
+export async function signIn(url, username, password) {
+  const response = await call({ url }, '/v1/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+  return { url, username: username.trim().toLowerCase(), token: (await response.json()).token };
+}
+export async function register(url, username, password, invite) {
+  const response = await call({ url }, '/v1/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, password, invite }),
+  });
+  return { url, username: username.trim().toLowerCase(), token: (await response.json()).token };
+}
+export async function signOut() {
+  const config = syncConfig();
+  disconnectSync();
+  if (config?.token) await call(config, '/v1/logout', { method: 'POST' }).catch(() => {});
 }
 
 const snapshot = async () => ({
@@ -120,10 +144,7 @@ export async function uploadNow(config = syncConfig(), { force = false } = {}) {
     if (!force && hash === config.hash && config.version) return false;
     const response = await call(config, '/v1/snapshot', {
       method: 'PUT',
-      headers: {
-        'content-type': 'application/json',
-        ...(config.version ? { 'if-match': `"${config.version}"` } : {}),
-      },
+      headers: config.version ? { 'if-match': `"${config.version}"` } : {},
       body: JSON.stringify(data),
     });
     const { version } = await response.json();

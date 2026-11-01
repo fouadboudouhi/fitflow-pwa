@@ -1,37 +1,106 @@
-// Stores the snapshots of one Volumora installation. One person, no database, no dependencies. The connection is HTTPS;
-// the first upload sets the access code and after that everything needs it. Older versions stay, so a mistake can be undone.
-import { createHash, timingSafeEqual } from 'node:crypto';
+// Keeps the snapshots of several Volumora installations, one account each. No database, no dependencies: every
+// account is a folder. Registration needs an invitation code from whoever runs the server, so a public address does
+// not fill the disk. Older versions of each account stay, so a mistake can be undone.
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
 const KEEP_LATEST = 20;
 const KEEP_DAILY_DAYS = 60;
-const MIN_CODE = 20;
 const MAX_FAILURES = 10;
 const FAILURE_WINDOW = 10 * 60 * 1000;
 const DAY = 86400000;
-
-const hash = (code) => createHash('sha256').update(code).digest();
+const USERNAME = /^[a-z0-9][a-z0-9._-]{2,31}$/;
+const MIN_PASSWORD = 8;
 const VERSION = /^\d{13}-[0-9a-f]{8}$/;
 
+const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const hashPassword = (password, salt = randomBytes(16).toString('hex')) =>
+  `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
+const passwordMatches = (password, stored) => {
+  const [salt, hash] = String(stored).split(':');
+  if (!salt || !hash) return false;
+  return timingSafeEqual(Buffer.from(hash, 'hex'), scryptSync(password, salt, 64));
+};
+const readJson = async (file, fallback) => {
+  try {
+    return JSON.parse(await readFile(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
+};
+// Written whole and renamed into place, so a crash never leaves a half file.
+async function writeJson(file, value) {
+  const temporary = `${file}.${randomBytes(4).toString('hex')}.tmp`;
+  await writeFile(temporary, JSON.stringify(value, null, 2), { mode: 0o600 });
+  await rename(temporary, file);
+}
+
+// What the admin script and the server share: accounts and invitations on disk.
+export function store(dataDir) {
+  const usersDir = join(dataDir, 'users');
+  const invitesFile = join(dataDir, 'invites.json');
+  const accountFile = (name) => join(usersDir, name, 'account.json');
+  const account = (name) => readJson(accountFile(name), null);
+  const saveAccount = async (name, data) => {
+    await mkdir(join(usersDir, name, 'snapshots'), { recursive: true });
+    await writeJson(accountFile(name), data);
+  };
+  return {
+    dataDir,
+    usersDir,
+    account,
+    saveAccount,
+    snapshotsDir: (name) => join(usersDir, name, 'snapshots'),
+    users: async () => (await readdir(usersDir).catch(() => [])).filter((name) => USERNAME.test(name)).sort(),
+    invites: () => readJson(invitesFile, []),
+    saveInvites: async (list) => {
+      await mkdir(dataDir, { recursive: true });
+      await writeJson(invitesFile, list);
+    },
+    async createInvite() {
+      const code = randomBytes(6).toString('hex').match(/.{4}/g).join('-');
+      await this.saveInvites([...(await this.invites()), { code, createdAt: new Date().toISOString() }]);
+      return code;
+    },
+    async register(name, password, invite) {
+      if (!USERNAME.test(name)) return { error: 'username' };
+      if (String(password).length < MIN_PASSWORD) return { error: 'password' };
+      const invites = await this.invites();
+      const found = invites.find((i) => i.code === String(invite).trim().toLowerCase() && !i.usedBy);
+      if (!found) return { error: 'invite' };
+      if (await account(name)) return { error: 'taken' };
+      found.usedBy = name;
+      found.usedAt = new Date().toISOString();
+      await saveAccount(name, { password: hashPassword(password), createdAt: found.usedAt, sessions: [] });
+      await this.saveInvites(invites);
+      return { ok: true };
+    },
+    async setPassword(name, password) {
+      const data = await account(name);
+      if (!data) return false;
+      // Every device has to sign in again with the new password.
+      await saveAccount(name, { ...data, password: hashPassword(password), sessions: [] });
+      return true;
+    },
+  };
+}
+
 export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024, now = Date.now }) {
-  const snapshots = join(dataDir, 'snapshots');
-  const authFile = join(dataDir, 'auth.sha256');
+  const db = store(dataDir);
   const failures = new Map();
 
-  const versions = async () =>
-    (await readdir(snapshots).catch(() => []))
-      .filter((name) => name.endsWith('.json'))
-      .map((name) => name.slice(0, -5))
-      .filter((name) => VERSION.test(name))
+  const versions = async (name) =>
+    (await readdir(db.snapshotsDir(name)).catch(() => []))
+      .filter((file) => file.endsWith('.json'))
+      .map((file) => file.slice(0, -5))
+      .filter((version) => VERSION.test(version))
       .sort();
 
-  const storedCode = () => readFile(authFile).catch(() => null);
-
   // Newest ones, plus the last one of each recent day.
-  async function prune() {
-    const all = await versions();
+  async function prune(name) {
+    const all = await versions(name);
     const keep = new Set(all.slice(-KEEP_LATEST));
     const days = new Map();
     all.forEach((version) => {
@@ -40,7 +109,7 @@ export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024
     });
     days.forEach((version) => keep.add(version));
     await Promise.all(
-      all.filter((v) => !keep.has(v)).map((v) => rm(join(snapshots, `${v}.json`), { force: true }))
+      all.filter((v) => !keep.has(v)).map((v) => rm(join(db.snapshotsDir(name), `${v}.json`), { force: true }))
     );
   }
 
@@ -61,13 +130,27 @@ export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024
       req.on('error', reject);
     });
 
+  const session = async (token) => {
+    if (!token || !token.includes('.')) return null;
+    const [name, secret] = token.split('.');
+    const data = await db.account(name);
+    const hashed = sha256(secret);
+    return data?.sessions?.some((s) => s.hash === hashed) ? { name, data } : null;
+  };
+  const openSession = async (name, data) => {
+    const secret = randomBytes(32).toString('hex');
+    const sessions = [...(data.sessions || []), { hash: sha256(secret), at: new Date(now()).toISOString() }].slice(-20);
+    await db.saveAccount(name, { ...data, sessions });
+    return `${name}.${secret}`;
+  };
+
   return createServer(async (req, res) => {
     const origin = req.headers.origin;
     const cors = origins.includes(origin)
       ? {
           'access-control-allow-origin': origin,
           'access-control-allow-headers': 'authorization, content-type, if-match',
-          'access-control-allow-methods': 'GET, PUT, OPTIONS',
+          'access-control-allow-methods': 'GET, POST, PUT, OPTIONS',
           'access-control-expose-headers': 'etag',
           'access-control-max-age': '600',
           vary: 'origin',
@@ -88,40 +171,57 @@ export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024
       const failed = failures.get(ip);
       if (failed && now() - failed.at > FAILURE_WINDOW) failures.delete(ip);
       if (failures.get(ip)?.count >= MAX_FAILURES) return json(429, { error: 'too many attempts' });
-
-      const code = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-      const expected = await storedCode();
-      const matches = expected && timingSafeEqual(hash(code), expected);
-      const registering = !expected && req.method === 'PUT' && pathname === '/v1/snapshot';
-      if (!matches && !registering && expected) {
+      const failure = (status, error) => {
         failures.set(ip, { count: (failures.get(ip)?.count || 0) + 1, at: now() });
-        return json(401, { error: 'wrong code' });
-      }
-      if (!expected && !registering) return json(404, { error: 'nothing stored yet' });
-      if (registering && code.length < MIN_CODE) return json(400, { error: 'code too short' });
-      failures.delete(ip);
-      await mkdir(snapshots, { recursive: true });
+        return json(status, { error });
+      };
+      const bodyJson = async () => JSON.parse((await readBody(req)).toString('utf8') || '{}');
 
-      const all = await versions();
+      if (req.method === 'POST' && pathname === '/v1/register') {
+        const { username, password, invite } = await bodyJson();
+        const name = String(username ?? '').trim().toLowerCase();
+        const result = await db.register(name, String(password ?? ''), invite ?? '');
+        if (result.error) return failure(result.error === 'invite' ? 403 : 400, result.error);
+        failures.delete(ip);
+        return json(200, { token: await openSession(name, await db.account(name)) });
+      }
+      if (req.method === 'POST' && pathname === '/v1/login') {
+        const { username, password } = await bodyJson();
+        const name = String(username ?? '').trim().toLowerCase();
+        const data = USERNAME.test(name) ? await db.account(name) : null;
+        if (!data || !passwordMatches(String(password ?? ''), data.password)) return failure(401, 'user');
+        failures.delete(ip);
+        return json(200, { token: await openSession(name, data) });
+      }
+
+      const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+      const who = await session(token);
+      if (!who) return failure(401, 'session');
+      failures.delete(ip);
+      const { name } = who;
+      if (req.method === 'POST' && pathname === '/v1/logout') {
+        const hashed = sha256(token.split('.')[1]);
+        await db.saveAccount(name, { ...who.data, sessions: who.data.sessions.filter((s) => s.hash !== hashed) });
+        return json(200, { ok: true });
+      }
+
+      const all = await versions(name);
       const latest = all.at(-1);
+      const file = (version) => join(db.snapshotsDir(name), `${version}.json`);
       if (pathname === '/v1/snapshot' && req.method === 'GET') {
         if (!latest) return json(404, { error: 'nothing stored yet' });
-        return send(200, await readFile(join(snapshots, `${latest}.json`)), {
-          'content-type': 'application/json',
-          etag: `"${latest}"`,
-        });
+        return send(200, await readFile(file(latest)), { 'content-type': 'application/json', etag: `"${latest}"` });
       }
       if (pathname === '/v1/snapshot' && req.method === 'PUT') {
         const claimed = (req.headers['if-match'] || '').replaceAll('"', '');
         if (latest && claimed !== latest) return json(412, { error: 'newer data', latest }, { etag: `"${latest}"` });
         const body = await readBody(req);
         JSON.parse(body.toString('utf8'));
-        const version = `${String(now()).padStart(13, '0')}-${hash(body).toString('hex').slice(0, 8)}`;
-        const temporary = join(dataDir, `${version}.tmp`);
+        const version = `${String(now()).padStart(13, '0')}-${sha256(body).slice(0, 8)}`;
+        const temporary = join(db.dataDir, `${name}-${version}.tmp`);
         await writeFile(temporary, body, { mode: 0o600 });
-        await rename(temporary, join(snapshots, `${version}.json`));
-        if (registering) await writeFile(authFile, hash(code), { mode: 0o600 });
-        await prune();
+        await rename(temporary, file(version));
+        await prune(name);
         return json(200, { version }, { etag: `"${version}"` });
       }
       if (pathname === '/v1/snapshots' && req.method === 'GET') {
@@ -129,14 +229,14 @@ export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024
           all.map(async (version) => ({
             version,
             savedAt: new Date(Number(version.split('-')[0])).toISOString(),
-            bytes: (await stat(join(snapshots, `${version}.json`))).size,
+            bytes: (await stat(file(version))).size,
           }))
         );
         return json(200, { snapshots: list.reverse() });
       }
       const old = pathname.match(/^\/v1\/snapshots\/([^/]+)$/);
       if (old && req.method === 'GET' && all.includes(old[1]))
-        return send(200, await readFile(join(snapshots, `${old[1]}.json`)), { 'content-type': 'application/json' });
+        return send(200, await readFile(file(old[1])), { 'content-type': 'application/json' });
       return json(404, { error: 'not found' });
     } catch (err) {
       if (err instanceof SyntaxError) return json(400, { error: 'not json' });
