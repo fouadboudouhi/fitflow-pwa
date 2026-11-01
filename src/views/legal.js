@@ -13,7 +13,7 @@ const paragraphs = (key) =>
 export function view() {
   return `<main class="shell narrow legal">${parentRow('more')}<section class="page-head compact"><h1>${t('legal.title')}</h1></section>
     <section class="legal-section"><h2 id="privacy">${t('legal.privacy')}</h2>${paragraphs('legal.privacyText')}</section>
-    <section class="legal-section"><h2 id="licenses">${t('legal.licenses')}</h2>${paragraphs('legal.licensesText')}<ul class="legal-links"><li><a href="https://github.com/fouadboudouhi/fitflow-pwa" target="_blank" rel="noopener">github.com/fouadboudouhi/fitflow-pwa</a></li><li><a href="https://github.com/YaKohen/exercises-dataset" target="_blank" rel="noopener">github.com/YaKohen/exercises-dataset</a></li><li><a href="https://exercisedb.dev" target="_blank" rel="noopener">exercisedb.dev</a></li></ul></section></main>`;
+    <section class="legal-section"><h2 id="licenses">${t('legal.licenses')}</h2>${paragraphs('legal.licensesText')}<ul class="legal-links"><li><a href="https://github.com/fouadboudouhi/volumora" target="_blank" rel="noopener">github.com/fouadboudouhi/fitflow-pwa</a></li><li><a href="https://github.com/YaKohen/exercises-dataset" target="_blank" rel="noopener">github.com/YaKohen/exercises-dataset</a></li><li><a href="https://exercisedb.dev" target="_blank" rel="noopener">exercisedb.dev</a></li></ul></section></main>`;
 }
 
 export function bind() {}
