@@ -1,18 +1,12 @@
-# Joins the network of the Caddy that already answers on ports 80 and 443.
+# Only reachable on the Pi itself; Tailscale Funnel hands HTTPS traffic from the internet to this port.
 services:
   volumora-sync:
     build: .
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
     environment:
       ALLOWED_ORIGINS: https://fouad-boudouhi.de
     volumes:
-      - data:/data
-    networks:
-      - proxy
+      - ./data:/data
     mem_limit: 256m
-volumes:
-  data:
-networks:
-  proxy:
-    external: true
-    name: deploy_default

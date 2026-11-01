@@ -1650,8 +1650,8 @@ test('a backup keeps the effort rating and drops an invalid one', () => {
   assert.equal(read(9), undefined);
 });
 
-test('the sync server guards its data, refuses stale uploads and keeps versions', async () => {
-  const { createSyncServer } = await import('../sync-server/server.js');
+test('the sync server keeps accounts apart, needs invitations and refuses stale uploads', async () => {
+  const { createSyncServer, store } = await import('../sync-server/server.js');
   const { mkdtemp, rm, readdir } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
@@ -1664,41 +1664,104 @@ test('the sync server guards its data, refuses stale uploads and keeps versions'
     now: () => clock,
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const url = `http://127.0.0.1:${server.address().port}/v1/snapshot`;
-  const code = 'a-long-enough-access-code';
-  const request = (options = {}, token = code) =>
-    fetch(url, { ...options, headers: { authorization: `Bearer ${token}`, ...options.headers } });
-  const put = (body, version, token) =>
-    request({ method: 'PUT', body, headers: version ? { 'if-match': `"${version}"` } : {} }, token);
+  const base = `http://127.0.0.1:${server.address().port}/v1`;
+  const post = (path, body) =>
+    fetch(`${base}${path}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
+  const snapshot = (token, options = {}) =>
+    fetch(`${base}/snapshot`, {
+      ...options,
+      headers: { authorization: `Bearer ${token}`, ...options.headers },
+    });
+  const put = (token, body, version) =>
+    snapshot(token, { method: 'PUT', body, headers: version ? { 'if-match': `"${version}"` } : {} });
   try {
-    assert.equal((await request()).status, 404);
-    assert.equal((await put('{"a":1}', null, 'short')).status, 400);
-    assert.equal((await put('{"a":1}')).status, 200, 'the first upload sets the code');
-    assert.equal((await request({}, 'wrong-but-long-enough-code')).status, 401);
-    assert.equal((await put('{"a":2}', null, 'wrong-but-long-enough-code')).status, 401);
-    const first = await request();
-    assert.deepEqual(await first.json(), { a: 1 });
+    const invite = await store(dataDir).createInvite();
+    assert.equal((await post('/register', { username: 'anna', password: 'short', invite })).status, 400);
+    assert.equal(
+      (await post('/register', { username: 'Anna!', password: 'long-enough', invite })).status,
+      400
+    );
+    assert.equal(
+      (await post('/register', { username: 'anna', password: 'long-enough', invite: 'nope' })).status,
+      403
+    );
+    const anna = (
+      await (await post('/register', { username: 'Anna', password: 'long-enough', invite })).json()
+    ).token;
+    assert.ok(anna.startsWith('anna.'));
+    assert.equal(
+      (await post('/register', { username: 'ben', password: 'long-enough', invite })).status,
+      403,
+      'used once'
+    );
+    assert.equal((await post('/login', { username: 'anna', password: 'wrong-wrong' })).status, 401);
+    const again = (await (await post('/login', { username: 'ANNA ', password: 'long-enough' })).json()).token;
+    assert.ok(again.startsWith('anna.') && again !== anna);
+    assert.equal((await snapshot('anna.made-up')).status, 401);
+    assert.equal((await snapshot(anna)).status, 404);
+    assert.equal((await put(anna, '{"a":1}')).status, 200);
+    const first = await snapshot(again);
+    assert.deepEqual(await first.json(), { a: 1 }, 'every session of the account sees the same data');
     const version = first.headers.get('etag').replaceAll('"', '');
-    assert.equal((await put('{"a":2}')).status, 412, 'an upload must name the version it builds on');
-    assert.equal((await put('not json', version)).status, 400);
-    assert.equal((await put(`{"a":"${'x'.repeat(2000)}"}`, version)).status, 413);
+    assert.equal((await put(anna, '{"a":2}')).status, 412, 'an upload must name the version it builds on');
+    assert.equal((await put(anna, 'not json', version)).status, 400);
+    assert.equal((await put(anna, `{"a":"${'x'.repeat(2000)}"}`, version)).status, 413);
     clock += 1000;
-    const second = await put('{"a":2}', version);
+    const second = await put(anna, '{"a":2}', version);
     assert.equal(second.status, 200);
-    assert.equal((await put('{"a":3}', version)).status, 412, 'an old version can not replace a newer one');
-    assert.deepEqual(await (await request()).json(), { a: 2 });
+    assert.equal(
+      (await put(anna, '{"a":3}', version)).status,
+      412,
+      'an old version can not replace a newer one'
+    );
+    // A second account never sees the first one.
+    const ben = (
+      await (
+        await post('/register', {
+          username: 'ben',
+          password: 'long-enough',
+          invite: await store(dataDir).createInvite(),
+        })
+      ).json()
+    ).token;
+    assert.equal((await snapshot(ben)).status, 404);
+    await put(ben, '{"b":1}');
+    assert.deepEqual(await (await snapshot(anna)).json(), { a: 2 });
     let latest = (await second.json()).version;
     for (let i = 0; i < 30; i++) {
       clock += 1000;
-      latest = (await (await put(`{"i":${i}}`, latest)).json()).version;
+      latest = (await (await put(anna, `{"i":${i}}`, latest)).json()).version;
     }
-    assert.ok((await readdir(join(dataDir, 'snapshots'))).length <= 21, 'old versions are thinned out');
-    const preflight = await fetch(url, { method: 'OPTIONS', headers: { origin: 'https://app.test' } });
+    assert.ok(
+      (await readdir(join(dataDir, 'users', 'anna', 'snapshots'))).length <= 21,
+      'old versions are thinned out'
+    );
+    // A new password ends every session; logging out ends one.
+    await store(dataDir).setPassword('anna', 'another-one');
+    assert.equal((await snapshot(anna)).status, 401);
+    const third = (await (await post('/login', { username: 'anna', password: 'another-one' })).json()).token;
+    assert.equal(
+      (await fetch(`${base}/logout`, { method: 'POST', headers: { authorization: `Bearer ${third}` } }))
+        .status,
+      200
+    );
+    assert.equal((await snapshot(third)).status, 401);
+    const preflight = await fetch(`${base}/snapshot`, {
+      method: 'OPTIONS',
+      headers: { origin: 'https://app.test' },
+    });
     assert.equal(preflight.headers.get('access-control-allow-origin'), 'https://app.test');
-    const stranger = await fetch(url, { method: 'OPTIONS', headers: { origin: 'https://other.test' } });
+    const stranger = await fetch(`${base}/snapshot`, {
+      method: 'OPTIONS',
+      headers: { origin: 'https://other.test' },
+    });
     assert.equal(stranger.headers.get('access-control-allow-origin'), null);
-    for (let i = 0; i < 10; i++) await request({}, 'wrong-but-long-enough-code');
-    assert.equal((await request({}, 'wrong-but-long-enough-code')).status, 429);
+    for (let i = 0; i < 10; i++) await post('/login', { username: 'anna', password: 'wrong-wrong' });
+    assert.equal((await post('/login', { username: 'anna', password: 'another-one' })).status, 429);
   } finally {
     server.close();
     server.closeAllConnections?.();

@@ -1,16 +1,19 @@
 # Volumora sync server
 
-Optional. Keeps snapshots of one person's data on their own server, so a reinstall does not lose anything.
+Optional. Keeps snapshots of each account's data on a server you run, so a reinstall does not lose anything.
+Accounts are folders under `data/users/`; registration needs an invitation code.
 
-Run it with `docker compose up -d --build` next to a reverse proxy that handles HTTPS, for example Caddy:
+Run it with `docker compose up -d --build`. It listens on 127.0.0.1:8787; put HTTPS in front of it, for example
+Tailscale Funnel (`tailscale funnel --bg 8787`) or Caddy with `reverse_proxy 127.0.0.1:8787` and `request_body { max_size 64MB }`.
+
+Administration, run on the server:
 
 ```
-sync.example.com {
-	reverse_proxy volumora-sync:8787
-	request_body {
-		max_size 64MB
-	}
-}
+docker compose exec volumora-sync node admin.js invite        # one new invitation code
+docker compose exec volumora-sync node admin.js invites       # all codes and who used them
+docker compose exec volumora-sync node admin.js users         # accounts with size
+docker compose exec volumora-sync node admin.js reset-password NAME
+docker compose exec volumora-sync node admin.js delete-user NAME
 ```
 
-Data lives in the `data` volume: `auth.sha256` holds the hash of the access code, `snapshots/` the versions. To set a new code, delete `auth.sha256`; the next upload sets it. Back the volume up like any other data.
+Back up the `data/` folder like any other data. The server can read every account's data, so run it only for people who trust you.

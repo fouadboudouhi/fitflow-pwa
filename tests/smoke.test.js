@@ -2427,14 +2427,15 @@ test('progress lists exercises and muscle groups side by side, and a tap opens t
   assert.equal(wide, false);
 });
 
-test('a reinstall gets everything back from the own server, and the key stays out', async () => {
-  const { createSyncServer } = await import('../sync-server/server.js');
+test('a reinstall gets everything back from the server account, and the key stays out', async () => {
+  const { createSyncServer, store } = await import('../sync-server/server.js');
   const { mkdtemp, rm, readdir, readFile } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const dir = await mkdtemp(path.join(tmpdir(), 'volumora-sync-'));
   const syncServer = createSyncServer({ dataDir: dir, origins: [baseURL] });
   await new Promise((resolve) => syncServer.listen(0, '127.0.0.1', resolve));
   const address = `http://127.0.0.1:${syncServer.address().port}`;
+  const invite = await store(dir).createInvite();
   try {
     await seedHistory();
     await page.setViewportSize({ width: 390, height: 844 });
@@ -2451,22 +2452,30 @@ test('a reinstall gets everything back from the own server, and the key stays ou
     await page.click('#syncOpen');
     await page.waitForSelector('.sheet-backdrop.show #syncUrl');
     await axeCheck('server form');
+    await page.click('[data-sync-mode="register"]');
+    await page.waitForSelector('#syncInviteRow:not([hidden])');
     await page.fill('#syncUrl', 'http://insecure.example');
+    await page.fill('#syncUser', 'fouad');
+    await page.fill('#syncPassword', 'ein-gutes-passwort');
+    await page.fill('#syncInvite', invite);
     await page.click('#syncConnect');
     await page.waitForSelector('#syncError:not([hidden])');
     await page.fill('#syncUrl', address);
+    await page.fill('#syncInvite', 'xxxx-xxxx-xxxx');
     await page.click('#syncConnect');
-    await page.waitForSelector('#syncCode');
-    const code = await page.textContent('#syncCode');
-    assert.ok(code.length >= 20);
-    await axeCheck('server code');
-    await page.click('.sheet-backdrop.show [data-close]');
+    await page.waitForFunction(() =>
+      /Einladungscode/.test(document.querySelector('#syncError')?.textContent || '')
+    );
+    await page.fill('#syncInvite', invite);
+    await page.click('#syncConnect');
     await page.waitForSelector('.sync-on');
+    assert.match(await page.textContent('.sync-on'), /fouad/);
     await axeCheck('server connected');
-    const files = await readdir(path.join(dir, 'snapshots'));
+    const files = await readdir(path.join(dir, 'users', 'fouad', 'snapshots'));
     assert.equal(files.length, 1);
-    const stored = await readFile(path.join(dir, 'snapshots', files[0]), 'utf8');
+    const stored = await readFile(path.join(dir, 'users', 'fouad', 'snapshots', files[0]), 'utf8');
     assert.ok(!stored.includes('sk-ant-api-test-secret'), 'the Claude key never leaves the device');
+    assert.ok(!stored.includes('ein-gutes-passwort'));
     assert.match(stored, /Trainiert im Studio/);
 
     // A second device with an old state may not replace what is newer.
@@ -2479,13 +2488,12 @@ test('a reinstall gets everything back from the own server, and the key stays ou
       const { uploadNow } = await import('/src/sync.js');
       await uploadNow();
     });
-    assert.equal((await readdir(path.join(dir, 'snapshots'))).length, 2);
+    assert.equal((await readdir(path.join(dir, 'users', 'fouad', 'snapshots'))).length, 2);
     const conflict = await page.evaluate(async (old) => {
       const { uploadNow } = await import('/src/sync.js');
       return uploadNow({ ...JSON.parse(old), hash: '' }).catch((err) => err.code);
     }, staleConfig);
     assert.equal(conflict, 'newer');
-    assert.equal((await readdir(path.join(dir, 'snapshots'))).length, 2);
 
     // Reinstall: a fresh installation, nothing left on this device.
     await context.close();
@@ -2494,12 +2502,13 @@ test('a reinstall gets everything back from the own server, and the key stays ou
     await page.goto(baseURL + '/');
     await page.click('#onboardingServer');
     await page.fill('#syncUrl', address);
-    await page.fill('#syncCodeInput', 'falscher-code-der-lang-genug-ist');
+    await page.fill('#syncUser', 'fouad');
+    await page.fill('#syncPassword', 'falsches-passwort');
     await page.click('#syncConnect');
     await page.waitForFunction(() =>
-      /passt nicht/.test(document.querySelector('#syncError')?.textContent || '')
+      /stimmt nicht/.test(document.querySelector('#syncError')?.textContent || '')
     );
-    await page.fill('#syncCodeInput', code);
+    await page.fill('#syncPassword', 'ein-gutes-passwort');
     await page.click('#syncConnect');
     await page.waitForSelector('.sheet-backdrop.show [data-ok]');
     await page.click('.sheet-backdrop.show [data-ok]');
@@ -2520,6 +2529,16 @@ test('a reinstall gets everything back from the own server, and the key stays ou
     assert.ok(JSON.stringify(back.memory).includes('Trainiert im Studio'));
     assert.equal(back.onboarded, true);
     assert.equal(back.key, null);
+    // Signing out ends the session on the server too.
+    await page.evaluate(async () => (await import('/src/render.js')).navigate('backup'));
+    await page.click('#syncOff');
+    await page.waitForSelector('.sheet-backdrop.show [data-ok]');
+    await page.click('.sheet-backdrop.show [data-ok]');
+    await page.waitForSelector('#syncOpen');
+    const sessions = JSON.parse(
+      await readFile(path.join(dir, 'users', 'fouad', 'account.json'), 'utf8')
+    ).sessions;
+    assert.equal(sessions.length, 1, 'only the first device stays signed in');
   } finally {
     syncServer.close();
     syncServer.closeAllConnections?.();
