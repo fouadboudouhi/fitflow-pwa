@@ -1,7 +1,9 @@
 // AI assistant with the person's own Claude key: one chat that answers, analyses and changes plans and settings.
 // Without a key this is only the screen to add one; nothing is sent before the person sends something.
 import { AiError, costOf, runTurn, verifyKey } from '../ai.js';
+import { aiAuth, aiAvailable, aiMode, serverAi } from '../aiAccess.js';
 import { drawChatCharts } from '../chatCharts.js';
+import { isSignedIn, refreshMe } from '../sync.js';
 import { assistantSystem, chatMessages, replyHtml, splitReplies, trainingSummary } from '../aiPrompts.js';
 import { aiTools, runTool, webSearchTool } from '../aiTools.js';
 import { fmtNumber, plural, t } from '../i18n.js';
@@ -16,7 +18,6 @@ import {
   getAiCost,
   getAiKey,
   getAiMemory,
-  hasAiKey,
   saveAiChat,
   saveAiKey,
   saveAiMemory,
@@ -62,7 +63,7 @@ const errorLine = (extra = '') =>
   state.aiError ? `<p class="ai-error ${extra}" role="alert">${esc(errorText())}</p>` : '';
 
 const setupView = () =>
-  `<main class="shell narrow"><div class="backrow">${backButton()}<span>${t(LABELS[backTarget()] || 'common.back')}</span></div><section class="page-head compact"><h1>${t('ai.setupTitle')}</h1></section><p class="muted ai-intro">${t('ai.setupIntro')}</p>
+  `<main class="shell narrow"><div class="backrow">${backButton()}<span>${t(LABELS[backTarget()] || 'common.back')}</span></div><section class="page-head compact"><h1>${t('ai.setupTitle')}</h1></section>${isSignedIn() ? `<p class="muted ai-intro">${t('ai.setupNoServerAi')}</p>` : ''}<p class="muted ai-intro">${t('ai.setupIntro')}</p>
   <form class="settings-form" id="aiKeyForm" novalidate><label><span>${t('ai.keyLabel')}</span><input id="aiKey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-api…"></label>${errorLine()}<button class="primary full" id="aiKeySave">${state.aiChecking ? t('ai.checking') : t('ai.keySave')}</button></form>
   <ul class="ai-notes"><li>${t('ai.setupStays')}</li><li>${t('ai.setupLimit')}</li><li>${t('ai.setupSent')}</li></ul>
   <p class="settings-hint"><a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">${t('ai.keyLink')}</a></p></main>`;
@@ -124,7 +125,7 @@ function recoverInterrupted() {
 }
 
 export function view() {
-  if (!hasAiKey()) return setupView();
+  if (!aiAvailable()) return setupView();
   recoverInterrupted();
   return chatView();
 }
@@ -221,13 +222,13 @@ async function sendChat(text) {
     ]);
   try {
     const reply = await runTurn({
-      key: getAiKey(),
+      key: aiAuth(),
       system: assistantSystem(trainingSummary()),
       messages: chatMessages(messages),
       tools: aiTools(),
       serverTools: [webSearchTool],
       signal: job.signal,
-      onUsage: (usage) => addAiCost(costOf(usage)),
+      onUsage: (usage) => aiMode() === 'key' && addAiCost(costOf(usage)),
       onResume: () => {
         if (running !== job) return;
         live.status = t('ai.resuming');
@@ -242,6 +243,7 @@ async function sendChat(text) {
       },
     });
     if (running !== job) return;
+    if (aiMode() === 'server') refreshMe().catch(() => {});
     if (!reply.text.trim() && !live.actions.length) throw new AiError('server');
     finish(reply.text.trim(), {
       ...(reply.stopReason === 'max_tokens' ? { cut: true } : {}),
@@ -329,8 +331,13 @@ function openMemory() {
   sheet({ title: t('ai.memory'), content: box });
 }
 
-const costText = () =>
-  t('ai.cost', { amount: fmtNumber(getAiCost(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
+const money = (value) => fmtNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const costText = () => {
+  const server = serverAi();
+  return server
+    ? t('ai.budgetUsed', { used: money(server.ai.used || 0), budget: money(server.ai.budget || 0) })
+    : t('ai.cost', { amount: money(getAiCost()) });
+};
 
 function openMenu() {
   const memory = getAiMemory().length;
@@ -346,11 +353,11 @@ function openMenu() {
       hint: costText(),
       onClick: () => {
         const box = document.createElement('div');
-        box.innerHTML = `<p class="ai-cost"><b>${costText()}</b><br><span class="muted">${t('ai.costHint')}</span></p><p class="muted">${t('ai.sentHint')}</p><pre class="ai-sent">${esc(trainingSummary())}</pre>`;
+        box.innerHTML = `<p class="ai-cost"><b>${costText()}</b><br><span class="muted">${t(serverAi() ? 'ai.budgetHint' : 'ai.costHint')}</span></p><p class="muted">${t('ai.sentHint')}</p><pre class="ai-sent">${esc(trainingSummary())}</pre>`;
         sheet({ title: t('ai.dataAndCost'), content: box });
       },
     },
-    { label: t('ai.removeKey'), danger: true, onClick: removeKey },
+    aiMode() === 'key' && { label: t('ai.removeKey'), danger: true, onClick: removeKey },
   ]);
 }
 
@@ -473,6 +480,6 @@ function bindChat() {
 
 export function bind() {
   document.querySelector('#aiBack')?.addEventListener('click', () => navigate(backTarget()));
-  if (hasAiKey()) bindChat();
+  if (aiAvailable()) bindChat();
   else bindSetup();
 }

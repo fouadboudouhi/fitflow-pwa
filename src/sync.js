@@ -104,6 +104,36 @@ export async function register(url, username, password, invite) {
   });
   return { url, username: username.trim().toLowerCase(), token: (await response.json()).token };
 }
+// Who the server says we are: admin or not, and whether and how much Claude it offers this month.
+export async function refreshMe(config = syncConfig()) {
+  if (!config?.token) return null;
+  const response = await call(config, '/v1/me');
+  const me = await response.json();
+  if (syncConfig()?.token === config.token) update({ admin: !!me.admin, ai: me.ai || null });
+  return me;
+}
+export const isAdmin = () => !!syncConfig()?.admin;
+// Admin calls answer with a plain word on refusal; it becomes the error code.
+export async function adminCall(path, options = {}) {
+  const config = syncConfig();
+  let response;
+  try {
+    response = await fetch(`${config.url}/v1/admin${path}`, {
+      ...options,
+      headers: {
+        authorization: `Bearer ${config.token}`,
+        ...(options.body ? { 'content-type': 'application/json' } : {}),
+      },
+    });
+  } catch {
+    throw new SyncError('network');
+  }
+  if (response.ok) return response.json();
+  const detail = await response.json().catch(() => ({}));
+  throw new SyncError(
+    typeof detail.error === 'string' ? detail.error.replace(' ', '') : ERRORS[response.status] || 'server'
+  );
+}
 export async function signOut() {
   const config = syncConfig();
   disconnectSync();
@@ -202,5 +232,8 @@ export function startSync() {
       quietly();
     }
   });
-  if (syncConfig()) soon(3000);
+  if (syncConfig()) {
+    soon(3000);
+    refreshMe().catch(() => {});
+  }
 }

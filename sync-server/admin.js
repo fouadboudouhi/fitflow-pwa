@@ -33,7 +33,10 @@ switch (command) {
     for (const name of users) {
       const data = await db.account(name);
       const size = await sizeOf(name);
-      console.log(`${name}  since ${data?.createdAt?.slice(0, 10)}  ${size.versions} versions, ${size.megabytes} MB`);
+      const ai = await db.ai();
+      console.log(
+        `${name}${data?.admin ? ' (admin)' : ''}  since ${data?.createdAt?.slice(0, 10)}  ${size.versions} versions, ${size.megabytes} MB  AI this month ${db.usedThisMonth(data).toFixed(2)} of ${db.budgetOf(data, ai)} $`
+      );
     }
     break;
   }
@@ -47,6 +50,23 @@ switch (command) {
     console.log('They sign in with it in the app and can keep it or choose their own there.');
     break;
   }
+  case 'make-admin': {
+    if (!(await db.setAdmin(argument, true))) {
+      console.error(`No account named ${argument}.`);
+      process.exit(1);
+    }
+    console.log(`${argument} is an admin now: Claude key, budgets and invitations in the app under Mehr.`);
+    break;
+  }
+  case 'budget': {
+    const dollars = process.argv[4];
+    if (!(await db.setBudget(argument, dollars === undefined ? null : dollars))) {
+      console.error(`No account named ${argument}.`);
+      process.exit(1);
+    }
+    console.log(dollars === undefined ? `${argument} uses the default budget.` : `${argument}: ${dollars} $ per month.`);
+    break;
+  }
   case 'delete-user': {
     if (!(await db.account(argument))) {
       console.error(`No account named ${argument}.`);
@@ -57,5 +77,7 @@ switch (command) {
     break;
   }
   default:
-    console.log('Commands: invite [count] · invites · users · reset-password <name> · delete-user <name>');
+    console.log(
+      'Commands: invite [count] · invites · users · reset-password <name> · make-admin <name> · budget <name> [dollars] · delete-user <name>'
+    );
 }

@@ -2,6 +2,7 @@
 import { drawAnalytics, drawBodyChart } from './charts.js';
 import { pushView } from './router.js';
 import { state } from './state.js';
+import * as admin from './views/admin.js';
 import * as ai from './views/ai.js';
 import * as analytics from './views/analytics.js';
 import * as assistant from './views/assistant.js';
@@ -45,6 +46,7 @@ const VIEWS = {
   customExercises,
   legal,
   ai,
+  admin,
 };
 const BARE = ['workout', 'planEditor', 'assistant', 'onboarding', 'summary', 'ai', 'gate'];
 const NAV_FOR = {

@@ -7289,3 +7289,59 @@ textarea,
   min-height: 0;
   padding: 0;
 }
+
+.admin-users {
+  display: grid;
+  gap: 8px;
+}
+.admin-user {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 14px);
+  background: var(--surface);
+}
+.admin-user .row-main {
+  min-width: 0;
+}
+.admin-user .row-main b {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.admin-budget {
+  display: grid;
+  gap: 2px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.admin-budget input {
+  width: 76px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 16px;
+}
+.admin-user button {
+  min-height: 40px;
+  padding: 0 12px;
+}
+.admin-invites {
+  margin-top: 10px;
+}
+.mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 400px) {
+  .admin-user {
+    grid-template-columns: 1fr auto;
+  }
+  .admin-user button {
+    grid-column: 1 / -1;
+  }
+}

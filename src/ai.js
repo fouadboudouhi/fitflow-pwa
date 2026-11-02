@@ -46,12 +46,22 @@ export const costOf = (usage = {}) =>
     1e6 +
   (usage.server_tool_use?.web_search_requests || 0) * PRICE.search;
 
-async function post(path, key, body, signal) {
+// `auth` is the person's own key, or { url, token } for the server that holds a key for everyone and forwards
+// the request. The server answers with Claude's own errors, plus a few of its own as plain words.
+const SERVER_ERRORS = { budget: 'budget', session: 'session', 'no ai': 'noai', anthropic: 'server' };
+async function post(path, auth, body, signal) {
+  const server = typeof auth === 'object' && auth !== null;
   let response;
   try {
-    response = await fetch(`${API}${path}`, {
+    response = await fetch(server ? `${auth.url}/v1/ai${path}` : `${API}${path}`, {
       method: 'POST',
-      headers: headers(key),
+      headers: server
+        ? {
+            'content-type': 'application/json',
+            authorization: `Bearer ${auth.token}`,
+            'anthropic-version': API_VERSION,
+          }
+        : headers(auth),
       body: JSON.stringify(body),
       signal,
     });
@@ -60,6 +70,7 @@ async function post(path, key, body, signal) {
   }
   if (response.ok) return response;
   const detail = await response.json().catch(() => null);
+  if (server && typeof detail?.error === 'string') throw new AiError(SERVER_ERRORS[detail.error] || 'server');
   const message = detail?.error?.message || '';
   throw new AiError(errorCode(response.status, message), message);
 }

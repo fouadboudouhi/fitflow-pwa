@@ -7,6 +7,7 @@ import {
   SyncError,
   cleanSyncUrl,
   fetchSnapshot,
+  refreshMe,
   register,
   restoreSnapshot,
   signIn,
@@ -21,6 +22,8 @@ const errorText = (err) => t(`sync.error.${err instanceof SyncError ? err.code :
 
 // Afterwards this device and the server hold the same data. Data already on the server is never replaced from here.
 async function connect(config, done) {
+  const me = await refreshMe(config).catch(() => null);
+  if (me) config = { ...config, admin: !!me.admin, ai: me.ai || null };
   const found = await fetchSnapshot(config);
   if (found) {
     const ok = await confirmDialog({
