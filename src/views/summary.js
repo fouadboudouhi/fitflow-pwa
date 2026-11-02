@@ -64,7 +64,7 @@ export function bind() {
   document
     .querySelector('#summaryView')
     ?.addEventListener('click', () =>
-      navigate('session', { sessionId: getHistory()[0]?.id, sessionFrom: 'analytics' }, { replace: true })
+      navigate('session', { sessionId: state.sessionId, sessionFrom: 'analytics' }, { replace: true })
     );
   document
     .querySelector('#summaryAi')

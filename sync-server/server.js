@@ -88,7 +88,7 @@ export function store(dataDir) {
       const data = await account(name);
       if (!data) return;
       const month = monthKey(at);
-      const usage = { [month]: (Number(data.usage?.[month]) || 0) + dollars };
+      const usage = { ...(data.usage || {}), [month]: (Number(data.usage?.[month]) || 0) + dollars };
       await saveAccount(name, { ...data, usage });
     },
     async setAdmin(name, admin) {
@@ -214,6 +214,7 @@ export function createSyncServer({
   const session = async (token) => {
     if (!token || !token.includes('.')) return null;
     const [name, secret] = token.split('.');
+    if (!USERNAME.test(name)) return null;
     const data = await db.account(name);
     const hashed = sha256(secret);
     return data?.sessions?.some((s) => s.hash === hashed) ? { name, data } : null;
@@ -405,6 +406,7 @@ export function createSyncServer({
           return json(200, { code: await db.createInvite() });
         const user = pathname.match(/^\/v1\/admin\/users\/([a-z0-9._-]+)$/);
         if (user && req.method === 'PUT') {
+          if (!USERNAME.test(user[1])) return json(404, { error: 'not found' });
           const { budget } = await bodyJson();
           if (budget !== null && asBudget(budget) === null) return json(400, { error: 'budget' });
           if (!(await db.setBudget(user[1], budget))) return json(404, { error: 'not found' });

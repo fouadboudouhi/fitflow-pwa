@@ -865,7 +865,10 @@ test('finishing a workout shows the summary with records and sharing; the record
 
 test('free workout: add, reorder, remove and undo exercises, then save it as a plan day', async () => {
   await page.click('#startFree');
-  await page.waitForSelector('#addSessionExercise');
+  // The picker opens by itself; closing it leaves the empty workout with its own button.
+  await page.waitForSelector('.exercise-library');
+  await page.click('#closeLibraryBottom');
+  await page.waitForSelector('.exercise-library', { state: 'detached' });
   assert.equal(await page.locator('.workout-exercise').count(), 0);
   await page.click('#addSessionExercise');
   await page.waitForSelector('.exercise-library');
@@ -2713,4 +2716,65 @@ test('the admin stores the Claude key, sets budgets and invites; everyone else j
     claude.closeAllConnections?.();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('review fixes: the KI tab survives a failed upload, short workouts show no calories, applied suggestions lose their button', async () => {
+  await seedHistory();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    const config = JSON.parse(localStorage.getItem('volumora-sync'));
+    localStorage.setItem(
+      'volumora-sync',
+      JSON.stringify({
+        ...config,
+        ai: { available: true, budget: 5, used: 0, month: '2026-11' },
+        problem: 'network',
+      })
+    );
+    localStorage.setItem(
+      'volumora-body-v2',
+      JSON.stringify([{ id: 'b1', date: new Date().toISOString(), weight: 80 }])
+    );
+  });
+  await page.click('[data-nav="more"]');
+  assert.equal(
+    await page.locator('[data-nav="ai"]').count(),
+    1,
+    'a network problem does not hide the assistant'
+  );
+  await page.evaluate(() => {
+    const config = JSON.parse(localStorage.getItem('volumora-sync'));
+    localStorage.setItem('volumora-sync', JSON.stringify({ ...config, problem: 'session' }));
+  });
+  await page.click('[data-nav="home"]');
+  assert.equal(await page.locator('[data-nav="ai"]').count(), 0, 'a lost sign-in does');
+  // The exercise with history: its suggestion is already in the fields, so there is nothing to take over.
+  await page.evaluate(async () => {
+    const { allPlans } = await import('/src/storage.js');
+    const plan = allPlans().items[0];
+    (await import('/src/render.js')).navigate('workout', { planId: plan.id, dayId: plan.days[0].id });
+  });
+  await page.waitForSelector('button.suggest-row');
+  await page.click('button.suggest-row');
+  await page.waitForSelector('p.suggest-row');
+  assert.equal(await page.locator('button.suggest-row').count(), 0, 'taken over, so no button is left');
+  await page.locator('[data-set-done][data-exercise="0"]').first().click();
+  await page.click('#finishWorkout');
+  await page.click('.sheet-backdrop.show [data-ok]');
+  await page.waitForSelector('#sessionExtras');
+  assert.match(await page.textContent('.session-calories'), /Zu kurz/);
+  assert.doesNotMatch(await page.textContent('.session-calories'), /0 kcal/);
+  // The picker counts what matches, not the whole catalogue.
+  await page.click('#summaryDone');
+  await page.waitForSelector('.next-card');
+  await page.click('[data-start]');
+  await page.waitForSelector('#addSessionExercise');
+  await page.click('#addSessionExercise');
+  await page.waitForSelector('#librarySearch');
+  await page.fill('#librarySearch', 'rucken kabel');
+  await page.waitForFunction(() =>
+    /^\d+ Übungen$/.test(document.querySelector('#libraryCount')?.textContent || '')
+  );
+  const count = Number((await page.textContent('#libraryCount')).match(/\d+/)[0]);
+  assert.ok(count > 0 && count < 50, `matches counted: ${count}`);
 });

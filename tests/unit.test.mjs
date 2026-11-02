@@ -1920,3 +1920,29 @@ test('the server forwards to Claude with its own key, counts the cost and stops 
     await rm(dataDir, { recursive: true, force: true });
   }
 });
+
+test('usage keeps older months and a token with an odd name is no session', async () => {
+  const { createSyncServer, store } = await import('../sync-server/server.js');
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dataDir = await mkdtemp(join(tmpdir(), 'volumora-usage-'));
+  const server = createSyncServer({ dataDir, origins: [] });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const db = store(dataDir);
+  try {
+    const invite = await db.createInvite();
+    await db.register('anna', 'long-enough', invite);
+    await db.addUsage('anna', 1, Date.UTC(2026, 9, 15));
+    await db.addUsage('anna', 2, Date.UTC(2026, 10, 15));
+    assert.deepEqual((await db.account('anna')).usage, { '2026-10': 1, '2026-11': 2 });
+    const odd = await fetch(`http://127.0.0.1:${server.address().port}/v1/me`, {
+      headers: { authorization: 'Bearer ../anna.secret' },
+    });
+    assert.equal(odd.status, 401);
+  } finally {
+    server.close();
+    server.closeAllConnections?.();
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});

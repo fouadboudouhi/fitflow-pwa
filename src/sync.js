@@ -2,16 +2,21 @@
 // in to one. The Claude key never leaves this device. Each upload names the version it builds on, so a device with old
 // data can not silently replace newer data, and the server keeps older versions.
 import { backupData, importBackup, validateBackup } from './backup.js';
+import { setLanguage } from './i18n.js';
 import {
   LS,
+  getActive,
   getAiChat,
   getAiMemory,
+  getSettings,
   markOnboarded,
   onDataChange,
   read,
+  saveActive,
   saveAiChat,
   saveAiMemory,
 } from './storage.js';
+import { applyTheme } from './theme.js';
 
 const KEY = 'volumora-sync';
 // Where everyone's data goes unless they name another server: the one the person behind Volumora runs.
@@ -90,19 +95,25 @@ async function call(config, path, options = {}) {
 }
 
 // Both give a signed-in config for the account; nothing is stored until the first exchange of data worked.
+// A server that answers something else than a token, for instance a 404 page behind a wrong address, is no sign-in.
+const tokenOf = async (response) => {
+  const token = (await response.json().catch(() => ({}))).token;
+  if (typeof token !== 'string' || !token.includes('.')) throw new SyncError('server');
+  return token;
+};
 export async function signIn(url, username, password) {
   const response = await call({ url }, '/v1/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
-  return { url, username: username.trim().toLowerCase(), token: (await response.json()).token };
+  return { url, username: username.trim().toLowerCase(), token: await tokenOf(response) };
 }
 export async function register(url, username, password, invite) {
   const response = await call({ url }, '/v1/register', {
     method: 'POST',
     body: JSON.stringify({ username, password, invite }),
   });
-  return { url, username: username.trim().toLowerCase(), token: (await response.json()).token };
+  return { url, username: username.trim().toLowerCase(), token: await tokenOf(response) };
 }
 // Who the server says we are: admin or not, and whether and how much Claude it offers this month.
 export async function refreshMe(config = syncConfig()) {
@@ -134,8 +145,11 @@ export async function adminCall(path, options = {}) {
     typeof detail.error === 'string' ? detail.error.replace(' ', '') : ERRORS[response.status] || 'server'
   );
 }
+// The token a sign-out revoked: an upload that was still running must not bring it back.
+let revoked = '';
 export async function signOut() {
   const config = syncConfig();
+  revoked = config?.token || '';
   disconnectSync();
   if (config?.token) await call(config, '/v1/logout', { method: 'POST' }).catch(() => {});
 }
@@ -168,6 +182,7 @@ export async function fetchSnapshot(config = syncConfig()) {
 }
 
 let uploading = null;
+let timer = null;
 export async function uploadNow(config = syncConfig(), { force = false } = {}) {
   if (!config) return false;
   if (uploading) await uploading.catch(() => {});
@@ -183,7 +198,7 @@ export async function uploadNow(config = syncConfig(), { force = false } = {}) {
     const { version } = await response.json();
     const at = new Date().toISOString();
     if (syncConfig()) update({ version, hash, at, problem: '' });
-    else saveConfig({ ...config, version, hash, at, problem: '' });
+    else if (config.token !== revoked) saveConfig({ ...config, version, hash, at, problem: '' });
     return true;
   })();
   try {
@@ -194,21 +209,35 @@ export async function uploadNow(config = syncConfig(), { force = false } = {}) {
 }
 
 // Replaces what is on this device with what the server holds. The key and the running workout stay as they are.
+// No upload runs meanwhile: one in flight is awaited first, and the writes of the restore start none.
+let restoring = false;
 export async function restoreSnapshot(config, { version, data }) {
   const backup = validateBackup(data?.backup);
-  await importBackup(backup);
-  if (Array.isArray(data.aiChat)) saveAiChat(data.aiChat);
-  if (data.aiMemory) saveAiMemory(data.aiMemory);
-  markOnboarded();
-  const hash = await digest(contentOf(await snapshot()));
-  saveConfig({ ...config, version, hash, at: new Date().toISOString(), problem: '' });
+  if (uploading) await uploading.catch(() => {});
+  restoring = true;
+  clearTimeout(timer);
+  timer = null;
+  try {
+    const running = getActive();
+    await importBackup(backup);
+    if (running) saveActive(running);
+    if (Array.isArray(data.aiChat)) saveAiChat(data.aiChat);
+    if (data.aiMemory) saveAiMemory(data.aiMemory);
+    markOnboarded();
+    setLanguage(getSettings().language);
+    applyTheme();
+    const hash = await digest(contentOf(await snapshot()));
+    saveConfig({ ...config, version, hash, at: new Date().toISOString(), problem: '' });
+  } finally {
+    restoring = false;
+  }
 }
 
-let timer = null;
 const quietly = async () => {
   timer = null;
   const config = syncConfig();
-  if (!config) return;
+  // Without a valid sign-in every upload fails; trying on would only count as a failed attempt at the server.
+  if (!config || config.problem === 'session') return;
   try {
     await uploadNow(config);
   } catch (err) {
@@ -216,6 +245,7 @@ const quietly = async () => {
   }
 };
 const soon = (delay = DELAY) => {
+  if (restoring) return;
   clearTimeout(timer);
   timer = setTimeout(quietly, delay);
 };

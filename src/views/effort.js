@@ -13,7 +13,9 @@ const inner = (session) => {
   return `<p class="session-calories">${
     calories === null
       ? `<button type="button" class="text-btn" data-nav-body>${t('calories.needWeight')}</button>`
-      : `<b>${t('calories.value', { n: fmtNumber(calories) })}</b> <span class="muted">${t('calories.hint')}</span>`
+      : calories === 0
+        ? `<span class="muted">${t('calories.tiny')}</span>`
+        : `<b>${t('calories.value', { n: fmtNumber(calories) })}</b> <span class="muted">${t('calories.hint')}</span>`
   }</p><h2 id="effortTitle">${t('effort.title')}</h2><div class="effort-steps" role="group" aria-labelledby="effortTitle">${STEPS.map(
     (n) =>
       `<button type="button" data-effort="${n}" aria-pressed="${session.effort === n}">${esc(t(`effort.${n}`))}</button>`

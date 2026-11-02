@@ -472,6 +472,7 @@ const ui = {
 
   // Summary, records, sharing
   'calories.value': 'about {n} kcal',
+  'calories.tiny': 'Too short for a calorie estimate.',
   'calories.hint': 'rough estimate from duration and body weight',
   'calories.needWeight': 'Enter your body weight and the app estimates the calories you burned',
   'effort.title': 'How hard was it?',

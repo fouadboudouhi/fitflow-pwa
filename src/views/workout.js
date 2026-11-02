@@ -75,6 +75,16 @@ const SUGGESTION_TEXT = {
 const suggestionText = (s) =>
   t(SUGGESTION_TEXT[s.kind] || SUGGESTION_TEXT.confirm, { weight: fmtWeight(s.weight), weeks: s.weeks });
 
+// The suggested weight with a button to take it over; once the open sets already hold it, only the text stays.
+function suggestionRow(suggest, entry, index) {
+  const open = entry.sets.filter((s) => isWorkSet(s) && !s.done);
+  const applied = open.length > 0 && open.every((s) => number(s.weight) === suggest.weight);
+  const text = `${icon('trend')}<span>${esc(suggestionText(suggest))}</span>`;
+  return applied
+    ? `<p class="suggest-row">${text}</p>`
+    : `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${text}<small>${t('workout.apply')}</small></button>`;
+}
+
 function exerciseSection(ex, index, entry, exercises, letters, showRir) {
   const complete = entryComplete(entry);
   const suggest = suggestion(ex);
@@ -115,7 +125,7 @@ function exerciseSection(ex, index, entry, exercises, letters, showRir) {
   const done = work.filter((s) => s.done).length;
   return `<section class="workout-exercise ${complete ? 'complete' : ''} ${position === 'single' ? '' : `superset-${position}`}" id="exercise-${index}">
       <div class="workout-exercise-head">${tile}<div><h2><button type="button" class="exercise-title" data-exercise-history="${index}" aria-label="${esc(t('workout.historyOf', { name }))}">${esc(name)}${icon('chevron-right')}</button></h2><p>${work.length} × ${esc(ex.range)}${last}${ex.note && !ex.gif ? ` · ${esc(ex.note)}` : ''}${superset}</p></div><span class="exercise-count ${complete ? 'complete' : ''}">${complete ? icon('check') : `${done}/${work.length}`}</span></div>
-      ${suggest.weight ? `<button type="button" class="suggest-row" data-apply-suggestion="${index}" data-weight="${suggest.weight}">${icon('trend')}<span>${esc(suggestionText(suggest))}</span><small>${t('workout.apply')}</small></button>` : ''}
+      ${suggest.weight ? suggestionRow(suggest, entry, index) : ''}
       <div class="set-table ${showRir ? '' : 'no-rir'}">${setHead(trackType, showRir)}<div class="set-list">${rows}</div></div>
       <div class="exercise-tools"><button class="text-btn" data-add-set="${index}">${t('workout.addSet')}</button><button class="icon-btn quiet exercise-mic" data-dictate="${index}" aria-label="${esc(t('dictate.open', { name }))}">${icon('mic')}</button><button class="icon-btn quiet" data-exercise-menu="${index}" aria-label="${esc(t('exercise.more', { name }))}">${icon('more')}</button></div>
       ${entry.note || state.openNotes?.has(entry.exerciseId) ? `<label class="exercise-note"><span>${t('workout.note')}</span><textarea data-exercise-note="${index}" placeholder="${t('workout.notePlaceholder')}">${esc(entry.note || '')}</textarea></label>` : ''}
@@ -342,6 +352,12 @@ function dictateSet(exerciseIndex) {
 }
 
 export function bind() {
+  // A free workout starts with the question what to do, not with an empty page.
+  const session = current();
+  if (session?.detached && !sessionExercises(session).length && state.pickerFor !== session.id) {
+    state.pickerFor = session.id;
+    setTimeout(addExercises, 50);
+  }
   document.querySelectorAll('[data-marker]').forEach((x) => {
     x.onchange = () =>
       mutate((s) => {

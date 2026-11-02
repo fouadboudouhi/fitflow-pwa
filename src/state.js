@@ -33,4 +33,5 @@ export const state = {
   aiAutoSend: false,
   aiChecking: false,
   restUntil: 0,
+  pickerFor: null,
 };

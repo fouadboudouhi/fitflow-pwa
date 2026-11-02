@@ -73,7 +73,8 @@ export function setReference(entry, index, lastWork) {
   return null;
 }
 // Reps to start from for an exercise done for the first time: the middle of its range.
-export const repsStart = (ex, lastWork = []) => (lastWork.length ? null : rangeMid(ex?.range));
+export const repsStart = (ex, lastWork = []) =>
+  lastWork.length || !['weight_reps', 'reps'].includes(trackTypeOf(ex)) ? null : rangeMid(ex?.range);
 // Ticks or unticks a set. Returns false when it holds nothing to log yet.
 export function toggleSet(session, exerciseIndex, setIndex, lastWork = []) {
   const entry = session.entries[exerciseIndex];
