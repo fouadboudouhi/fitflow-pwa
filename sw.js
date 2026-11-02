@@ -1,9 +1,12 @@
-const VERSION = 'v66';
+const VERSION = 'v67';
 const CACHE = `volumora-${VERSION}`;
 // Cross-origin exercise GIFs get their own bounded cache so the app shell cache stays small and predictable.
 // Its name stays the same across versions: an update must not throw the downloaded animations away.
 const MEDIA_CACHE = 'volumora-media-v1';
 const MEDIA_LIMIT = 120;
+// Only exercise animations are kept offline. Anything else from another origin, such as the person's own server,
+// must always be fresh.
+const MEDIA_HOSTS = /(^|\.)(githubusercontent\.com|exercisedb\.dev)$/;
 const ASSETS = [
   './',
   './index.html',
@@ -21,8 +24,10 @@ const ASSETS = [
   './src/audio.js',
   './src/backup.js',
   './src/calories.js',
+  './src/aiAccess.js',
   './src/charts.js',
   './src/sync.js',
+  './src/views/admin.js',
   './src/views/sync.js',
   './src/chatCharts.js',
   './src/deload.js',
@@ -126,6 +131,7 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
+  if (!sameOrigin && !MEDIA_HOSTS.test(new URL(e.request.url).hostname)) return;
   if (sameOrigin) {
     e.respondWith(
       fetch(e.request)

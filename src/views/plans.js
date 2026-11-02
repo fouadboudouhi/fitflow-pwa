@@ -2,7 +2,8 @@ import { plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { createEmptyPlan } from '../plans.js';
 import { navigate, render } from '../render.js';
-import { allPlans, hasAiKey, savePlans } from '../storage.js';
+import { aiAvailable } from '../aiAccess.js';
+import { allPlans, savePlans } from '../storage.js';
 import { actionSheet, toast } from '../ui.js';
 import { esc } from '../util.js';
 import { openAi } from './ai.js';
@@ -32,7 +33,7 @@ export function bind() {
         onClick: () =>
           navigate('assistant', { assistantStep: 1, assistantDraft: null, assistantPreview: null }),
       },
-      hasAiKey() && {
+      aiAvailable() && {
         label: t('plans.withAi'),
         hint: t('plans.withAiHint'),
         onClick: () => openAi('plans', { aiInput: t('ai.planQuestion'), aiAutoSend: true }),

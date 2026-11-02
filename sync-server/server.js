@@ -1,6 +1,8 @@
 // Keeps the snapshots of several Volumora installations, one account each. No database, no dependencies: every
 // account is a folder. Registration needs an invitation code from whoever runs the server, so a public address does
 // not fill the disk. Older versions of each account stay, so a mistake can be undone.
+// The server can also hold one Claude key for everyone: the app then talks to Claude through here, and each account
+// gets a monthly budget in dollars that the admin sets.
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -14,6 +16,24 @@ const DAY = 86400000;
 const USERNAME = /^[a-z0-9][a-z0-9._-]{2,31}$/;
 const MIN_PASSWORD = 8;
 const VERSION = /^\d{13}-[0-9a-f]{8}$/;
+const ANTHROPIC = 'https://api.anthropic.com';
+const ANTHROPIC_VERSION = '2026-10-21';
+const AI_TIMEOUT = 190000;
+// Dollars per million tokens and per search, the same table as in the app.
+const PRICE = { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2, search: 0.01 };
+const DEFAULT_BUDGET = 5;
+export const costOf = (usage = {}) =>
+  ((usage.input_tokens || 0) * PRICE.input +
+    (usage.output_tokens || 0) * PRICE.output +
+    (usage.cache_creation_input_tokens || 0) * PRICE.cacheWrite +
+    (usage.cache_read_input_tokens || 0) * PRICE.cacheRead) /
+    1e6 +
+  (usage.server_tool_use?.web_search_requests || 0) * PRICE.search;
+const monthKey = (at) => new Date(at).toISOString().slice(0, 7);
+const asBudget = (value) => {
+  const n = Number(value);
+  return value !== null && value !== '' && Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+};
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const hashPassword = (password, salt = randomBytes(16).toString('hex')) =>
@@ -41,6 +61,7 @@ async function writeJson(file, value) {
 export function store(dataDir) {
   const usersDir = join(dataDir, 'users');
   const invitesFile = join(dataDir, 'invites.json');
+  const aiFile = join(dataDir, 'ai.json');
   const accountFile = (name) => join(usersDir, name, 'account.json');
   const account = (name) => readJson(accountFile(name), null);
   const saveAccount = async (name, data) => {
@@ -55,6 +76,35 @@ export function store(dataDir) {
     snapshotsDir: (name) => join(usersDir, name, 'snapshots'),
     users: async () => (await readdir(usersDir).catch(() => [])).filter((name) => USERNAME.test(name)).sort(),
     invites: () => readJson(invitesFile, []),
+    // The Claude key and the budget a new account starts with. The key is never handed out again.
+    ai: () => readJson(aiFile, {}),
+    saveAi: async (data) => {
+      await mkdir(dataDir, { recursive: true });
+      await writeJson(aiFile, data);
+    },
+    budgetOf: (data, ai) => asBudget(data?.budget) ?? asBudget(ai?.defaultBudget) ?? DEFAULT_BUDGET,
+    usedThisMonth: (data, at = Date.now()) => Number(data?.usage?.[monthKey(at)]) || 0,
+    async addUsage(name, dollars, at = Date.now()) {
+      const data = await account(name);
+      if (!data) return;
+      const month = monthKey(at);
+      const usage = { [month]: (Number(data.usage?.[month]) || 0) + dollars };
+      await saveAccount(name, { ...data, usage });
+    },
+    async setAdmin(name, admin) {
+      const data = await account(name);
+      if (!data) return false;
+      await saveAccount(name, { ...data, admin: !!admin });
+      return true;
+    },
+    async setBudget(name, budget) {
+      const data = await account(name);
+      if (!data) return false;
+      const value = asBudget(budget);
+      const { budget: old, ...rest } = data;
+      await saveAccount(name, value === null ? rest : { ...rest, budget: value });
+      return true;
+    },
     saveInvites: async (list) => {
       await mkdir(dataDir, { recursive: true });
       await writeJson(invitesFile, list);
@@ -87,8 +137,39 @@ export function store(dataDir) {
   };
 }
 
-export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024, now = Date.now }) {
+export function createSyncServer({
+  dataDir,
+  origins,
+  maxBytes = 64 * 1024 * 1024,
+  now = Date.now,
+  anthropicUrl = ANTHROPIC,
+}) {
   const db = store(dataDir);
+
+  // A key is only kept once Claude accepted it, checked with the free token count.
+  async function checkKey(key) {
+    try {
+      const response = await fetch(`${anthropicUrl}/v1/messages/count_tokens`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': ANTHROPIC_VERSION },
+        body: JSON.stringify({ model: 'claude-opus-5-5', messages: [{ role: 'user', content: 'Hi' }] }),
+        signal: AbortSignal.timeout(20000),
+      });
+      return response.ok ? null : response.status === 401 ? 'key' : 'anthropic';
+    } catch {
+      return 'anthropic';
+    }
+  }
+
+  const aiState = async (data) => {
+    const ai = await db.ai();
+    return {
+      available: !!ai.key,
+      budget: db.budgetOf(data, ai),
+      used: Math.round(db.usedThisMonth(data, now()) * 10000) / 10000,
+      month: monthKey(now()),
+    };
+  };
   const failures = new Map();
 
   const versions = async (name) =>
@@ -149,7 +230,7 @@ export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024
     const cors = origins.includes(origin)
       ? {
           'access-control-allow-origin': origin,
-          'access-control-allow-headers': 'authorization, content-type, if-match',
+          'access-control-allow-headers': 'authorization, content-type, if-match, anthropic-version, anthropic-beta',
           'access-control-allow-methods': 'GET, POST, PUT, OPTIONS',
           'access-control-expose-headers': 'etag',
           'access-control-max-age': '600',
@@ -199,6 +280,138 @@ export function createSyncServer({ dataDir, origins, maxBytes = 64 * 1024 * 1024
       if (!who) return failure(401, 'session');
       failures.delete(ip);
       const { name } = who;
+      if (req.method === 'GET' && pathname === '/v1/me')
+        return json(200, { username: name, admin: !!who.data.admin, ai: await aiState(who.data) });
+      if (req.method === 'POST' && pathname === '/v1/ai/messages') {
+        const ai = await db.ai();
+        if (!ai.key) return json(503, { error: 'no ai' });
+        const budget = db.budgetOf(who.data, ai);
+        const used = db.usedThisMonth(who.data, now());
+        if (used >= budget) return json(402, { error: 'budget', used, budget });
+        const body = await readBody(req);
+        JSON.parse(body.toString('utf8'));
+        // The caller going away ends the request at Claude as well, so nobody pays for an answer no one reads.
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), AI_TIMEOUT);
+        res.on('close', () => {
+          if (!res.writableFinished) controller.abort();
+        });
+        let upstream;
+        try {
+          upstream = await fetch(`${anthropicUrl}/v1/messages`, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'x-api-key': ai.key,
+              'anthropic-version': req.headers['anthropic-version'] || ANTHROPIC_VERSION,
+              ...(req.headers['anthropic-beta'] ? { 'anthropic-beta': req.headers['anthropic-beta'] } : {}),
+            },
+            body,
+            signal: controller.signal,
+          });
+        } catch {
+          clearTimeout(timer);
+          return json(502, { error: 'anthropic' });
+        }
+        res.writeHead(upstream.status, {
+          ...cors,
+          'cache-control': 'no-store',
+          'content-type': upstream.headers.get('content-type') || 'application/json',
+        });
+        // Streamed through unchanged; the usage figures in the events say what this answer cost.
+        const decoder = new TextDecoder();
+        let text = '';
+        try {
+          for await (const chunk of upstream.body) {
+            res.write(chunk);
+            text += decoder.decode(chunk, { stream: true });
+          }
+        } catch {
+          // The client or Claude went away; what came through was still paid for.
+        } finally {
+          clearTimeout(timer);
+          res.end();
+        }
+        if (upstream.ok) {
+          let usage = {};
+          if (/^(event|data):/m.test(text))
+            text.split(/\r?\n/).forEach((line) => {
+              if (!line.startsWith('data:')) return;
+              try {
+                const event = JSON.parse(line.slice(5));
+                if (event.type === 'message_start') usage = { ...event.message?.usage };
+                else if (event.type === 'message_delta') usage = { ...usage, ...event.usage };
+              } catch {
+                // A broken line carries no usage.
+              }
+            });
+          else
+            try {
+              usage = JSON.parse(text).usage || {};
+            } catch {
+              // No usage to count.
+            }
+          await db.addUsage(name, costOf(usage), now());
+        }
+        return;
+      }
+
+      if (pathname.startsWith('/v1/admin/')) {
+        if (!who.data.admin) return json(403, { error: 'admin' });
+        if (req.method === 'GET' && pathname === '/v1/admin/overview') {
+          const ai = await db.ai();
+          const users = [];
+          for (const user of await db.users()) {
+            const data = await db.account(user);
+            users.push({
+              username: user,
+              admin: !!data?.admin,
+              createdAt: data?.createdAt || '',
+              budget: db.budgetOf(data, ai),
+              ownBudget: asBudget(data?.budget),
+              used: Math.round(db.usedThisMonth(data, now()) * 10000) / 10000,
+            });
+          }
+          const invites = (await db.invites())
+            .filter((i) => !i.usedBy)
+            .map(({ code, createdAt }) => ({ code, createdAt }));
+          return json(200, {
+            ai: { configured: !!ai.key, defaultBudget: asBudget(ai.defaultBudget) ?? DEFAULT_BUDGET },
+            month: monthKey(now()),
+            users,
+            invites,
+          });
+        }
+        if (req.method === 'PUT' && pathname === '/v1/admin/ai') {
+          const { key, defaultBudget } = await bodyJson();
+          const ai = await db.ai();
+          if (key !== undefined) {
+            const value = String(key).trim();
+            if (value) {
+              const problem = await checkKey(value);
+              if (problem) return json(400, { error: problem });
+              ai.key = value;
+            } else delete ai.key;
+          }
+          if (defaultBudget !== undefined) {
+            const value = asBudget(defaultBudget);
+            if (value === null) return json(400, { error: 'budget' });
+            ai.defaultBudget = value;
+          }
+          await db.saveAi(ai);
+          return json(200, { configured: !!ai.key, defaultBudget: asBudget(ai.defaultBudget) ?? DEFAULT_BUDGET });
+        }
+        if (req.method === 'POST' && pathname === '/v1/admin/invites')
+          return json(200, { code: await db.createInvite() });
+        const user = pathname.match(/^\/v1\/admin\/users\/([a-z0-9._-]+)$/);
+        if (user && req.method === 'PUT') {
+          const { budget } = await bodyJson();
+          if (budget !== null && asBudget(budget) === null) return json(400, { error: 'budget' });
+          if (!(await db.setBudget(user[1], budget))) return json(404, { error: 'not found' });
+          return json(200, { ok: true });
+        }
+        return json(404, { error: 'not found' });
+      }
       if (req.method === 'POST' && pathname === '/v1/logout') {
         const hashed = sha256(token.split('.')[1]);
         await db.saveAccount(name, { ...who.data, sessions: who.data.sessions.filter((s) => s.hash !== hashed) });
@@ -251,7 +464,7 @@ if (process.argv[1]?.endsWith('server.js')) {
   const dataDir = process.env.DATA_DIR || '/data';
   await mkdir(dataDir, { recursive: true });
   const origins = (process.env.ALLOWED_ORIGINS || 'https://fouad-boudouhi.de').split(',');
-  createSyncServer({ dataDir, origins }).listen(Number(process.env.PORT) || 8787, () =>
+  createSyncServer({ dataDir, origins, anthropicUrl: process.env.ANTHROPIC_URL || ANTHROPIC }).listen(Number(process.env.PORT) || 8787, () =>
     console.log('Volumora sync is listening')
   );
 }

@@ -2551,3 +2551,166 @@ test('the gate: register with an invitation, lose the phone, sign in and get eve
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('the admin stores the Claude key, sets budgets and invites; everyone else just chats', async () => {
+  const { createSyncServer, store } = await import('../sync-server/server.js');
+  const { createServer } = await import('node:http');
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const dir = await mkdtemp(path.join(tmpdir(), 'volumora-admin-'));
+  // Anthropic as the server sees it: every answer costs 1 $.
+  const claudeCalls = [];
+  const claude = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      claudeCalls.push({ key: req.headers['x-api-key'], body });
+      if (req.headers['x-api-key'] !== 'sk-ant-api-server-key') {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ type: 'error', error: { message: 'bad key' } }));
+      }
+      if (req.url.endsWith('/count_tokens')) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end('{"input_tokens":1}');
+      }
+      const events = [
+        { type: 'message_start', message: { usage: { input_tokens: 0, output_tokens: 0 } } },
+        { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+        {
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'text_delta', text: 'Antwort über den Server.' },
+        },
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 50000 } },
+      ];
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end(events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(''));
+    });
+  });
+  await new Promise((resolve) => claude.listen(0, '127.0.0.1', resolve));
+  const syncServer = createSyncServer({
+    dataDir: dir,
+    origins: [baseURL],
+    anthropicUrl: `http://127.0.0.1:${claude.address().port}`,
+  });
+  await new Promise((resolve) => syncServer.listen(0, '127.0.0.1', resolve));
+  const address = `http://127.0.0.1:${syncServer.address().port}`;
+  const db = store(dir);
+  const signUp = async (name, invite) => {
+    await context.close();
+    context = await browser.newContext({ locale: 'de-DE' });
+    page = await context.newPage();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(baseURL + '/');
+    await page.waitForSelector('#gateForm');
+    await page.click('#syncOther');
+    await page.fill('#syncUrl', address);
+    await page.fill('#syncUser', name);
+    await page.fill('#syncPassword', 'ein-gutes-passwort');
+    await page.fill('#syncInvite', invite);
+    await page.click('#syncConnect');
+    await page.waitForSelector('#onboardingSkip');
+    await page.click('#onboardingSkip');
+    await page.waitForSelector('.next-card');
+  };
+  try {
+    await signUp('fouad', await db.createInvite());
+    // Not an admin yet: no administration row, no assistant without a key.
+    await page.click('[data-nav="more"]');
+    assert.equal(await page.locator('[data-nav="admin"]').count(), 0);
+    assert.equal(await page.locator('[data-nav="ai"]').count(), 0);
+    await db.setAdmin('fouad', true);
+    await page.evaluate(async () => (await import('/src/sync.js')).refreshMe());
+    await page.click('[data-nav="home"]');
+    await page.click('[data-nav="more"]');
+    await page.click('[data-nav="admin"]');
+    await page.waitForSelector('#adminAiForm');
+    await axeCheck('administration');
+    // A wrong key is refused by Claude and not kept.
+    await page.fill('#adminKey', 'sk-ant-api-wrong');
+    await page.click('#adminAiForm button[type="submit"]');
+    await page.waitForSelector('#adminAiError:not([hidden])');
+    assert.match(await page.textContent('#adminAiError'), /lehnt diesen Schlüssel ab/);
+    await page.fill('#adminKey', 'sk-ant-api-server-key');
+    await page.fill('#adminDefaultBudget', '3');
+    await page.click('#adminAiForm button[type="submit"]');
+    await page.waitForFunction(() =>
+      /hinterlegt/.test(document.querySelector('#adminMount')?.textContent || '')
+    );
+    assert.equal(
+      await page.inputValue('#adminKey'),
+      '',
+      'the key field empties and the key is never shown again'
+    );
+    // An invitation for a friend, from the app.
+    await page.click('#adminInvite');
+    await page.waitForSelector('#inviteCode');
+    const invite = await page.textContent('#inviteCode');
+    assert.match(invite, /^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}$/);
+    await page.click('.sheet-backdrop.show [data-close]');
+    await page.waitForSelector(`[data-invite="${invite}"]`);
+    // The admin's own budget: 1.5 $ this month.
+    await page.fill('[data-admin-user="fouad"] input', '1.5');
+    await page.click('[data-admin-user="fouad"] button');
+    await page.waitForFunction(() =>
+      /1,50 \$ im/.test(document.querySelector('#adminMount')?.textContent || '')
+    );
+    // Now the assistant is there without any key on the device, and answers through the server.
+    await page.click('.backrow .back');
+    await page.waitForSelector('[data-nav="ai"]');
+    assert.equal(await page.evaluate(() => localStorage.getItem('volumora-ai-key')), null);
+    await page.click('[data-nav="ai"]');
+    await page.waitForSelector('#aiInput');
+    await page.fill('#aiInput', 'Hallo');
+    await page.click('#aiSend');
+    await page.waitForFunction(() =>
+      document.querySelector('#chatScroll')?.textContent.includes('Antwort über den Server.')
+    );
+    assert.equal(claudeCalls.at(-1).key, 'sk-ant-api-server-key');
+    await page.waitForFunction(async () => (await import('/src/sync.js')).syncConfig().ai.used >= 1);
+    await page.click('#aiMenu');
+    await page.waitForSelector('.sheet-backdrop.show');
+    assert.match(await page.textContent('.sheet-backdrop.show'), /1,00 von 1,50 \$/);
+    assert.equal(
+      await page.locator('.sheet-backdrop.show .action-item.danger').count(),
+      0,
+      'no key to remove'
+    );
+    await page.keyboard.press('Escape');
+    // The second answer uses the budget up, the third is refused before Claude is asked.
+    await page.fill('#aiInput', 'Noch mal');
+    await page.click('#aiSend');
+    await page.waitForFunction(() => document.querySelectorAll('.chat-assistant').length >= 2);
+    const calls = claudeCalls.length;
+    await page.fill('#aiInput', 'Und noch mal');
+    await page.click('#aiSend');
+    await page.waitForSelector('.ai-error');
+    assert.match(await page.textContent('.ai-error'), /Budget.*aufgebraucht/);
+    assert.equal(claudeCalls.length, calls);
+    assert.equal(await page.inputValue('#aiInput'), 'Und noch mal', 'the question goes back into the field');
+    // The friend registers with the invitation and chats with the default budget; the admin screen stays closed.
+    await signUp('ben', invite);
+    await page.waitForSelector('[data-nav="ai"]');
+    await page.click('[data-nav="more"]');
+    assert.equal(await page.locator('[data-nav="admin"]').count(), 0);
+    await page.evaluate(async () => (await import('/src/render.js')).navigate('admin'));
+    await page.waitForSelector('[data-nav="backup"]');
+    assert.equal(await page.locator('#adminMount').count(), 0, 'the address alone opens nothing');
+    await page.click('[data-nav="ai"]');
+    await page.fill('#aiInput', 'Hi');
+    await page.click('#aiSend');
+    await page.waitForFunction(() =>
+      document.querySelector('#chatScroll')?.textContent.includes('Antwort über den Server.')
+    );
+    const ben = await db.account('ben');
+    assert.equal(db.budgetOf(ben, await db.ai()), 3);
+    assert.ok(db.usedThisMonth(ben) >= 1);
+  } finally {
+    syncServer.close();
+    syncServer.closeAllConnections?.();
+    claude.close();
+    claude.closeAllConnections?.();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

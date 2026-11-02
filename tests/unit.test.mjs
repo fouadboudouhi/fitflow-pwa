@@ -1768,3 +1768,155 @@ test('the sync server keeps accounts apart, needs invitations and refuses stale 
     await rm(dataDir, { recursive: true, force: true });
   }
 });
+
+// Stands in for Anthropic: accepts one key, streams a short answer with usage figures.
+async function fakeAnthropic({ key = 'sk-ant-api-good', inputTokens = 100000, outputTokens = 10000 } = {}) {
+  const { createServer } = await import('node:http');
+  const calls = [];
+  const server = createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      calls.push({
+        url: req.url,
+        key: req.headers['x-api-key'],
+        version: req.headers['anthropic-version'],
+        body,
+      });
+      if (req.headers['x-api-key'] !== key) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        return res.end(
+          JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'bad key' } })
+        );
+      }
+      if (req.url.endsWith('/count_tokens')) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ input_tokens: 1 }));
+      }
+      const events = [
+        { type: 'message_start', message: { usage: { input_tokens: inputTokens, output_tokens: 1 } } },
+        { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+        { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hallo vom Server.' } },
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: outputTokens } },
+      ];
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end(events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join(''));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return { server, calls, url: `http://127.0.0.1:${server.address().port}` };
+}
+
+test('the server forwards to Claude with its own key, counts the cost and stops at the budget', async () => {
+  const { createSyncServer, store, costOf } = await import('../sync-server/server.js');
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dataDir = await mkdtemp(join(tmpdir(), 'volumora-ai-'));
+  let clock = Date.UTC(2026, 10, 2);
+  const claude = await fakeAnthropic();
+  const server = createSyncServer({
+    dataDir,
+    origins: ['https://app.test'],
+    now: () => clock,
+    anthropicUrl: claude.url,
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}/v1`;
+  const db = store(dataDir);
+  const request = (path, token, options = {}) =>
+    fetch(`${base}${path}`, {
+      ...options,
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(options.body ? { 'content-type': 'application/json' } : {}),
+        ...options.headers,
+      },
+    });
+  const json = (path, token, method, body) =>
+    request(path, token, { method, body: body === undefined ? undefined : JSON.stringify(body) });
+  const ask = (token) =>
+    json('/ai/messages', token, 'POST', {
+      model: 'x',
+      stream: true,
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+  try {
+    const invite = await db.createInvite();
+    const anna = (
+      await (
+        await json('/register', null, 'POST', { username: 'anna', password: 'long-enough', invite })
+      ).json()
+    ).token;
+    const fouadInvite = await db.createInvite();
+    const fouad = (
+      await (
+        await json('/register', null, 'POST', {
+          username: 'fouad',
+          password: 'long-enough',
+          invite: fouadInvite,
+        })
+      ).json()
+    ).token;
+    await db.setAdmin('fouad', true);
+
+    // Nothing to forward to without a key, and only the admin may store one.
+    assert.equal((await ask(anna)).status, 503);
+    assert.deepEqual((await (await json('/me', anna, 'GET')).json()).ai, {
+      available: false,
+      budget: 5,
+      used: 0,
+      month: '2026-11',
+    });
+    assert.equal((await json('/admin/ai', anna, 'PUT', { key: 'sk-ant-api-good' })).status, 403);
+    assert.equal((await json('/admin/overview', anna, 'GET')).status, 403);
+    assert.equal((await json('/admin/ai', fouad, 'PUT', { key: 'sk-ant-api-wrong' })).status, 400);
+    assert.deepEqual(await db.ai(), {}, 'a rejected key is not kept');
+    const saved = await json('/admin/ai', fouad, 'PUT', { key: 'sk-ant-api-good', defaultBudget: 2 });
+    assert.deepEqual(await saved.json(), { configured: true, defaultBudget: 2 });
+    const overview = await (await json('/admin/overview', fouad, 'GET')).json();
+    assert.equal(overview.ai.configured, true);
+    assert.equal(overview.users.find((u) => u.username === 'anna').budget, 2);
+    assert.ok(!JSON.stringify(overview).includes('sk-ant'), 'the key is never handed out');
+
+    // The answer streams through unchanged, with the server's key, and its cost lands on the account.
+    const reply = await ask(anna);
+    assert.equal(reply.status, 200);
+    assert.match(reply.headers.get('content-type'), /event-stream/);
+    assert.match(await reply.text(), /Hallo vom Server/);
+    assert.equal(claude.calls.at(-1).key, 'sk-ant-api-good');
+    assert.match(claude.calls.at(-1).body, /"stream":true/);
+    const cost = costOf({ input_tokens: 100000, output_tokens: 10000 });
+    assert.equal(cost, 0.6);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(db.usedThisMonth(await db.account('anna'), clock), cost);
+    const me = await (await json('/me', anna, 'GET')).json();
+    assert.deepEqual(me.ai, { available: true, budget: 2, used: 0.6, month: '2026-11' });
+
+    // Over budget: refused with a clear word, and Claude is not called.
+    assert.equal((await json('/admin/users/anna', fouad, 'PUT', { budget: 0.5 })).status, 200);
+    const calls = claude.calls.length;
+    const refused = await ask(anna);
+    assert.equal(refused.status, 402);
+    assert.deepEqual(await refused.json(), { error: 'budget', used: 0.6, budget: 0.5 });
+    assert.equal(claude.calls.length, calls);
+    assert.equal((await json('/admin/users/anna', fouad, 'PUT', { budget: 'abc' })).status, 400);
+    assert.equal((await json('/admin/users/nobody', fouad, 'PUT', { budget: 1 })).status, 404);
+    // A new month starts fresh; an empty budget means the default again.
+    clock = Date.UTC(2026, 11, 1);
+    assert.equal((await json('/admin/users/anna', fouad, 'PUT', { budget: null })).status, 200);
+    assert.equal((await ask(anna)).status, 200);
+    // Invitations come from the admin screen too, and a session that was logged out gets nothing.
+    const { code } = await (await json('/admin/invites', fouad, 'POST')).json();
+    assert.match(code, /^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}$/);
+    assert.equal((await json('/admin/invites', anna, 'POST')).status, 403);
+    assert.equal((await ask('anna.nope')).status, 401);
+  } finally {
+    server.close();
+    server.closeAllConnections?.();
+    claude.server.close();
+    claude.server.closeAllConnections?.();
+    await rm(dataDir, { recursive: true, force: true });
+  }
+});

@@ -1,3 +1,4 @@
+import { aiAvailable } from '../aiAccess.js';
 import { beep, buzz, primeAudio } from '../audio.js';
 import { fmtNumber, plural, t } from '../i18n.js';
 import { icon } from '../icons.js';
@@ -15,15 +16,7 @@ import {
   setSetType,
 } from '../sets.js';
 import { state } from '../state.js';
-import {
-  clearActive,
-  getActive,
-  getSettings,
-  hasAiKey,
-  saveActive,
-  saveRestUntil,
-  saveSettings,
-} from '../storage.js';
+import { clearActive, getActive, getSettings, saveActive, saveRestUntil, saveSettings } from '../storage.js';
 import { actionSheet, confirmDialog, sheet, toast, undoToast } from '../ui.js';
 import { fmtWeight, fromDisplay, toDisplay, unit } from '../units.js';
 import { esc, isWorkSet, number } from '../util.js';
@@ -514,7 +507,7 @@ export function bind() {
           },
         },
         { label: t('workout.replace'), onClick: () => replaceExercise(index) },
-        hasAiKey() && {
+        aiAvailable() && {
           label: t('workout.askAi'),
           onClick: () =>
             openAi('workout', {

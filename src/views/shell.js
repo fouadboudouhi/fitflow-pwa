@@ -3,7 +3,7 @@ import { t } from '../i18n.js';
 import { icon } from '../icons.js';
 import { navigate, render } from '../render.js';
 import { state } from '../state.js';
-import { hasAiKey } from '../storage.js';
+import { aiAvailable } from '../aiAccess.js';
 
 const NAV = [
   ['home', 'nav.home', 'home'],
@@ -17,7 +17,7 @@ export const topbar = () => '';
 
 export const nav = (active) =>
   `<nav class="bottom-nav" aria-label="${t('nav.aria')}"><div class="bottom-nav-inner">${NAV.filter(
-    ([view]) => view !== 'ai' || hasAiKey()
+    ([view]) => view !== 'ai' || aiAvailable()
   )
     .map(
       ([view, label, ic]) =>
@@ -38,6 +38,7 @@ const PARENT_LABEL = {
   templates: 'templates.title',
   calendar: 'calendar.title',
   ai: 'nav.ai',
+  admin: 'admin.title',
 };
 export const parentRow = (target) =>
   `<div class="backrow"><button class="back" data-nav="${target}" aria-label="${t('common.back')}">${icon('chevron-left')}</button><span>${t(PARENT_LABEL[target] || 'common.back')}</span></div>`;
