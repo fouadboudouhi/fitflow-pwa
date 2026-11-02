@@ -572,6 +572,7 @@ const ui = {
   'ai.error.noai': 'Der Assistent ist auf diesem Server nicht eingerichtet.',
   'summary.title': 'Training abgeschlossen',
   'calories.value': 'ca. {n} kcal',
+  'calories.tiny': 'Zu kurz für eine Kalorienschätzung.',
   'calories.hint': 'grobe Schätzung aus Dauer und Körpergewicht',
   'calories.needWeight': 'Trag dein Körpergewicht ein, dann schätzt die App deinen Kalorienverbrauch',
   'effort.title': 'Wie anstrengend war es?',

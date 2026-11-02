@@ -49,7 +49,7 @@ export function openPicker({
     .sort((a, b) => a[1].localeCompare(b[1]))
     .map(([key, label]) => `<option value="${esc(key)}">${esc(label)}</option>`)
     .join('');
-  backdrop.innerHTML = `<section class="exercise-library" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="library-head"><div><h2>${esc(title)}</h2><p class="muted">${subtitle ? `${esc(subtitle)} · ` : ''}${plural(allExercises().length, 'exercises')}</p></div><button type="button" class="icon-btn" id="closeLibrary" aria-label="${t('common.close')}">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="${t('picker.search')}" autocomplete="off"></label><div class="category-chips">${['all', ...GROUPS].map((g) => `<button type="button" class="${g === 'all' ? 'active' : ''}" data-library-category="${g}" aria-pressed="${g === 'all'}">${esc(groupLabel(g))}</button>`).join('')}</div><label class="library-filter"><span>${t('picker.equipment')}</span><select id="libraryEquipment"><option value="all">${t('picker.allEquipment')}</option>${equipmentOptions}</select></label><div class="library-list"></div><p class="muted library-empty" hidden>${t('picker.noResults')}</p><button type="button" class="custom-exercise-button" id="addCustomExercise">${t('picker.custom')}</button><button type="button" class="primary full library-done" id="closeLibraryBottom">${t('common.done')}</button></section>`;
+  backdrop.innerHTML = `<section class="exercise-library" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="library-head"><div><h2>${esc(title)}</h2><p class="muted">${subtitle ? `${esc(subtitle)} · ` : ''}<span id="libraryCount">${plural(allExercises().length, 'exercises')}</span></p></div><button type="button" class="icon-btn" id="closeLibrary" aria-label="${t('common.close')}">${icon('close')}</button></div><label class="library-search"><span>${icon('search')}</span><input id="librarySearch" type="search" placeholder="${t('picker.search')}" autocomplete="off"></label><div class="category-chips">${['all', ...GROUPS].map((g) => `<button type="button" class="${g === 'all' ? 'active' : ''}" data-library-category="${g}" aria-pressed="${g === 'all'}">${esc(groupLabel(g))}</button>`).join('')}</div><label class="library-filter"><span>${t('picker.equipment')}</span><select id="libraryEquipment"><option value="all">${t('picker.allEquipment')}</option>${equipmentOptions}</select></label><div class="library-list"></div><p class="muted library-empty" hidden>${t('picker.noResults')}</p><button type="button" class="custom-exercise-button" id="addCustomExercise">${t('picker.custom')}</button><button type="button" class="primary full library-done" id="closeLibraryBottom">${t('common.done')}</button></section>`;
   const dialog = backdrop.querySelector('.exercise-library');
   const list = backdrop.querySelector('.library-list');
   const empty = backdrop.querySelector('.library-empty');
@@ -64,7 +64,10 @@ export function openPicker({
         (equipment !== 'all' && card.dataset.equipment !== equipment) ||
         !tokens.every((token) => card.dataset.search.includes(token));
     });
-    empty.hidden = !!list.querySelector(':scope > .library-item:not([hidden])');
+    const matching = list.querySelectorAll(':scope > .library-item:not([hidden])').length;
+    empty.hidden = !matching;
+    const count = backdrop.querySelector('#libraryCount');
+    if (count) count.textContent = plural(matching, 'exercises');
   };
 
   const pick = (source) => {

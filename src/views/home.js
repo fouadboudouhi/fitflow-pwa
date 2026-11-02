@@ -149,22 +149,6 @@ export function bind() {
     dismissInstallTip();
     render();
   });
-  document.querySelector('#signInAgain')?.addEventListener('click', () => openSyncForm({ mode: 'login' }));
-  document.querySelector('#deloadLater')?.addEventListener('click', () => {
-    quietDeload(deloadQuietDate());
-    render();
-  });
-  document
-    .querySelector('#installNow')
-    ?.addEventListener('click', () =>
-      state.installPrompt
-        ? state.installPrompt.prompt()
-        : infoDialog(t('more.install'), t('more.installText'))
-    );
-  document.querySelector('#installLater')?.addEventListener('click', () => {
-    dismissInstallTip();
-    render();
-  });
   document.querySelector('#editActivePlan')?.addEventListener('click', () =>
     navigate('planEditor', {
       editPlanId: activePlan().id,

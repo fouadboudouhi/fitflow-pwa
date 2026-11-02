@@ -5,7 +5,8 @@ import { syncConfig } from './sync.js';
 
 export const serverAi = () => {
   const config = syncConfig();
-  return config?.token && config.ai?.available && !config.problem ? config : null;
+  // A failed upload is no reason to hide the assistant; only a lost sign-in is.
+  return config?.token && config.ai?.available && config.problem !== 'session' ? config : null;
 };
 export const aiMode = () => (serverAi() ? 'server' : getAiKey() ? 'key' : null);
 export const aiAvailable = () => aiMode() !== null;
